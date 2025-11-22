@@ -13,9 +13,14 @@ import (
 func SeedUsers() {
 	db := config.GetDB()
 
-	accountTypeID := ensureUserType(db, "student")
+	// 1. Ensure Roles (Student, Teacher, Admin)
+	studentTypeID := ensureUserType(db, "Student")
+	teacherTypeID := ensureUserType(db, "Teacher")
+	adminTypeID := ensureUserType(db, "Admin")
+
 	idTypeID := ensureIDType(db, "citizen_id")
-	if accountTypeID == 0 || idTypeID == 0 {
+
+	if studentTypeID == 0 || teacherTypeID == 0 || adminTypeID == 0 || idTypeID == 0 {
 		log.Println("skip seeding users because base reference data missing")
 		return
 	}
@@ -28,46 +33,109 @@ func SeedUsers() {
 		return t
 	}
 
+	// 2. Create Users (2 per role: 1 Thai, 1 Foreigner)
 	users := []entity.User{
+		// --- Student ---
 		{
-			FirstNameTH:     "สมชาย",
-			LastNameTH:      "ใจดี",
-			FirstNameEN:     "Somchai",
-			LastNameEN:      "Jaidee",
-			Email:           "somchai@example.com",
-			Password:        "password123",
-			ProfileImageURL: "",
-			IDNumber:        "1234567890123",
-			Phone:           "0812345678",
-			Birthday:        parseDate("05-01-1995"),
-			PDPAConsent:     true,
-			AccountTypeID:   accountTypeID,
-			IDDocTypeID:     idTypeID,
+			// Thai Student (No English Name)
+			FirstNameTH:   "สมชาย",
+			LastNameTH:    "รักเรียน",
+			Email:         "student_th@example.com",
+			Password:      "password123",
+			IDNumber:      "1100000000001",
+			Phone:         "0810000001",
+			Birthday:      parseDate("01-01-2003"),
+			PDPAConsent:   true,
+			AccountTypeID: studentTypeID,
+			IDDocTypeID:   idTypeID,
 		},
 		{
-			FirstNameTH:     "ศิรภัสสร",
-			LastNameTH:      "รุ่งเรือง",
-			FirstNameEN:     "Sirapasorn",
-			LastNameEN:      "Rungruang",
-			Email:           "sirapasorn@example.com",
-			Password:        "password123",
-			ProfileImageURL: "",
-			IDNumber:        "9876543210987",
-			Phone:           "0898765432",
-			Birthday:        parseDate("20-04-1997"),
-			PDPAConsent:     true,
-			AccountTypeID:   accountTypeID,
-			IDDocTypeID:     idTypeID,
+			// Foreign Student (No Thai Name)
+			FirstNameEN:   "John",
+			LastNameEN:    "Doe",
+			Email:         "student_en@example.com",
+			Password:      "password123",
+			IDNumber:      "1100000000002",
+			Phone:         "0810000002",
+			Birthday:      parseDate("02-02-2003"),
+			PDPAConsent:   true,
+			AccountTypeID: studentTypeID,
+			IDDocTypeID:   idTypeID,
+		},
+
+		// --- Teacher ---
+		{
+			// Thai Teacher (No English Name)
+			FirstNameTH:   "สมศรี",
+			LastNameTH:    "สอนดี",
+			Email:         "teacher_th@example.com",
+			Password:      "password123",
+			IDNumber:      "2100000000001",
+			Phone:         "0820000001",
+			Birthday:      parseDate("10-05-1980"),
+			PDPAConsent:   true,
+			AccountTypeID: teacherTypeID,
+			IDDocTypeID:   idTypeID,
+		},
+		{
+			// Foreign Teacher (No Thai Name)
+			FirstNameEN:   "Robert",
+			LastNameEN:    "Smith",
+			Email:         "teacher_en@example.com",
+			Password:      "password123",
+			IDNumber:      "2100000000002",
+			Phone:         "0820000002",
+			Birthday:      parseDate("15-08-1982"),
+			PDPAConsent:   true,
+			AccountTypeID: teacherTypeID,
+			IDDocTypeID:   idTypeID,
+		},
+
+		// --- Admin ---
+		{
+			// Thai Admin (No English Name)
+			FirstNameTH:   "สมศักดิ์",
+			LastNameTH:    "ดูแล",
+			Email:         "admin_th@example.com",
+			Password:      "password123",
+			IDNumber:      "3100000000001",
+			Phone:         "0830000001",
+			Birthday:      parseDate("01-01-1990"),
+			PDPAConsent:   true,
+			AccountTypeID: adminTypeID,
+			IDDocTypeID:   idTypeID,
+		},
+		{
+			// Foreign Admin (No Thai Name)
+			FirstNameEN:   "Alice",
+			LastNameEN:    "Wonder",
+			Email:         "admin_en@example.com",
+			Password:      "password123",
+			IDNumber:      "3100000000002",
+			Phone:         "0830000002",
+			Birthday:      parseDate("12-12-1992"),
+			PDPAConsent:   true,
+			AccountTypeID: adminTypeID,
+			IDDocTypeID:   idTypeID,
 		},
 	}
 
 	for _, user := range users {
+		// Hash password
 		hashed, err := config.HashPassword(user.Password)
 		if err != nil {
 			log.Printf("skip user %s, hash error: %v\n", user.Email, err)
 			continue
 		}
 		user.Password = hashed
+
+		// Set consent date if consented
+		if user.PDPAConsent {
+			now := time.Now()
+			user.PDPAConsentAt = &now
+		}
+
+		// Create User if not exists
 		if err := db.Where("email = ?", user.Email).FirstOrCreate(&entity.User{}, user).Error; err != nil {
 			log.Printf("failed to seed user %s: %v\n", user.Email, err)
 		}
