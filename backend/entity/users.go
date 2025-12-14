@@ -31,6 +31,9 @@ type User struct {
 	AccountType   *UserTypes `gorm:"foreignKey:AccountTypeID" json:"user_type"`
 	IDDocTypeID   uint       `json:"id_type" valid:"required~ID doc type is required"`
 	IDDocType     *IDTypes   `gorm:"foreignKey:IDDocTypeID" json:"user_id_type"`
+
+	// Relations
+	Education *Education `gorm:"foreignKey:UserID" json:"education,omitempty"`
 }
 
 // Validate enforces base govalidator rules plus name locale rules:

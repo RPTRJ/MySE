@@ -75,7 +75,14 @@ func (uc *UserController) GetUser(c *gin.Context) {
 	}
 
 	var user entity.User
-	if err := uc.db.Preload("AccountType").Preload("IDDocType").First(&user, id).Error; err != nil {
+	if err := uc.db.
+		Preload("AccountType").
+		Preload("IDDocType").
+		Preload("Education").
+		Preload("Education.EducationLevel").
+		Preload("Education.CurriculumType").
+		Preload("Education.Curriculum").
+		First(&user, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
@@ -148,7 +155,14 @@ func (uc *UserController) GetMe(c *gin.Context) {
 	}
 
 	var user entity.User
-	if err := uc.db.Preload("AccountType").Preload("IDDocType").First(&user, userID).Error; err != nil {
+	if err := uc.db.
+		Preload("AccountType").
+		Preload("IDDocType").
+		Preload("Education").
+		Preload("Education.EducationLevel").
+		Preload("Education.CurriculumType").
+		Preload("Education.Curriculum").
+		First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
