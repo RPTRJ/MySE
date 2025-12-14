@@ -12,5 +12,8 @@ type Font struct {
 	FontVariant  string `json:"font_variant"`
 	FontURL      string `json:"font_url"`
 	IsActive     bool   `json:"is_active"`
+
+	//FK
+	Portfolio []Portfolio `gorm:"foreignKey:FontID" json:"portfolio"`
 }
 

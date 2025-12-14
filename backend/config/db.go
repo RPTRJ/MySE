@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/RPTRJ/MySE/backend/entity"
+	"github.com/sut68/team14/backend/entity"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -69,6 +69,23 @@ func SetupDatabase() {
 		&entity.Evaluation{},
 		&entity.ScoreCriteria{},
 		&entity.CriteriaScore{},
+		&entity.Cetagory{},
+		&entity.Announcement{},
+		&entity.Announcement_Attachment{},
+		&entity.Notification{},
+		&entity.Admin_Log{},
+		&entity.Faculty{},
+		&entity.Program{},
+		&entity.Curriculum{},
+		&entity.CurriculumRequiredDocument{},
+		&entity.CurriculumSkill{},
+		&entity.Skill{},
+		&entity.SectionBlock{},
+		&entity.TemplateSectionLink{},
+		&entity.GEDScore{},
+		&entity.AcademicScore{},
+		&entity.LanguageProficiencyScore{},
+		&entity.STDTestScore{},
 	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

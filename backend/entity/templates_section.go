@@ -13,6 +13,6 @@ type TemplatesSection struct {
 	OrderIndex  uint   `json:"order_index"`
 
 	//FK
-	TemplateID uint      `json:"template_id"`
-	Template   *Templates `gorm:"foreignKey:TemplateID" json:"template"`
+	Templates 	[]Templates   `gorm:"many2many:TemplateSectionLink;" json:"templates"`
+	Blocks 		[]TemplatesBlock `gorm:"many2many:SectionBlock;" json:"templates_blocks"`
 }

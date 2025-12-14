@@ -12,4 +12,6 @@ type Activity struct {
 	ActivityDetail   *ActivityDetail `gorm:"foreignKey:ActivityDetailID" json:"activity_detail"`
 	UserID          uint            `json:"user_id"`
 	User            *User           `gorm:"foreignKey:UserID" json:"user"`
+	RewardID       uint            `json:"reward_id"`
+	Reward         *Reward         `gorm:"foreignKey:rewardID" json:"reward"`
 }

@@ -4,19 +4,21 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
-	"github.com/RPTRJ/MySE/backend/config"
-	"github.com/RPTRJ/MySE/backend/entity"
 	"github.com/gin-gonic/gin"
+	"github.com/sut68/team14/backend/config"
+	"github.com/sut68/team14/backend/entity"
 	"gorm.io/gorm"
 )
 
 const birthdayLayout = "2006-01-02"
 
 type UserPayload struct {
-	FirstNameTH     string `json:"first_name_th" binding:"required"`
-	LastNameTH      string `json:"last_name_th" binding:"required"`
+	FirstNameTH     string `json:"first_name_th"`
+	LastNameTH      string `json:"last_name_th"`
 	FirstNameEN     string `json:"first_name_en"`
 	LastNameEN      string `json:"last_name_en"`
 	Email           string `json:"email" binding:"required,email"`
@@ -46,6 +48,13 @@ func (uc *UserController) RegisterRoutes(router gin.IRoutes) {
 	router.POST("/users", uc.CreateUser)
 	router.PUT("/users/:id", uc.UpdateUser)
 	router.DELETE("/users/:id", uc.DeleteUser)
+}
+
+// RegisterSelfRoutes are endpoints that operate on the current user (used before onboarding is finished).
+func (uc *UserController) RegisterSelfRoutes(router gin.IRoutes) {
+	router.GET("/me", uc.GetMe)
+	router.PUT("/users/me/onboarding", uc.CompleteOnboarding)
+	router.GET("/users/me/check-id", uc.CheckIDDuplicate)
 }
 
 func (uc *UserController) ListUsers(c *gin.Context) {
@@ -118,12 +127,143 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 		user.PDPAConsentAt = &now
 	}
 
+	if err := user.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	if err := uc.db.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": user})
+}
+
+func (uc *UserController) GetMe(c *gin.Context) {
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+		return
+	}
+
+	var user entity.User
+	if err := uc.db.Preload("AccountType").Preload("IDDocType").First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": user})
+}
+
+type OnboardingPayload struct {
+	FirstNameTH string `json:"first_name_th"`
+	LastNameTH  string `json:"last_name_th"`
+	FirstNameEN string `json:"first_name_en"`
+	LastNameEN  string `json:"last_name_en"`
+	IDNumber    string `json:"id_number" binding:"required"`
+	IDTypeName  string `json:"id_type_name" binding:"required"`
+	Phone       string `json:"phone" binding:"required"`
+	Birthday    string `json:"birthday" binding:"required,datetime=2006-01-02"`
+	PDPAConsent bool   `json:"pdpa_consent" binding:"required"`
+}
+
+func (uc *UserController) CompleteOnboarding(c *gin.Context) {
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+		return
+	}
+
+	var payload OnboardingPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	firstName := firstNonEmpty(payload.FirstNameTH, payload.FirstNameEN)
+	lastName := firstNonEmpty(payload.LastNameTH, payload.LastNameEN)
+
+	if strings.TrimSpace(firstName) == "" || strings.TrimSpace(lastName) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required in Thai or English"})
+		return
+	}
+
+	if !payload.PDPAConsent {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pdpa consent is required"})
+		return
+	}
+
+	birthday, err := time.Parse(birthdayLayout, payload.Birthday)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid birthday format"})
+		return
+	}
+
+	if err := uc.ensureIDUnique(payload.IDNumber, userID); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, errDuplicateID) {
+			status = http.StatusConflict
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user entity.User
+	if err := uc.db.First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Keep both language fields; if EN not provided, fall back to TH so profile view is not empty.
+	user.FirstNameTH = payload.FirstNameTH
+	user.LastNameTH = payload.LastNameTH
+	user.FirstNameEN = firstNonEmpty(payload.FirstNameEN, payload.FirstNameTH)
+	user.LastNameEN = firstNonEmpty(payload.LastNameEN, payload.LastNameTH)
+
+	user.IDNumber = payload.IDNumber
+	user.Phone = payload.Phone
+	user.PDPAConsent = true
+	now := time.Now()
+	user.PDPAConsentAt = &now
+	user.ProfileCompleted = true
+
+	// Resolve ID document type by name (create if missing)
+	var idType entity.IDTypes
+	if err := uc.db.Where("id_name = ?", payload.IDTypeName).First(&idType).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			idType.IDName = payload.IDTypeName
+			if err := uc.db.Create(&idType).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+	user.IDDocTypeID = idType.ID
+	user.Birthday = birthday
+
+	if err := user.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := uc.db.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": user})
 }
 
 func (uc *UserController) UpdateUser(c *gin.Context) {
@@ -182,6 +322,11 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 	user.AccountTypeID = payload.AccountTypeID
 	user.IDDocTypeID = payload.IDDocTypeID
 
+	if err := user.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	if err := uc.db.Save(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -211,4 +356,78 @@ func parseUintParam(value string) (uint, error) {
 		return 0, err
 	}
 	return uint(id), nil
+}
+
+func getUserIDFromContext(c *gin.Context) (uint, bool) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		return 0, false
+	}
+	return userID, true
+}
+
+// CheckIDDuplicate verifies if a given id_number is already used by other users.
+// Returns 409 if duplicate, 200 if available.
+func (uc *UserController) CheckIDDuplicate(c *gin.Context) {
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+		return
+	}
+
+	idNumber := c.Query("id_number")
+	if strings.TrimSpace(idNumber) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id_number is required"})
+		return
+	}
+
+	if err := uc.ensureIDUnique(idNumber, userID); err != nil {
+		status := http.StatusOK
+		if errors.Is(err, errDuplicateID) {
+			status = http.StatusConflict
+		} else {
+			status = http.StatusInternalServerError
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"unique": true})
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func containsThai(value string) bool {
+	for _, r := range value {
+		if unicode.In(r, unicode.Thai) {
+			return true
+		}
+	}
+	return false
+}
+
+var errDuplicateID = errors.New("id number already in use")
+
+// ensureIDUnique returns errDuplicateID if the id_number is used by another user.
+func (uc *UserController) ensureIDUnique(idNumber string, currentUserID uint) error {
+	var dup entity.User
+	if err := uc.db.Where("id_number = ? AND id <> ?", idNumber, currentUserID).First(&dup).Error; err == nil {
+		return errDuplicateID
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	} else {
+		return err
+	}
 }

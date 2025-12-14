@@ -7,6 +7,7 @@ type Curriculum struct {
 	Code              string  `json:"code"`                 // รหัสหลักสูตร
 	Name              string  `json:"name"`                 // ชื่อหลักสูตร
 	Description       string  `json:"description"`          // รายละเอียด
+	Link              string  `json:"link"`                 // ✅ เพิ่ม Field Link (URL รายละเอียด)
 	GPAXMin           float32 `json:"gpax_min"`             // GPAX ขั้นต่ำ
 	PortfolioMaxPages int     `json:"portfolio_max_pages"`  // จำนวนหน้าพอร์ตสูงสุด
 	Status            string  `json:"status"`               // draft/published/archived
@@ -20,6 +21,9 @@ type Curriculum struct {
 
 	UserID uint  `json:"user_id"` // คนสร้าง/ดูแลหลักสูตร
 	User   *User `gorm:"foreignKey:UserID" json:"user"`
+
+	ApplicationPeriod string `json:"application_period"`
+    Quota             int    `json:"quota"`
 
 	// relation
 	RequiredDocuments []CurriculumRequiredDocument `json:"required_documents"`

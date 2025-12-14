@@ -13,4 +13,7 @@ type WorkingDetail struct {
 
 	TypeWorkingID uint         `json:"type_working_id"`
 	TypeWorking   *TypeWorking `gorm:"foreignKey:TypeWorkingID" json:"type_working"`
+
+	Images []WorkingImage `gorm:"foreignKey:WorkingDetailID" json:"images"`
+	Links  []WorkingLink  `gorm:"foreignKey:WorkingDetailID" json:"links"`
 }

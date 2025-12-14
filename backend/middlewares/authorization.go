@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/RPTRJ/MySE/backend/services"
 	"github.com/gin-gonic/gin"
+	"github.com/sut68/team14/backend/services"
 )
 
 func Authorization() gin.HandlerFunc {

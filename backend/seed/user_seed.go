@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/RPTRJ/MySE/backend/config"
-	"github.com/RPTRJ/MySE/backend/entity"
+	"github.com/sut68/team14/backend/config"
+	"github.com/sut68/team14/backend/entity"
 	"gorm.io/gorm"
 )
 
@@ -19,6 +19,8 @@ func SeedUsers() {
 	adminTypeID := ensureUserType(db, "Admin")
 
 	idTypeID := ensureIDType(db, "citizen_id")
+	_ = ensureIDType(db, "passport")
+	_ = ensureIDType(db, "g_code")
 
 	if studentTypeID == 0 || teacherTypeID == 0 || adminTypeID == 0 || idTypeID == 0 {
 		log.Println("skip seeding users because base reference data missing")
@@ -133,6 +135,7 @@ func SeedUsers() {
 		if user.PDPAConsent {
 			now := time.Now()
 			user.PDPAConsentAt = &now
+			user.ProfileCompleted = true
 		}
 
 		// Create User if not exists

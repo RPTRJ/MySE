@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/RPTRJ/MySE/backend/config"
-	"github.com/RPTRJ/MySE/backend/entity"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/sut68/team14/backend/config"
+	"github.com/sut68/team14/backend/entity"
 	"gorm.io/gorm"
 )
 

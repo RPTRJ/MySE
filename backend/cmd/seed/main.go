@@ -4,16 +4,20 @@ import (
 	"log"
 	"os"
 
-	"github.com/RPTRJ/MySE/backend/config"
-	"github.com/RPTRJ/MySE/backend/seed"
 	"github.com/joho/godotenv"
+	"github.com/sut68/team14/backend/config"
+	"github.com/sut68/team14/backend/seed"
 )
 
 func main() {
 	loadEnv()
 	config.ConnectionDatabase()
-
+	
+	seed.CurriculumSeed()
 	seed.SeedUsers()
+	seed.SeedTemplateBlocks()
+	seed.SeedTypeWorkings()
+	seed.SeedActivities()
 	log.Println("Seed completed successfully")
 }
 

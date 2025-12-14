@@ -12,20 +12,29 @@ export default function AdminPage() {
     const userStr = localStorage.getItem("user");
 
     if (!token || !userStr) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       router.push("/login");
       return;
     }
 
-    const user = JSON.parse(userStr);
+    try {
+      const user = JSON.parse(userStr);
 
-    // เช็คว่าเป็น ID 3 (Admin) หรือไม่?
-    if (user.type_id !== 3) {
-      alert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (สำหรับแอดมินเท่านั้น)");
+      if (user.type_id !== 3) {
+        alert("No permission");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+        return;
+      }
+
+      setIsAuthorized(true);
+    } catch (err) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       router.push("/login");
-      return;
     }
-
-    setIsAuthorized(true);
   }, [router]);
 
   if (!isAuthorized) {
@@ -34,6 +43,7 @@ export default function AdminPage() {
 
   return (
     <div style={{ padding: '50px' }}>
+      
       <h1>ยินดีต้อนรับ: เข้ามาหน้านี้ด้วยสิทธิ์ "แอดมิน" (Admin)</h1>
       <p>เนื้อหาสำหรับผู้ดูแลระบบเท่านั้น...</p>
     </div>

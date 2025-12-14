@@ -1,38 +1,62 @@
-const API_URL = "http://localhost:8080";
-export async function loginService(email: string, password: string) {
-  try {
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-    const data = await response.json();
+export type AuthUser = {
+  id: string | number;
+  type_id: number;
+  email: string;
+  profile_completed?: boolean;
+  pdpa_consent?: boolean;
+  [key: string]: unknown;
+};
 
-    if (!response.ok) {
-      throw new Error(data.error || "Login failed");
-    }
+export type LoginResponse = {
+  token: string;
+  user: AuthUser;
+};
 
-    return data; // จะได้ object ที่มี { token: "...", user: { ... } }
-  } catch (error) {
-    throw error;
+export type RegisterPayload = {
+  email: string;
+  phone: string;
+  password: string;
+  first_name_th: string;
+  last_name_th: string;
+  first_name_en: string;
+  last_name_en: string;
+  birthday: string;
+  type_id: number;
+  id_type: number;
+  pdpa_consent: boolean;
+};
+
+export async function loginService(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  const response = await fetch(`${API_URL}/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Login failed");
   }
+
+  return data as LoginResponse;
 }
 
-export async function registerService(payload: any) {
-  try {
-    const response = await fetch(`${API_URL}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+export async function registerService(payload: RegisterPayload) {
+  const response = await fetch(`${API_URL}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Registration failed");
-    return data;
-  } catch (error) {
-    throw error;
-  }
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Registration failed");
+  return data;
 }

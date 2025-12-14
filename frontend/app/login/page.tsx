@@ -2,39 +2,42 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginService, registerService } from "@/services/auth";
+import {
+  loginService,
+  registerService,
+  RegisterPayload,
+} from "@/services/auth";
 import { Lock, Mail, ArrowRight, Loader2, Phone, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion
 
 export default function AuthPage() {
   const router = useRouter();
   
-  // State
+//State
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // --- Login State ---
+//Login State
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  // --- Register State ---
+//Register State
   const [regData, setRegData] = useState({
     email: "",
-    phone: "",
     password: "",
   });
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Toggle Mode
+//Toggle Mode
   const toggleMode = (mode: boolean) => {
     setError("");
     setSuccess("");
     setIsLoginMode(mode);
   };
 
-  // Handle Login
+//Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -43,22 +46,36 @@ export default function AuthPage() {
 
     try {
       const res = await loginService(loginEmail, loginPassword);
-      const user = res.user;
+      const user = res.user as any;
       localStorage.setItem("token", res.token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      if (user.type_id === 1) router.push("/student");
-      else if (user.type_id === 2) router.push("/teacher");
-      else if (user.type_id === 3) router.push("/admin");
-      else setError("ไม่พบสิทธิ์การใช้งาน");
+      const needsOnboarding = !user?.profile_completed || !user?.pdpa_consent;
+
+      if (user.type_id === 1) {
+        if (needsOnboarding) {
+          router.push("/student/onboarding");
+        } else {
+          router.push("/student");
+        }
+      } else if (user.type_id === 2) {
+        router.push("/teacher");
+      } else if (user.type_id === 3) {
+        router.push("/admin");
+      } else {
+        setError("ไม่พบสิทธิ์การใช้งาน");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
 
     } catch (err: any) {
       setError(err.message || "เข้าสู่ระบบไม่สำเร็จ");
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Register
+//Handle Register
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -72,31 +89,31 @@ export default function AuthPage() {
     }
 
     try {
-      const payload = {
-        email: regData.email,
+      const payload: RegisterPayload = {
+        email: regData.email.trim(),
         password: regData.password,
-        phone: regData.phone,
-        first_name_th: "สมาชิก",
-        last_name_th: "ใหม่",
-        first_name_en: "New",
-        last_name_en: "Member",
+        phone: "",
+        first_name_th: "",
+        last_name_th: "",
+        first_name_en: "",
+        last_name_en: "",
         birthday: "2000-01-01",
         type_id: 1,
         id_type: 1,
-        pdpa_consent: true
+        pdpa_consent: false
       };
 
       await registerService(payload);
       
-      setIsLoading(false);
       setSuccess("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ");
       setIsLoginMode(true); 
       
-      setRegData({ email: "", phone: "", password: "" });
+      setRegData({ email: "", password: "" });
       setConfirmPassword("");
 
     } catch (err: any) {
       setError(err.message || "สมัครสมาชิกไม่สำเร็จ");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -104,17 +121,15 @@ export default function AuthPage() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-neutral-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
       
-      {/* Card Container with Framer Motion Layout */}
       <motion.div 
-        layout // *** กุญแจสำคัญ: ทำให้กล่องยืดหดตามเนื้อหาแบบ Smooth ***
+        layout
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className="relative w-full max-w-md rounded-2xl border border-neutral-800 bg-black/50 p-8 shadow-2xl backdrop-blur-md sm:p-10 overflow-hidden"
       >
         
-        {/* AnimatePresence: จัดการ Animation ตอนสลับ Component */}
         <AnimatePresence mode="wait" initial={false}>
           {isLoginMode ? (
-            // --- LOGIN MODE ---
+
             <motion.div
               key="login"
               initial={{ opacity: 0, x: -20 }}
@@ -131,7 +146,6 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              {/* Messages */}
               {success && (
                 <div className="mb-6 rounded-md bg-green-500/10 p-3 text-sm text-green-400 border border-green-500/20 text-center">
                   {success}
@@ -197,7 +211,7 @@ export default function AuthPage() {
               </div>
             </motion.div>
           ) : (
-            // --- REGISTER MODE ---
+
             <motion.div
               key="register"
               initial={{ opacity: 0, x: 20 }}
@@ -222,8 +236,6 @@ export default function AuthPage() {
 
               <form className="space-y-6" onSubmit={handleRegister}>
                 <div className="space-y-4">
-                  
-                  {/* Email */}
                   <div>
                     <label className="block text-sm font-medium text-neutral-300">อีเมล</label>
                     <div className="relative mt-2">
@@ -239,23 +251,6 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  {/* Phone */}
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300">เบอร์โทรศัพท์</label>
-                    <div className="relative mt-2">
-                      <Phone className="absolute left-3 top-2.5 h-5 w-5 text-neutral-500" />
-                      <input
-                        type="tel"
-                        required
-                        value={regData.phone}
-                        onChange={(e) => setRegData({...regData, phone: e.target.value})}
-                        className="block w-full rounded-lg border border-neutral-800 bg-neutral-900/50 py-3 pl-10 pr-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all"
-                        placeholder="0812345678"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Password */}
                   <div>
                     <label className="block text-sm font-medium text-neutral-300">รหัสผ่าน</label>
                     <div className="relative mt-2">
@@ -272,7 +267,6 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  {/* Confirm Password */}
                   <div>
                     <label className="block text-sm font-medium text-neutral-300">ยืนยันรหัสผ่าน</label>
                     <div className="relative mt-2">

@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RPTRJ/MySE/backend/config"
-	"github.com/RPTRJ/MySE/backend/entity"
-	"github.com/RPTRJ/MySE/backend/services"
 	"github.com/gin-gonic/gin"
+	"github.com/sut68/team14/backend/config"
+	"github.com/sut68/team14/backend/entity"
+	"github.com/sut68/team14/backend/services"
 )
 
 type LoginPayload struct {
@@ -16,8 +16,8 @@ type LoginPayload struct {
 }
 
 type RegisterPayload struct {
-	FirstNameTH     string `json:"first_name_th" binding:"required"`
-	LastNameTH      string `json:"last_name_th" binding:"required"`
+	FirstNameTH     string `json:"first_name_th"`
+	LastNameTH      string `json:"last_name_th"`
 	FirstNameEN     string `json:"first_name_en"`
 	LastNameEN      string `json:"last_name_en"`
 	Email           string `json:"email" binding:"required,email"`
@@ -111,6 +111,11 @@ func (ac *AuthController) Register(c *gin.Context) {
 	if payload.PDPAConsent {
 		now := time.Now()
 		user.PDPAConsentAt = &now
+	}
+
+	if err := user.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	created, err := ac.service.Register(user)

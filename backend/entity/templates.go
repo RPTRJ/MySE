@@ -9,4 +9,8 @@ type Templates struct {
 	Category     string `json:"category"`
 	Description  string `json:"description"`
 	Thumbnail    string `json:"thumbnail"`
+
+	//FK
+	Portfolio		 []Portfolio        `gorm:"foreignKey:TemplateID" json:"portfolio"`
+	Sections         []TemplatesSection `gorm:"many2many:TemplateSectionLink;" json:"templates_sections"`
 }
