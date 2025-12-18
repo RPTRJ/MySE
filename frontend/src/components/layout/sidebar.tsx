@@ -3,24 +3,40 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react"; // import แค่อันที่ใช้ใน UI
+import { LogOut ,Menu} from "lucide-react"; // import แค่อันที่ใช้ใน UI
 import { menuItems, type UserRole } from "./menu"; // Import ข้อมูลเข้ามา
 import { menu } from "framer-motion/client";
+import { useState } from "react";
 
 interface SidebarProps {
   userRole: string;
 }
 
 export default function Sidebar({ userRole }: SidebarProps) {
+  const [isOpen, setIsOpen] = useState(true);
   const pathname = usePathname();
   const currentRole = userRole as UserRole;
 
   return (
-    <aside className="flex h-screen w-64 flex-col  bg-white text-gray-900 shadow-md rounded-r-3xl">
-      <div className="flex h-16 items-center justify-startx px-6 border-gray-200 border-b">
-        <h1 className="text-xl font-bold text-orange-500 ">MyPortfolio</h1>
+    <aside 
+    // className="flex h-screen w-64 flex-col  bg-white text-gray-900 shadow-md rounded-r-3xl"
+    className={`flex h-screen flex-col bg-white text-gray-900 shadow-md  transition-all duration-200 ${
+      isOpen ? "w-64" : "w-16"
+    }  rounded-r-3xl`}
+    >
+
+    {/* Header */}
+      <div className="flex h-16 items-center justify-startx px-5 border-gray-200 border-b">
+        {isOpen && <h1 className="text-xl font-bold text-orange-500 ">MyPortfolio</h1>}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="ml-auto rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-white-500"
+        >
+          <Menu className="h-6 w-6 text-gray-400" />
+        </button>
       </div>
 
+      {/* Navigation Links */}
       <nav className="flex-1 space-y-2 px-3 py-4">
         {/* วนลูปจากตัวแปรที่ Import เข้ามาแทน */}
         {menuItems.map((item) => {
@@ -44,18 +60,12 @@ export default function Sidebar({ userRole }: SidebarProps) {
                   isActive ? "text-white" : "text-gray-400 group-hover:text-orange-500"
                 }`}
               />
-              {item.name}
+              {isOpen && <span className="ml-3">{item.name}</span>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t p-4 border-gray-200">
-        <button className="group flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-          <LogOut className="mr-3 h-5 w-5 text-red-500 group-hover:text-red-600" />
-          Logout
-        </button>
-      </div>
     </aside>
   );
 }

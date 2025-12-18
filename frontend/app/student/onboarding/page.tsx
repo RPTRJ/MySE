@@ -1,8 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
+import {
+  SCHOOL_LOCATION_OPTIONS,
+  SCHOOL_TYPE_FROM_LOCATION,
+  SchoolLocationKey,
+} from "@/services/schoolOptions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -16,9 +21,75 @@ interface OnboardingForm {
   pdpa: boolean;
   educationLevelId: string;
   curriculumTypeId: string;
-  isProjectBased: boolean;
-  curriculumId: string;
+  schoolLocation: SchoolLocationKey | "";
+  schoolId: string;
+  schoolName: string;
 }
+
+type OptionItem = { id: number; name: string };
+type SchoolOption = {
+  id: number;
+  name: string;
+  school_type?: { id: number; name: string };
+  is_project_based?: boolean;
+};
+
+const ensureArray = (value: unknown) => (Array.isArray(value) ? value : []);
+
+const toNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return undefined;
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : undefined;
+  }
+  return undefined;
+};
+
+const normalizeOption = (raw: any): OptionItem | null => {
+  const id = toNumber(raw?.id ?? raw?.ID ?? raw?.Id);
+  const name = raw?.name ?? raw?.Name;
+  if (!id || !name) return null;
+  return { id, name };
+};
+
+const normalizeSchool = (raw: any): SchoolOption | null => {
+  const id = toNumber(raw?.id ?? raw?.ID ?? raw?.Id);
+  const name = raw?.name ?? raw?.Name;
+  if (!id || !name) return null;
+  const schoolTypeRaw = raw?.school_type ?? raw?.SchoolType;
+  const schoolTypeId = toNumber(schoolTypeRaw?.id ?? schoolTypeRaw?.ID ?? schoolTypeRaw?.Id);
+  const schoolTypeName = schoolTypeRaw?.name ?? schoolTypeRaw?.Name;
+
+  return {
+    id,
+    name,
+    school_type:
+      schoolTypeId && schoolTypeName
+        ? { id: schoolTypeId, name: schoolTypeName }
+        : undefined,
+    is_project_based:
+      raw?.is_project_based ?? raw?.IsProjectBased ?? raw?.isProjectBased,
+  };
+};
+
+const isOptionItem = (value: OptionItem | null): value is OptionItem => value !== null;
+const isSchoolOption = (value: SchoolOption | null): value is SchoolOption => value !== null;
+
+const normalizeOptions = (raw: any) => {
+  const levels = ensureArray(raw?.education_levels ?? raw?.EducationLevels);
+  const types = ensureArray(raw?.curriculum_types ?? raw?.CurriculumTypes);
+  const schools = ensureArray(raw?.schools ?? raw?.Schools);
+  const schoolTypes = ensureArray(raw?.school_types ?? raw?.SchoolTypes);
+
+  return {
+    education_levels: levels.map(normalizeOption).filter(isOptionItem),
+    curriculum_types: types.map(normalizeOption).filter(isOptionItem),
+    schools: schools.map(normalizeSchool).filter(isSchoolOption),
+    school_types: schoolTypes.map(normalizeOption).filter(isOptionItem),
+  };
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -34,13 +105,22 @@ export default function OnboardingPage() {
     pdpa: false,
     educationLevelId: "",
     curriculumTypeId: "",
-    isProjectBased: false,
-    curriculumId: "",
+    schoolLocation: "",
+    schoolId: "",
+    schoolName: "",
   });
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [showPdpaModal, setShowPdpaModal] = useState(true);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [options, setOptions] = useState({
+    education_levels: [] as OptionItem[],
+    curriculum_types: [] as OptionItem[],
+    schools: [] as SchoolOption[],
+    school_types: [] as OptionItem[],
+  });
+  const [schoolDropdownOpen, setSchoolDropdownOpen] = useState(false);
 
   const clearFieldError = (key: keyof OnboardingForm) => {
     setFieldErrors((prev) => {
@@ -66,6 +146,90 @@ export default function OnboardingPage() {
       isEng: hasEng && !hasThai,
       mixed: hasThai && hasEng,
     };
+  };
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+      setLoadingOptions(true);
+      try {
+        const res = await fetch(`${API_URL}/users/me/onboarding/options`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          router.push("/login");
+          return;
+        }
+        if (!res.ok) {
+          throw new Error("failed to load options");
+        }
+        const json = await res.json();
+        const raw = json?.data || {};
+        setOptions(normalizeOptions(raw));
+      } catch {
+        setError((prev) => prev || "โหลดข้อมูลการศึกษาไม่สำเร็จ");
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+    fetchOptions();
+  }, [router]);
+
+  const domesticTypeName = SCHOOL_TYPE_FROM_LOCATION.domestic;
+
+  const filteredSchools = useMemo(() => {
+    const keyword = form.schoolName.trim().toLowerCase();
+    return options.schools.filter((s) => {
+      const matchesType = s.school_type?.name === domesticTypeName;
+      const matchesKeyword = keyword
+        ? (s.name || "").toLowerCase().includes(keyword)
+        : true;
+      return matchesType && matchesKeyword;
+    });
+  }, [options.schools, form.schoolName, domesticTypeName]);
+
+  const handleLocationSelect = (value: SchoolLocationKey | "") => {
+    setForm((prev) => ({
+      ...prev,
+      schoolLocation: value,
+      schoolId: "",
+      schoolName: "",
+    }));
+    clearFieldError("schoolLocation");
+    clearFieldError("schoolName");
+    setSchoolDropdownOpen(false);
+  };
+
+  const handleSchoolNameChange = (value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      schoolName: value,
+      schoolId: "",
+    }));
+    clearFieldError("schoolName");
+    setSchoolDropdownOpen(true);
+  };
+
+  const handleDomesticSchoolSelect = (value: string) => {
+    const match = options.schools.find(
+      (s) =>
+        s.school_type?.name === domesticTypeName &&
+        (s.name || "").toLowerCase() === value.trim().toLowerCase(),
+    );
+    setForm((prev) => ({
+      ...prev,
+      schoolName: value,
+      schoolId: match ? String(match.id) : "",
+    }));
+    clearFieldError("schoolName");
+    setSchoolDropdownOpen(false);
   };
 
   const validateStep1 = () => {
@@ -124,8 +288,13 @@ export default function OnboardingPage() {
     const errs: Record<string, string> = {};
     if (!form.educationLevelId) errs.educationLevelId = "กรุณาเลือกระดับการศึกษา";
     if (!form.curriculumTypeId) errs.curriculumTypeId = "กรุณาเลือกประเภทหลักสูตร";
-    if (!form.curriculumId) errs.curriculumId = "กรุณากรอก/เลือกหลักสูตร";
-
+    if (!form.schoolLocation) errs.schoolLocation = "กรุณาเลือกที่ตั้งโรงเรียน";
+    if (form.schoolLocation === "domestic" && !form.schoolId && !form.schoolName.trim()) {
+      errs.schoolName = "กรุณาเลือกโรงเรียนในประเทศ";
+    }
+    if (form.schoolLocation === "international" && !form.schoolName.trim()) {
+      errs.schoolName = "กรุณากรอกชื่อโรงเรียน";
+    }
     if (Object.keys(errs).length > 0) {
       setFieldErrors((prev) => ({ ...prev, ...errs }));
       setError("กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง");
@@ -182,7 +351,22 @@ export default function OnboardingPage() {
 
     setSubmitting(true);
     const lang = detectLanguage();
-
+    const locationTypeName =
+      form.schoolLocation && SCHOOL_TYPE_FROM_LOCATION[form.schoolLocation]
+        ? SCHOOL_TYPE_FROM_LOCATION[form.schoolLocation]
+        : "";
+    const schoolIdValue =
+      form.schoolLocation === "ged"
+        ? undefined
+        : form.schoolId
+          ? Number(form.schoolId)
+          : undefined;
+    const schoolNameValue =
+      form.schoolLocation === "ged"
+        ? undefined
+        : schoolIdValue
+          ? undefined
+          : form.schoolName || undefined;
     try {
       const res = await fetch(`${API_URL}/users/me/onboarding`, {
         method: "PUT",
@@ -200,8 +384,19 @@ export default function OnboardingPage() {
           phone: form.phone,
           birthday: form.birthday,
           pdpa_consent: form.pdpa,
-        }),
-      });
+          education: {
+          education_level_id: form.educationLevelId
+            ? Number(form.educationLevelId)
+            : undefined,
+          curriculum_type_id: form.curriculumTypeId
+            ? Number(form.curriculumTypeId)
+            : undefined,
+          school_id: schoolIdValue,
+          school_name: schoolNameValue,
+          school_type_name: locationTypeName || undefined,
+        },
+      }),
+    });
 
       const data = await res.json();
 
@@ -415,70 +610,155 @@ export default function OnboardingPage() {
             {currentStep === 1 && (
               <div className="space-y-4">
                 <p className="text-base font-semibold text-gray-800">ประวัติการศึกษา</p>
-                {/** mock curriculum list for selection */}
-                {/** ในอนาคตควรดึงจาก API /curricula */}
-                {(() => null)()}
+                {loadingOptions && (
+                  <p className="text-xs text-gray-500">กำลังโหลดตัวเลือก...</p>
+                )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">ระดับการศึกษา</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
-                    value={form.educationLevelId}
-                    onChange={(e) => onChange("educationLevelId", e.target.value)}
-                    aria-label="ระดับการศึกษา"
-                  >
-                    <option value="">เลือกระดับการศึกษา</option>
-                    <option value="1">มัธยมศึกษาตอนปลาย</option>
-                    <option value="2">ประกาศนียบัตรวิชาชีพ (ปวช.)</option>
-                    <option value="3">ประกาศนียบัตรวิชาชีพชั้นสูง (ปวส.)</option>
-                  </select>
-                  {fieldErrors.educationLevelId && <p className="mt-1 text-xs text-red-600">{fieldErrors.educationLevelId}</p>}
-                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      ที่ตั้งโรงเรียน
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
+                      value={form.schoolLocation}
+                      onChange={(e) =>
+                        handleLocationSelect(e.target.value as SchoolLocationKey | "")
+                      }
+                      aria-label="ที่ตั้งโรงเรียน"
+                    >
+                      <option value="" disabled>เลือกที่ตั้งโรงเรียน</option>
+                      {SCHOOL_LOCATION_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {fieldErrors.schoolLocation && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {fieldErrors.schoolLocation}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">ประเภทหลักสูตร</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
-                    value={form.curriculumTypeId}
-                    onChange={(e) => onChange("curriculumTypeId", e.target.value)}
-                    aria-label="ประเภทหลักสูตร"
-                  >
-                    <option value="">เลือกประเภทหลักสูตร</option>
-                    <option value="1">หลักสูตรทั่วไป</option>
-                    <option value="2">หลักสูตรนานาชาติ</option>
-                  </select>
-                  {fieldErrors.curriculumTypeId && <p className="mt-1 text-xs text-red-600">{fieldErrors.curriculumTypeId}</p>}
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      ระดับการศึกษา
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
+                      value={form.educationLevelId}
+                      onChange={(e) => onChange("educationLevelId", e.target.value)}
+                      aria-label="ระดับการศึกษา"
+                      disabled={loadingOptions}
+                    >
+                      <option value="" disabled>เลือกระดับการศึกษา</option>
+                      {options.education_levels.map((lvl, idx) => (
+                        <option key={lvl.id ?? idx} value={String(lvl.id)}>
+                          {lvl.name}
+                        </option>
+                      ))}
+                    </select>
+                    {fieldErrors.educationLevelId && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {fieldErrors.educationLevelId}
+                      </p>
+                    )}
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    id="project-based"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400"
-                    checked={form.isProjectBased}
-                    onChange={(e) => onChange("isProjectBased", e.target.checked)}
-                  />
-                  <label htmlFor="project-based" className="text-sm text-gray-700">
-                    เป็นหลักสูตร Project-based
-                  </label>
-                </div>
+                  {form.schoolLocation === "domestic" && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        โรงเรียน
+                      </label>
+                      <div className="relative">
+                        <input
+                          className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
+                          value={form.schoolName}
+                          onChange={(e) => handleSchoolNameChange(e.target.value)}
+                          onFocus={() => setSchoolDropdownOpen(true)}
+                          onBlur={() => setTimeout(() => setSchoolDropdownOpen(false), 150)}
+                          placeholder="พิมพ์ค้นหาโรงเรียนในประเทศ"
+                        />
+                        {schoolDropdownOpen && (
+                          <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                            {filteredSchools.length === 0 && (
+                              <div className="px-3 py-2 text-sm text-gray-500">
+                                ไม่พบโรงเรียน
+                              </div>
+                            )}
+                            {filteredSchools.map((s) => (
+                              <button
+                                type="button"
+                                key={s.id}
+                                onMouseDown={() => handleDomesticSchoolSelect(s.name || "")}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-orange-50 ${
+                                  form.schoolId === String(s.id)
+                                    ? "bg-orange-50 font-semibold text-orange-800"
+                                    : "text-gray-800"
+                                }`}
+                              >
+                                {s.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {fieldErrors.schoolName && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {fieldErrors.schoolName}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        หากไม่พบในรายการ สามารถพิมพ์ชื่อโรงเรียนใหม่ได้
+                      </p>
+                    </div>
+                  )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">หลักสูตร (Curriculum)</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
-                    value={form.curriculumId}
-                    onChange={(e) => onChange("curriculumId", e.target.value)}
-                    aria-label="หลักสูตร"
-                  >
-                    <option value="">เลือกหลักสูตร</option>
-                    <option value="1">วิทย์-คณิต</option>
-                    <option value="2">ศิลป์-คำนวณ</option>
-                    <option value="3">ศิลป์-ภาษา</option>
-                    <option value="4">เทคโนโลยี/สายอาชีพ</option>
-                  </select>
-                  {fieldErrors.curriculumId && <p className="mt-1 text-xs text-red-600">{fieldErrors.curriculumId}</p>}
-                  <p className="mt-1 text-xs text-gray-500">เลือกหลักสูตรการเรียนที่ตรงกับ Curriculum</p>
+                  {form.schoolLocation && form.schoolLocation !== "domestic" && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        โรงเรียน
+                      </label>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
+                        value={form.schoolName}
+                        onChange={(e) => handleSchoolNameChange(e.target.value)}
+                        placeholder="กรอกชื่อโรงเรียน"
+                      />
+                      {fieldErrors.schoolName && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {fieldErrors.schoolName}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      ประเภทหลักสูตร
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none text-gray-900"
+                      value={form.curriculumTypeId}
+                      onChange={(e) => onChange("curriculumTypeId", e.target.value)}
+                      aria-label="ประเภทหลักสูตร"
+                      disabled={loadingOptions}
+                    >
+                      <option value="" disabled>เลือกประเภทหลักสูตร</option>
+                      {options.curriculum_types.map((ct, idx) => (
+                        <option key={ct.id ?? idx} value={String(ct.id)}>
+                          {ct.name}
+                        </option>
+                      ))}
+                    </select>
+                    {fieldErrors.curriculumTypeId && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {fieldErrors.curriculumTypeId}
+                      </p>
+                    )}
+                  </div>
+
                 </div>
               </div>
             )}

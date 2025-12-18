@@ -8,6 +8,7 @@ import (
 	"github.com/sut68/team14/backend/entity"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/driver/sqlite"
 )
 
 var db *gorm.DB
@@ -44,6 +45,8 @@ func SetupDatabase() {
 		&entity.IDTypes{},
 		&entity.Education{},
 		&entity.EducationLevel{},
+		&entity.SchoolType{},
+		&entity.School{},
 		&entity.CurriculumType{},
 		&entity.Activity{},
 		&entity.ActivityDetail{},
@@ -82,6 +85,8 @@ func SetupDatabase() {
 		&entity.Skill{},
 		&entity.SectionBlock{},
 		&entity.TemplateSectionLink{},
+		&entity.Event{},
+		&entity.Selection{},
 		&entity.GEDScore{},
 		&entity.AcademicScore{},
 		&entity.LanguageProficiencyScore{},
@@ -94,4 +99,13 @@ func SetupDatabase() {
 // get
 func GetDB() *gorm.DB {
 	return db
+}
+
+func ConnectionSQLite() {
+	database, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect to sqlite database")
+	}
+	db = database
+	SetupDatabase()
 }

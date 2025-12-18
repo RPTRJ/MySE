@@ -36,10 +36,6 @@ type User struct {
 	Education *Education `gorm:"foreignKey:UserID" json:"education,omitempty"`
 }
 
-// Validate enforces base govalidator rules plus name locale rules:
-// - Thai users must provide Thai names only.
-// - Foreign users must provide English names only.
-// - Must choose exactly one language (not both, not neither).
 func (u User) Validate() error {
 	if ok, err := govalidator.ValidateStruct(u); err != nil {
 		return err
@@ -47,9 +43,11 @@ func (u User) Validate() error {
 		return errors.New("validation failed")
 	}
 
-	// Allow missing names at registration / pre-onboarding; enforce language rules only when names are provided.
 	namesAllEmpty := strings.TrimSpace(u.FirstNameTH+u.LastNameTH+u.FirstNameEN+u.LastNameEN) == ""
 	if namesAllEmpty {
+		if u.ProfileCompleted || u.PDPAConsent {
+			return errors.New("name is required in Thai or English")
+		}
 		return nil
 	}
 
@@ -74,8 +72,6 @@ func (u User) Validate() error {
 	return nil
 }
 
-// OnboardingCompleted returns true when the user has provided base info and accepted PDPA.
-// Existing users that already consented (and have name/phone) are treated as completed even if ProfileCompleted is false.
 func (u User) OnboardingCompleted() bool {
 	if u.ProfileCompleted && u.PDPAConsent && u.PDPAConsentAt != nil {
 		return true

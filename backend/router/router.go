@@ -1,15 +1,128 @@
 package router
 
 import (
+	"strings"
+	"time"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/sut68/team14/backend/config"
+	"github.com/sut68/team14/backend/controller"
+	"github.com/sut68/team14/backend/middlewares"
+	"github.com/sut68/team14/backend/services"
 )
 
-func SetupRoutes() *gin.Engine{
+func SetupRoutes() *gin.Engine {
+
 	r := gin.Default()
 
+	// --- CORS Config (ส่วนนี้ของคุณถูกต้องแล้ว) ---
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOriginFunc = func(origin string) bool {
+		// Explicitly allow localhost with any port
+		if strings.HasPrefix(origin, "http://localhost") {
+			return true
+		}
+		if strings.HasPrefix(origin, "http://127.0.0.1") {
+			return true
+		}
+		if strings.HasPrefix(origin, "http://192.168") {
+			return true
+		}
+		if strings.HasPrefix(origin, "http://10.") {
+			return true
+		}
+		if strings.HasPrefix(origin, "http://169.254") {
+			return true
+		}
+		return true // FOR DEBUGGING: Allow all origins to rule out CORS config issue temporarily
+	}
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "Accept", "User-Agent", "Cache-Control", "Pragma"}
+	corsConfig.ExposeHeaders = []string{"Content-Length"}
+	corsConfig.AllowCredentials = true
+	corsConfig.MaxAge = 12 * time.Hour
+	r.Use(cors.New(corsConfig))
+
+	// Serve static files
+	r.Static("/uploads", "./uploads")
+
+	// --- Init Services & Controllers ---
+	db := config.GetDB()
+	authService := services.NewAuthService(db)
+	authController := controller.NewAuthController(authService)
+	userController := controller.NewUserController()
+	curriculumController := controller.NewCurriculumController()
+	facultyController := controller.NewFacultyController()
+	programController := controller.NewProgramController()
+	selectionController := controller.NewSelectionController()
+	profileController := controller.NewStudentProfileController()
+
+	// --- Public Routes ---
+	authController.RegisterRoutes(r)
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "pong"})
+	})
+
+	// --- Protected Routes (ต้อง Login) ---
+	protected := r.Group("")
+	protected.Use(middlewares.Authorization())
+	userController.RegisterSelfRoutes(protected)
+
+	// --- Onboarded Routes (ต้องผ่านการ Onboard) ---
+	protectedOnboarded := protected.Group("")
+	protectedOnboarded.Use(middlewares.RequireOnboarding())
+
+	userController.RegisterRoutes(protectedOnboarded)
+	profileController.RegisterRoutes(protectedOnboarded)
+
+	// Register Routes เดิมของคุณ
+	curriculumController.RegisterRoutes(r, protectedOnboarded)
+	facultyController.RegisterRoutes(r, protected)
+	programController.RegisterRoutes(r, protected)
+
+	// Selection & Notification Routes
+	r.POST("/selections", selectionController.ToggleSelection)
+	r.GET("/selections", selectionController.GetMySelections)
+	r.POST("/selections/notify", selectionController.ToggleNotification)
+	r.GET("/notifications", selectionController.GetNotifications)
+	r.PATCH("/notifications/:id/read", selectionController.MarkAsRead)
+
+	// ✅✅✅ Admin Routes Group  ✅✅✅
+	admin := r.Group("/admin")
+
+	{
+		// API สำหรับดึงสถิติ
+		admin.GET("/curricula/stats", curriculumController.GetSelectionStats)
+	}
+
+	// Other Routes
 	// เรียกใช้ฟังก์ชัน routes ต่างๆ ที่นี่
+	//ระบบเทมเพลต
 	TemplateBlockRoutes(r)
+	TemplateSectionsRoutes(r)
+	SectionBlockRoutes(r)
+	TemplateRoutes(r)
+
+	//ระบบแฟ้มสะสมผลงาน (Portfolio)
+	PortfolioRoutes(r)
+	// router.PortfolioRoutes(protectedOnboarded)
+	// router.PortfolioSectionRoutes(protectedOnboarded)
+	// router.PortfolioBlockRoutes(protectedOnboarded)
+
+	ColorsRoutes(r)
+
+	WorkingRoutes(protected)
+	ActivityRoutes(protected)
+
+	//ของScorecard
+	RegisterCriteriaScoreRoutes(r, db)
+	RegisterEvaluationRoutes(r, db)
+	RegisterFeedbackRoutes(r, db)
+	RegisterPortfolioSubmissionRoutes(r, db)
+	RegisterScoreCriteriaRoutes(r, db)
+	RegisterScorecardRoutes(r, db)
 
 	return r
+
 }
-	

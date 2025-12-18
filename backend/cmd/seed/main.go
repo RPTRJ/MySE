@@ -12,12 +12,17 @@ import (
 func main() {
 	loadEnv()
 	config.ConnectionDatabase()
-	
+
+	seed.SeedEducationData()
 	seed.CurriculumSeed()
 	seed.SeedUsers()
 	seed.SeedTemplateBlocks()
+	seed.SeedTemplatesSections()
+	seed.SeedTemplates()
 	seed.SeedTypeWorkings()
 	seed.SeedActivities()
+	seed.SeedColors()
+	seed.SeedPortfolioSubmissions()
 	log.Println("Seed completed successfully")
 }
 

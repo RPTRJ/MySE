@@ -13,7 +13,7 @@ type Portfolio struct {
 	PortfolioStyle 	datatypes.JSON `json:"portfolio_style"`
 	
 	// FK
-	TemplateID   uint   `json:"template_id"`
+	TemplateID   *uint   `json:"template_id"`
 	Template     Templates `gorm:"foreignKey:TemplateID" json:"template"`
 	UserID       uint   `json:"user_id"`
 	User         User   `gorm:"foreignKey:UserID" json:"user"`

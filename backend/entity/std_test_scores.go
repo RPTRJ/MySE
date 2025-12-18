@@ -2,7 +2,7 @@ package entity
 
 import "gorm.io/gorm"
 
-// STDTestScore represents standardized test scores (PAT / A-Level ฯลฯ)
+// STDTestScore คือ (PAT / A-Level ฯลฯ)
 type STDTestScore struct {
 	gorm.Model
 	UserID       uint    `json:"user_id"`

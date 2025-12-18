@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sut68/team14/backend/config"
@@ -55,6 +54,7 @@ func (uc *UserController) RegisterSelfRoutes(router gin.IRoutes) {
 	router.GET("/me", uc.GetMe)
 	router.PUT("/users/me/onboarding", uc.CompleteOnboarding)
 	router.GET("/users/me/check-id", uc.CheckIDDuplicate)
+	router.GET("/users/me/onboarding/options", uc.GetOnboardingOptions)
 }
 
 func (uc *UserController) ListUsers(c *gin.Context) {
@@ -184,6 +184,7 @@ type OnboardingPayload struct {
 	Phone       string `json:"phone" binding:"required"`
 	Birthday    string `json:"birthday" binding:"required,datetime=2006-01-02"`
 	PDPAConsent bool   `json:"pdpa_consent" binding:"required"`
+	Education   *profileEducationPayload `json:"education"`
 }
 
 func (uc *UserController) CompleteOnboarding(c *gin.Context) {
@@ -227,21 +228,30 @@ func (uc *UserController) CompleteOnboarding(c *gin.Context) {
 		return
 	}
 
+	tx := uc.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
 	var user entity.User
-	if err := uc.db.First(&user, userID).Error; err != nil {
+	if err := tx.First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			tx.Rollback()
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Keep both language fields; if EN not provided, fall back to TH so profile view is not empty.
 	user.FirstNameTH = payload.FirstNameTH
 	user.LastNameTH = payload.LastNameTH
-	user.FirstNameEN = firstNonEmpty(payload.FirstNameEN, payload.FirstNameTH)
-	user.LastNameEN = firstNonEmpty(payload.LastNameEN, payload.LastNameTH)
+	user.FirstNameEN = payload.FirstNameEN
+	user.LastNameEN = payload.LastNameEN
 
 	user.IDNumber = payload.IDNumber
 	user.Phone = payload.Phone
@@ -252,14 +262,16 @@ func (uc *UserController) CompleteOnboarding(c *gin.Context) {
 
 	// Resolve ID document type by name (create if missing)
 	var idType entity.IDTypes
-	if err := uc.db.Where("id_name = ?", payload.IDTypeName).First(&idType).Error; err != nil {
+	if err := tx.Where("id_name = ?", payload.IDTypeName).First(&idType).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			idType.IDName = payload.IDTypeName
-			if err := uc.db.Create(&idType).Error; err != nil {
+			if err := tx.Create(&idType).Error; err != nil {
+				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 		} else {
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -268,15 +280,31 @@ func (uc *UserController) CompleteOnboarding(c *gin.Context) {
 	user.Birthday = birthday
 
 	if err := user.Validate(); err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := uc.db.Save(&user).Error; err != nil {
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Optionally create/update education during onboarding
+	if payload.Education != nil && !isEducationPayloadEmpty(*payload.Education) {
+		profileController := StudentProfileController{db: uc.db}
+		if _, err := profileController.upsertEducation(tx, userID, *payload.Education); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"data": user})
 }
 
@@ -414,6 +442,42 @@ func (uc *UserController) CheckIDDuplicate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"unique": true})
 }
 
+// GetOnboardingOptions exposes base dropdown data before onboarding is completed.
+func (uc *UserController) GetOnboardingOptions(c *gin.Context) {
+	var levels []entity.EducationLevel
+	if err := uc.db.Order("name asc").Find(&levels).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var curTypes []entity.CurriculumType
+	if err := uc.db.Order("name asc").Find(&curTypes).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var schoolTypes []entity.SchoolType
+	if err := uc.db.Order("name asc").Find(&schoolTypes).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var schools []entity.School
+	if err := uc.db.Preload("SchoolType").Order("name asc").Find(&schools).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": profileOptions{
+			EducationLevels: levels,
+			CurriculumTypes: curTypes,
+			SchoolTypes:     schoolTypes,
+			Schools:         schools,
+		},
+	})
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if strings.TrimSpace(v) != "" {
@@ -421,15 +485,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func containsThai(value string) bool {
-	for _, r := range value {
-		if unicode.In(r, unicode.Thai) {
-			return true
-		}
-	}
-	return false
 }
 
 var errDuplicateID = errors.New("id number already in use")

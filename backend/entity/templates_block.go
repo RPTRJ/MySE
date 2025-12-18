@@ -16,5 +16,6 @@ type TemplatesBlock struct {
 	//ยังไม่ได้เขียน feild พวก jsonสำหรับเก็บข้อมูล block ต่างๆ เช่น text, image, video, file, button, etc.
 
 	//FK
-	Sections []TemplatesSection `gorm:"many2many:SectionBlock;" json:"templates_sections"`
+	// Sections []TemplatesSection `gorm:"many2many:SectionBlock;" json:"templates_sections"`
+	SectionBlocks []SectionBlock `gorm:"foreignKey:TemplatesBlockID" json:"section_blocks"`
 }

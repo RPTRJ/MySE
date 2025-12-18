@@ -8,8 +8,8 @@ import(
 
 type Notification struct {
 	gorm.Model
-	Notification_Title   string    `json:"notification_title"`
-	Notification_Type    string    `json:"notification_type"`
+	Notification_Title   string `json:"notification_title" valid:"required~Title is required"`
+    Notification_Type    string `json:"notification_type" valid:"in(System|Alert|Announcement)~Invalid type"`
 	Notification_Message string    `json:"notification_message"`
 	Created_At           time.Time `json:"created_at"`
 	Is_Read              bool      `json:"is_read"`
@@ -22,4 +22,7 @@ type Notification struct {
 
 	AnnouncementID *uint        `json:"announcement_id"`
 	Announcement   Announcement `json:"announcement"`
+	// ✅ ส่วนที่เพิ่ม: เชื่อมกับกิจกรรม (Event)
+	EventID *uint  `json:"event_id"`
+	Event   *Event `gorm:"foreignKey:EventID" json:"event"`
 }

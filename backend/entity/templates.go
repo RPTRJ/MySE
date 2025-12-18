@@ -12,5 +12,6 @@ type Templates struct {
 
 	//FK
 	Portfolio		 []Portfolio        `gorm:"foreignKey:TemplateID" json:"portfolio"`
-	Sections         []TemplatesSection `gorm:"many2many:TemplateSectionLink;" json:"templates_sections"`
+	// Sections         []TemplatesSection `gorm:"many2many:TemplateSectionLink;" json:"templates_sections"`
+	TemplateSectionLinks []TemplateSectionLink `gorm:"foreignKey:TemplatesID" json:"template_section_links"`
 }

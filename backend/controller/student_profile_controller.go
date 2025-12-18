@@ -38,6 +38,10 @@ type profileUserPayload struct {
 type profileEducationPayload struct {
 	EducationLevelID   uint   `json:"education_level_id"`
 	EducationLevelName string `json:"education_level_name"`
+	SchoolID           uint   `json:"school_id"`
+	SchoolName         string `json:"school_name"`
+	SchoolTypeID       uint   `json:"school_type_id"`
+	SchoolTypeName     string `json:"school_type_name"`
 	CurriculumTypeID   uint   `json:"curriculum_type_id"`
 	CurriculumTypeName string `json:"curriculum_type_name"`
 	CurriculumID       uint   `json:"curriculum_id"`
@@ -94,6 +98,8 @@ type StudentProfilePayload struct {
 
 type profileOptions struct {
 	EducationLevels []entity.EducationLevel `json:"education_levels"`
+	SchoolTypes     []entity.SchoolType     `json:"school_types"`
+	Schools         []entity.School         `json:"schools"`
 	CurriculumTypes []entity.CurriculumType `json:"curriculum_types"`
 }
 
@@ -189,11 +195,15 @@ func (pc *StudentProfileController) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	educationID, err := pc.upsertEducation(tx, userID, payload.Education)
-	if err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	var educationID uint
+	if !isEducationPayloadEmpty(payload.Education) {
+		var err error
+		educationID, err = pc.upsertEducation(tx, userID, payload.Education)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	switch payload.ScoreType {
@@ -307,6 +317,14 @@ func (pc *StudentProfileController) upsertEducation(tx *gorm.DB, userID uint, pa
 		education.EducationLevelID = levelID
 	}
 
+	schoolTypeID, err := pc.findOrCreateSchoolType(tx, payload.SchoolTypeID, payload.SchoolTypeName)
+	if err != nil {
+		return 0, err
+	}
+	if schoolTypeID != 0 {
+		education.SchoolTypeID = schoolTypeID
+	}
+
 	curTypeID, err := pc.findOrCreateCurriculumType(tx, payload.CurriculumTypeID, payload.CurriculumTypeName)
 	if err != nil {
 		return 0, err
@@ -315,8 +333,23 @@ func (pc *StudentProfileController) upsertEducation(tx *gorm.DB, userID uint, pa
 		education.CurriculumTypeID = curTypeID
 	}
 
+	schoolID, schoolTypeID, isProjectBased, err := pc.findOrCreateSchool(tx, payload)
+	if err != nil {
+		return 0, err
+	}
+	if schoolID != 0 {
+		education.SchoolID = &schoolID
+		// If school carries a type, prefer that
+		if schoolTypeID != 0 {
+			education.SchoolTypeID = schoolTypeID
+		}
+		education.IsProjectBased = isProjectBased
+	}
+
 	if payload.CurriculumID != 0 {
-		education.CurriculumID = payload.CurriculumID
+		education.CurriculumID = &payload.CurriculumID
+	} else {
+		education.CurriculumID = nil
 	}
 	if payload.IsProjectBased != nil {
 		education.IsProjectBased = *payload.IsProjectBased
@@ -370,6 +403,73 @@ func (pc *StudentProfileController) findOrCreateCurriculumType(tx *gorm.DB, id u
 		}
 	}
 	return curType.ID, nil
+}
+
+func isEducationPayloadEmpty(p profileEducationPayload) bool {
+	allEmptyStrings := strings.TrimSpace(p.EducationLevelName+p.CurriculumTypeName+p.SchoolTypeName) == ""
+	return p.EducationLevelID == 0 &&
+		p.SchoolTypeID == 0 &&
+		p.SchoolID == 0 &&
+		strings.TrimSpace(p.SchoolName) == "" &&
+		p.CurriculumTypeID == 0 &&
+		p.CurriculumID == 0 &&
+		p.IsProjectBased == nil &&
+		allEmptyStrings
+}
+
+func (pc *StudentProfileController) findOrCreateSchoolType(tx *gorm.DB, id uint, name string) (uint, error) {
+	if id != 0 {
+		return id, nil
+	}
+	if strings.TrimSpace(name) == "" {
+		return 0, nil
+	}
+
+	var schoolType entity.SchoolType
+	if err := tx.Where("name = ?", name).First(&schoolType).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			schoolType.Name = name
+			if err := tx.Create(&schoolType).Error; err != nil {
+				return 0, err
+			}
+		} else {
+			return 0, err
+		}
+	}
+	return schoolType.ID, nil
+}
+
+func (pc *StudentProfileController) findOrCreateSchool(tx *gorm.DB, payload profileEducationPayload) (uint, uint, bool, error) {
+	if payload.SchoolID != 0 {
+		var school entity.School
+		if err := tx.Preload("SchoolType").First(&school, payload.SchoolID).Error; err != nil {
+			return 0, 0, false, err
+		}
+		return school.ID, school.SchoolTypeID, school.IsProjectBased, nil
+	}
+	if strings.TrimSpace(payload.SchoolName) == "" {
+		return 0, 0, false, nil
+	}
+
+	var school entity.School
+	if err := tx.Where("name = ?", payload.SchoolName).Preload("SchoolType").First(&school).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			school.Name = payload.SchoolName
+			// resolve school type if provided
+			typeID, err := pc.findOrCreateSchoolType(tx, payload.SchoolTypeID, payload.SchoolTypeName)
+			if err != nil {
+				return 0, 0, false, err
+			}
+			school.SchoolTypeID = typeID
+			// Project-based flag is defined at the school; default false unless known.
+			if err := tx.Create(&school).Error; err != nil {
+				return 0, 0, false, err
+			}
+		} else {
+			return 0, 0, false, err
+		}
+	}
+	return school.ID, school.SchoolTypeID, school.IsProjectBased, nil
 }
 
 func (pc *StudentProfileController) upsertGED(tx *gorm.DB, userID uint, payload *gedPayload) error {
@@ -491,7 +591,17 @@ func (pc *StudentProfileController) buildProfileResponse(userID uint) (*StudentP
 
 	var education entity.Education
 	var educationPtr *entity.Education
-	if ok, err := fetchOne(pc.db.Preload("EducationLevel").Preload("CurriculumType").Preload("Curriculum").Where("user_id = ?", userID), &education); err != nil {
+	if ok, err := fetchOne(
+		pc.db.
+			Preload("EducationLevel").
+			Preload("CurriculumType").
+			Preload("Curriculum").
+			Preload("School").
+			Preload("School.SchoolType").
+			Preload("SchoolType").
+			Where("user_id = ?", userID),
+		&education,
+	); err != nil {
 		return nil, err
 	} else if ok {
 		educationPtr = &education
@@ -531,6 +641,14 @@ func (pc *StudentProfileController) buildProfileResponse(userID uint) (*StudentP
 	if err := pc.db.Order("name asc").Find(&curTypes).Error; err != nil {
 		return nil, err
 	}
+	var schoolTypes []entity.SchoolType
+	if err := pc.db.Order("name asc").Find(&schoolTypes).Error; err != nil {
+		return nil, err
+	}
+	var schools []entity.School
+	if err := pc.db.Preload("SchoolType").Order("name asc").Find(&schools).Error; err != nil {
+		return nil, err
+	}
 
 	return &StudentProfileResponse{
 		User:           user,
@@ -541,6 +659,8 @@ func (pc *StudentProfileController) buildProfileResponse(userID uint) (*StudentP
 		BTDTestScores:  btds,
 		Options: profileOptions{
 			EducationLevels: levels,
+			SchoolTypes:     schoolTypes,
+			Schools:         schools,
 			CurriculumTypes: curTypes,
 		},
 	}, nil

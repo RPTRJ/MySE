@@ -3,7 +3,6 @@
 import { 
   LayoutDashboard, 
   Users, 
-  UserCircle,
   Settings, 
   FileText, 
   ShieldAlert,
@@ -30,12 +29,6 @@ export const menuItems: MenuItem[] = [
     name: "หน้าหลัก",
     href: "/student/home", // ชี้ไปที่ app/student/page.tsx
     icon: LayoutDashboard,
-    roles: ["student"],
-  },
-  {
-    name: "ข้อมูลส่วนตัว",
-    href: "/student/profile",
-    icon: UserCircle,
     roles: ["student"],
   },
   {
@@ -80,7 +73,7 @@ export const menuItems: MenuItem[] = [
   // ------------------------- แฟ้มสะสมผลงาน (Portfolios) -------------------------
   {
     name: "แฟ้มสะสมผลงาน",
-    href: "/student/portfolios",
+    href: "/student/portfolio",
     icon: FileText,
     roles: ["student"], 
   },
@@ -102,14 +95,26 @@ export const menuItems: MenuItem[] = [
   // ------------------------- ข่าวสาร และประกาศ -------------------------
   {
     name: "ประกาศ/ข่าวสาร",
-    href: "/announcements", // ถ้าประกาศเป็น Public Route
+    href: "/student/announcements", // ถ้าประกาศเป็น Public Route
     icon: ShieldAlert,
-    roles: ["admin", "student", "teacher"], // ทุกคนเห็น
+    roles: ["student"],
+  },
+  {
+    name: "ประชาสัมพันธ์ข่าวสาร",
+    href: "/admin/announcement",
+    icon: ShieldAlert,
+    roles: ["admin"],
+  },
+  {
+    name: "ประชาสัมพันธ์ข่าวสาร",
+    href: "/teacher/announcement",
+    icon: ShieldAlert,
+    roles: ["teacher"],
   },
   //-------------------------ปฏิทิน-------------------------
   {
     name: "ปฏิทิน",
-    href: "/calendar", // ถ้าประกาศเป็น Public Route
+    href: "/student/calendar", // ถ้าประกาศเป็น Public Route
     icon: Calendar,
     roles: ["student"],
   },

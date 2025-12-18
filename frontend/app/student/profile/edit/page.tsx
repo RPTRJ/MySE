@@ -1,8 +1,9 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, Save, Plus, Upload } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   getStudentProfile,
   updateStudentProfile,
@@ -13,6 +14,12 @@ import {
   BTDTestScore,
 } from "../../../../services/profile";
 import { fetchPublicCurricula, CurriculumDTO } from "../../../../services/curriculum";
+import {
+  SCHOOL_LOCATION_OPTIONS,
+  SCHOOL_TYPE_FROM_LOCATION,
+  SchoolLocationKey,
+  inferLocationFromTypeName,
+} from "@/services/schoolOptions";
 
 type LanguageForm = {
   test_type: string;
@@ -55,6 +62,15 @@ const inputClass =
 const selectClass =
   "w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-orange-500 focus:outline-none text-gray-900";
 const labelClass = "text-sm font-medium text-gray-700";
+const splitFullName = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return { first: "", last: "" };
+  const parts = trimmed.split(/\s+/);
+  const first = parts.shift() || "";
+  return { first, last: parts.join(" ") };
+};
+const joinFullName = (first?: string, last?: string) =>
+  [first, last].filter(Boolean).join(" ").trim();
 export default function StudentProfileEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,10 +96,14 @@ export default function StudentProfileEditPage() {
     birthday: "",
     profile_image_url: "",
   });
+  const [fullNameInput, setFullNameInput] = useState("");
 
   const [educationForm, setEducationForm] = useState({
     education_level_id: "",
     education_level_name: "",
+    school_id: "",
+    school_name: "",
+    school_type_name: "",
     curriculum_type_id: "",
     curriculum_type_name: "",
     curriculum_id: "",
@@ -116,7 +136,20 @@ export default function StudentProfileEditPage() {
   const [options, setOptions] = useState({
     education_levels: [] as { id: number; name: string }[],
     curriculum_types: [] as { id: number; name: string }[],
+    schools: [] as {
+      id: number;
+      name: string;
+      school_type?: { id: number; name: string };
+      is_project_based?: boolean;
+    }[],
+    school_types: [] as { id: number; name: string }[],
   });
+  const [schoolLocation, setSchoolLocation] = useState<SchoolLocationKey | "">(
+    "",
+  );
+  const [schoolSearch, setSchoolSearch] = useState("");
+  const [schoolDropdownOpen, setSchoolDropdownOpen] = useState(false);
+  const schoolDropdownRef = useRef<HTMLDivElement | null>(null);
   const [curricula, setCurricula] = useState<CurriculumDTO[]>([]);
   const [curriculumSearch, setCurriculumSearch] = useState("");
   const [curriculumLoading, setCurriculumLoading] = useState(false);
@@ -129,6 +162,20 @@ export default function StudentProfileEditPage() {
       const exists = sectionTabs.find((s) => s.key === hash);
       if (exists) setActiveSection(hash);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!schoolDropdownRef.current || schoolDropdownRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setSchoolDropdownOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
   const loadProfile = async () => {
     setLoading(true);
@@ -155,6 +202,19 @@ export default function StudentProfileEditPage() {
     }
   };
 
+  const domesticTypeName = SCHOOL_TYPE_FROM_LOCATION.domestic;
+
+  const filteredSchools = useMemo(() => {
+    const keyword = schoolSearch.trim().toLowerCase();
+    return options.schools.filter((s) => {
+      const matchesType = s.school_type?.name === domesticTypeName;
+      const matchesKeyword = keyword
+        ? (s.name || "").toLowerCase().includes(keyword)
+        : true;
+      return matchesType && matchesKeyword;
+    });
+  }, [options.schools, schoolSearch, domesticTypeName]);
+
   const handleFileUpload = async (file: File, key: string, onDone: (url: string) => void) => {
     try {
       setUploadingKey(key);
@@ -166,6 +226,40 @@ export default function StudentProfileEditPage() {
       setUploadingKey(null);
     }
   };
+
+  const handleLocationChange = (value: SchoolLocationKey | "") => {
+    const typeName = value ? SCHOOL_TYPE_FROM_LOCATION[value] : "";
+    setSchoolLocation(value);
+    setEducationForm((prev) => ({
+      ...prev,
+      school_type_name: typeName,
+      school_id: value === "domestic" ? prev.school_id : "",
+      school_name: value === "domestic" ? prev.school_name : "",
+    }));
+    if (value === "domestic") {
+      setSchoolSearch("");
+    } else {
+      setSchoolSearch("");
+      setSchoolDropdownOpen(false);
+    }
+  };
+
+  const handleSchoolSearchChange = (value: string) => {
+    setSchoolSearch(value);
+    setSchoolDropdownOpen(true);
+  };
+
+  const handleSchoolSelect = (schoolName: string, schoolId: string) => {
+    setEducationForm((prev) => ({
+      ...prev,
+      school_name: schoolName,
+      school_id: schoolId,
+      school_type_name: domesticTypeName,
+    }));
+    setSchoolSearch("");
+    setSchoolDropdownOpen(false);
+  };
+
   const applyProfileToForm = (data: StudentProfile) => {
     setData(data);
     const user = data.user || {};
@@ -178,11 +272,32 @@ export default function StudentProfileEditPage() {
       birthday: user.birthday || "",
       profile_image_url: user.profile_image_url || "",
     });
+    setFullNameInput(
+      joinFullName(user.first_name_th, user.last_name_th) ||
+        joinFullName(user.first_name_en, user.last_name_en),
+    );
 
     const edu = data.education;
+    const matchedSchool = data.options?.schools?.find(
+      (s) => s.id === edu?.school_id,
+    );
+    const schoolTypeName =
+      edu?.school?.school_type?.name ||
+      edu?.school_type?.name ||
+      matchedSchool?.school_type?.name ||
+      edu?.school_type_name ||
+      "";
+    const schoolName =
+      edu?.school?.name || edu?.school_name || matchedSchool?.name || "";
+    const location = inferLocationFromTypeName(schoolTypeName);
+    setSchoolLocation(location);
+    setSchoolSearch("");
     setEducationForm({
       education_level_id: edu?.education_level_id ? String(edu.education_level_id) : "",
       education_level_name: edu?.education_level?.name || "",
+      school_id: edu?.school_id ? String(edu.school_id) : "",
+      school_name: schoolName,
+      school_type_name: schoolTypeName,
       curriculum_type_id: edu?.curriculum_type_id ? String(edu.curriculum_type_id) : "",
       curriculum_type_name: edu?.curriculum_type?.name || "",
       curriculum_id: edu?.curriculum_id ? String(edu.curriculum_id) : "",
@@ -244,6 +359,8 @@ export default function StudentProfileEditPage() {
     setOptions({
       education_levels: data.options?.education_levels || [],
       curriculum_types: data.options?.curriculum_types || [],
+      schools: data.options?.schools || [],
+      school_types: data.options?.school_types || [],
     });
   };
   const handleSubmit = async () => {
@@ -251,11 +368,42 @@ export default function StudentProfileEditPage() {
     setError("");
     setSuccess("");
     try {
+      const nameValue = fullNameInput.trim();
+      const hasThai = /[\u0E00-\u0E7F]/.test(nameValue);
+      const hasLatin = /[A-Za-z]/.test(nameValue);
+      if (nameValue && hasThai && hasLatin) {
+        const message =
+          "กรุณากรอกชื่อเป็นภาษาไทยหรือภาษาอังกฤษอย่างใดอย่างหนึ่ง";
+        setError(message);
+        toast.error(message);
+        setSaving(false);
+        return;
+      }
+      const locationTypeName =
+        schoolLocation && SCHOOL_TYPE_FROM_LOCATION[schoolLocation as SchoolLocationKey]
+          ? SCHOOL_TYPE_FROM_LOCATION[schoolLocation as SchoolLocationKey]
+          : educationForm.school_type_name;
+      const schoolIdValue =
+        schoolLocation === "ged"
+          ? undefined
+          : educationForm.school_id
+            ? Number(educationForm.school_id)
+            : undefined;
+      const schoolNameValue =
+        schoolLocation === "ged"
+          ? undefined
+          : schoolIdValue
+            ? undefined
+            : educationForm.school_name || schoolSearch || undefined;
+
       const payload = {
         user: { ...userForm },
         education: {
           education_level_id: educationForm.education_level_id ? Number(educationForm.education_level_id) : undefined,
           education_level_name: educationForm.education_level_name || undefined,
+          school_id: schoolIdValue,
+          school_name: schoolNameValue,
+          school_type_name: locationTypeName || undefined,
           curriculum_type_id: educationForm.curriculum_type_id ? Number(educationForm.curriculum_type_id) : undefined,
           curriculum_type_name: educationForm.curriculum_type_name || undefined,
           curriculum_id: educationForm.curriculum_id ? Number(educationForm.curriculum_id) : undefined,
@@ -311,8 +459,11 @@ export default function StudentProfileEditPage() {
       const updated = await updateStudentProfile(payload);
       applyProfileToForm(updated);
       setSuccess("บันทึกข้อมูลโปรไฟล์เรียบร้อย");
+      toast.success("บันทึกข้อมูลโปรไฟล์เรียบร้อย");
     } catch (err: any) {
-      setError(err?.message || "บันทึกไม่สำเร็จ");
+      const message = err?.message || "บันทึกไม่สำเร็จ";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -385,52 +536,45 @@ export default function StudentProfileEditPage() {
             <p className="text-sm text-gray-500">ข้อมูลเบื้องต้นสำหรับสร้างโปรไฟล์</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className={labelClass} htmlFor="first-name-th">
-                ชื่อ (ไทย)
+            <div className="space-y-2 md:col-span-2">
+              <label className={labelClass} htmlFor="full-name">
+                ชื่อ-นามสกุล
               </label>
               <input
-                id="first-name-th"
+                id="full-name"
                 className={inputClass}
-                value={userForm.first_name_th}
-                onChange={(e) => setUserForm((prev) => ({ ...prev, first_name_th: e.target.value }))}
-                placeholder="สมชาย"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className={labelClass} htmlFor="last-name-th">
-                นามสกุล (ไทย)
-              </label>
-              <input
-                id="last-name-th"
-                className={inputClass}
-                value={userForm.last_name_th}
-                onChange={(e) => setUserForm((prev) => ({ ...prev, last_name_th: e.target.value }))}
-                placeholder="รักเรียน"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className={labelClass} htmlFor="first-name-en">
-                ชื่อ (อังกฤษ)
-              </label>
-              <input
-                id="first-name-en"
-                className={inputClass}
-                value={userForm.first_name_en}
-                onChange={(e) => setUserForm((prev) => ({ ...prev, first_name_en: e.target.value }))}
-                placeholder="John"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className={labelClass} htmlFor="last-name-en">
-                นามสกุล (อังกฤษ)
-              </label>
-              <input
-                id="last-name-en"
-                className={inputClass}
-                value={userForm.last_name_en}
-                onChange={(e) => setUserForm((prev) => ({ ...prev, last_name_en: e.target.value }))}
-                placeholder="Doe"
+                value={fullNameInput}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFullNameInput(value);
+                  const hasThai = /[\u0E00-\u0E7F]/.test(value);
+                  const hasLatin = /[A-Za-z]/.test(value);
+                  if (value.trim() && hasThai && hasLatin) {
+                    setError("กรุณากรอกชื่อเป็นภาษาไทยหรือภาษาอังกฤษอย่างใดอย่างหนึ่ง");
+                    return;
+                  }
+                  const { first, last } = splitFullName(value);
+                  if (hasLatin && !hasThai) {
+                    setUserForm((prev) => ({
+                      ...prev,
+                      first_name_en: first,
+                      last_name_en: last,
+                      first_name_th: "",
+                      last_name_th: "",
+                    }));
+                    setError("");
+                    return;
+                  }
+                  setUserForm((prev) => ({
+                    ...prev,
+                    first_name_th: first,
+                    last_name_th: last,
+                    first_name_en: "",
+                    last_name_en: "",
+                  }));
+                  setError("");
+                }}
+                placeholder="สมชาย รักเรียน"
               />
             </div>
             <div className="space-y-2">
@@ -485,7 +629,7 @@ export default function StudentProfileEditPage() {
                   onChange={(e) => setEducationForm((prev) => ({ ...prev, education_level_id: e.target.value }))}
                   className={`${selectClass} w-1/2`}
                 >
-                  <option value="">เลือกระดับ</option>
+                  <option value="" disabled hidden>เลือกระดับ</option>
                   {options.education_levels.map((lvl) => (
                     <option key={lvl.id} value={lvl.id}>
                       {lvl.name}
@@ -502,6 +646,114 @@ export default function StudentProfileEditPage() {
               </div>
             </div>
             <div className="space-y-2">
+              <label className={labelClass} htmlFor="school-location">
+                ที่ตั้งโรงเรียน
+              </label>
+              <select
+                id="school-location"
+                value={schoolLocation}
+                onChange={(e) =>
+                  handleLocationChange(e.target.value as SchoolLocationKey | "")
+                }
+                className={selectClass}
+              >
+                <option value="" disabled hidden>เลือกที่ตั้งโรงเรียน</option>
+                {SCHOOL_LOCATION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {schoolLocation === "domestic" && (
+              <div className="space-y-2 md:col-span-2">
+                <label className={labelClass} htmlFor="school-name">
+                  โรงเรียน
+                </label>
+                <div className="relative" ref={schoolDropdownRef}>
+                  <input
+                    id="school-name"
+                    value={educationForm.school_name}
+                    readOnly
+                    onClick={() =>
+                      setSchoolDropdownOpen((prev) => {
+                        const next = !prev;
+                        if (next) setSchoolSearch("");
+                        return next;
+                      })
+                    }
+                    placeholder="เลือกโรงเรียนในประเทศ"
+                    className={inputClass}
+                  />
+                  {schoolDropdownOpen && (
+                    <div className="absolute z-20 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
+                      <div className="border-b border-gray-100 p-2">
+                        <input
+                          value={schoolSearch}
+                          onChange={(e) => handleSchoolSearchChange(e.target.value)}
+                          placeholder="ค้นหาโรงเรียน"
+                          className={`${inputClass} h-10 px-3 py-2`}
+                        />
+                      </div>
+                      <div className="max-h-56 overflow-y-auto">
+                        {schoolSearch.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => handleSchoolSelect(schoolSearch.trim(), "")}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-orange-50"
+                          >
+                            ใช้ชื่อ "{schoolSearch.trim()}"
+                          </button>
+                        )}
+                        {filteredSchools.length === 0 && (
+                          <div className="px-3 py-2 text-sm text-gray-500">
+                            ไม่พบโรงเรียน
+                          </div>
+                        )}
+                        {filteredSchools.map((s) => (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => handleSchoolSelect(s.name || "", String(s.id))}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-orange-50 ${
+                              educationForm.school_id === String(s.id)
+                                ? "bg-orange-50 font-semibold text-orange-800"
+                                : "text-gray-800"
+                            }`}
+                          >
+                            {s.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {schoolLocation && schoolLocation !== "domestic" && (
+              <div className="space-y-2 md:col-span-2">
+                <label className={labelClass} htmlFor="school-name-manual">
+                  โรงเรียน
+                </label>
+                <input
+                  id="school-name-manual"
+                  value={educationForm.school_name || schoolSearch}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSchoolSearch(value);
+                    setEducationForm((prev) => ({
+                      ...prev,
+                      school_name: value,
+                      school_id: "",
+                    }));
+                  }}
+                  placeholder="กรอกชื่อโรงเรียน"
+                  className={inputClass}
+                  onFocus={() => setSchoolDropdownOpen(false)}
+                />
+              </div>
+            )}
+            <div className="space-y-2">
               <label className={labelClass} htmlFor="curriculum-type-id">
                 ประเภทหลักสูตร
               </label>
@@ -512,7 +764,7 @@ export default function StudentProfileEditPage() {
                   onChange={(e) => setEducationForm((prev) => ({ ...prev, curriculum_type_id: e.target.value }))}
                   className={`${selectClass} w-1/2`}
                 >
-                  <option value="">เลือกประเภท</option>
+                  <option value="" disabled hidden>เลือกประเภท</option>
                   {options.curriculum_types.map((ct) => (
                     <option key={ct.id} value={ct.id}>
                       {ct.name}
@@ -555,7 +807,7 @@ export default function StudentProfileEditPage() {
                 onChange={(e) => setEducationForm((prev) => ({ ...prev, curriculum_id: e.target.value }))}
                 className={selectClass}
               >
-                <option value="">เลือกจากรายการ</option>
+                <option value="" disabled hidden>เลือกจากรายการ</option>
                 {curricula.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} {c.code ? `(${c.code})` : ""}

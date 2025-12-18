@@ -11,9 +11,9 @@ type PortfolioSubmission struct {
 	Version	   		int       `json:"version"`
 	Status     		string    `json:"status"`
 	Submission_at 	time.Time `json:"submission_at"`
-	Reviewed_at   	time.Time `json:"reviewed_at"`
-	Approved_at   	time.Time `json:"approved_at"`
-	Is_curent_version bool    `json:"is_current_version"`
+	ReviewedAt   	*time.Time `json:"reviewed_at"`
+	ApprovedAt   	*time.Time `json:"approved_at"`
+	Is_current_version bool    `json:"is_current_version"`
 
 	// FK
 	PortfolioID  	uint      `json:"portfolio_id"`

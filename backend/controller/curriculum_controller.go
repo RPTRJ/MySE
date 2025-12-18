@@ -1,8 +1,10 @@
 package controller
 
 import (
-	"log"
+
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sut68/team14/backend/config"
@@ -20,17 +22,72 @@ func NewCurriculumController() *CurriculumController {
 	}
 }
 
+// -------------------- HELPER FUNCTION --------------------
+
+// ✅ ฟังก์ชันคำนวณสถานะตามเวลาจริง (Private Helper)
+func calculateCurriculumStatus(c *entity.Curriculum) {
+	// ถ้าไม่มีข้อมูลวันที่ -> ปิด
+	if c.ApplicationPeriod == "" {
+		c.Status = "closed"
+		return
+	}
+
+	parts := strings.Split(c.ApplicationPeriod, "|")
+	if len(parts) < 2 {
+		c.Status = "closed"
+		return
+	}
+
+	// รูปแบบวันที่ที่รองรับ
+	layout1 := "2006-01-02T15:04"
+	layout2 := "2006-01-02T15:04:05"
+
+	startStr := strings.TrimSpace(parts[0])
+	endStr := strings.TrimSpace(parts[1])
+
+	// Parse เวลาเริ่ม
+	start, err1 := time.ParseInLocation(layout1, startStr, time.Local)
+	if err1 != nil {
+		start, err1 = time.ParseInLocation(layout2, startStr, time.Local)
+	}
+
+	// Parse เวลาสิ้นสุด
+	end, err2 := time.ParseInLocation(layout1, endStr, time.Local)
+	if err2 != nil {
+		end, err2 = time.ParseInLocation(layout2, endStr, time.Local)
+	}
+
+	if err1 != nil || err2 != nil {
+		c.Status = "closed"
+		return
+	}
+
+	now := time.Now()
+
+	// 🕒 Logic เปลี่ยนสถานะอัตโนมัติ
+	if now.Before(start) {
+		// 1. ยังไม่ถึงเวลาเปิด -> กำลังเปิด (Opening)
+		c.Status = "opening"
+	} else if now.After(end) {
+		// 3. เลยเวลาปิดแล้ว -> ปิด (Closed)
+		c.Status = "closed"
+	} else {
+		// 2. อยู่ระหว่างช่วงเวลา -> เปิดอยู่ (Open)
+		c.Status = "open"
+	}
+}
+
 // -------------------- ROUTES --------------------
 
 func (cc *CurriculumController) RegisterRoutes(r *gin.Engine, protected *gin.RouterGroup) {
 	// Public: สำหรับนักเรียนค้นหาหลักสูตร
 	public := r.Group("/curricula")
 	{
-		public.GET("", cc.ListPublishedCurricula)
+		public.GET("/public", cc.ListPublishedCurricula)
 		public.GET("/:id", cc.GetCurriculumByID)
 	}
 
-	// Protected: สำหรับแอดมินจัดการหลักสูตร + summary + faculties/programs
+	// Protected: สำหรับแอดมินจัดการหลักสูตร
 	admin := protected.Group("/admin")
 	{
 		admin.GET("/curricula", cc.ListAllCurricula)
@@ -46,12 +103,12 @@ func (cc *CurriculumController) RegisterRoutes(r *gin.Engine, protected *gin.Rou
 // ListPublishedCurricula : ใช้ในหน้าค้นหาฝั่งนักเรียน
 func (cc *CurriculumController) ListPublishedCurricula(c *gin.Context) {
 	search := c.Query("search")
+	// ดึงสถานะที่ Active ใน DB (รวม open, opening) เพื่อนำมาคำนวณต่อ
 	activeStatuses := []string{"open", "opening", "published"}
 
-	// ✅ แก้ไขชื่อตารางเป็น "curriculums" (ตามที่ GORM สร้างให้)
 	query := cc.db.
 		Model(&entity.Curriculum{}).
-		Select("curriculums.*"). 
+		Select("curriculums.*").
 		Preload("Faculty").
 		Preload("Program").
 		Preload("RequiredDocuments.DocumentType").
@@ -73,6 +130,11 @@ func (cc *CurriculumController) ListPublishedCurricula(c *gin.Context) {
 		return
 	}
 
+	// ✅ Loop เพื่อคำนวณสถานะใหม่ตามเวลาจริง ก่อนส่งกลับไป
+	for i := range curricula {
+		calculateCurriculumStatus(&curricula[i])
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": curricula})
 }
 
@@ -91,6 +153,9 @@ func (cc *CurriculumController) GetCurriculumByID(c *gin.Context) {
 		return
 	}
 
+	// ✅ คำนวณสถานะด้วย
+	calculateCurriculumStatus(&curriculum)
+
 	c.JSON(http.StatusOK, gin.H{"data": curriculum})
 }
 
@@ -99,7 +164,6 @@ func (cc *CurriculumController) GetCurriculumByID(c *gin.Context) {
 func (cc *CurriculumController) ListAllCurricula(c *gin.Context) {
 	search := c.Query("search")
 
-	// ✅ แก้ไขชื่อตารางเป็น "curriculums" เช่นกัน
 	query := cc.db.
 		Model(&entity.Curriculum{}).
 		Select("curriculums.*").
@@ -122,10 +186,16 @@ func (cc *CurriculumController) ListAllCurricula(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// ✅ Admin ก็ควรเห็นสถานะจริงเช่นกัน
+	for i := range curricula {
+		calculateCurriculumStatus(&curricula[i])
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": curricula})
 }
 
-// Payload และฟังก์ชัน Create/Update/Delete คงเดิม
+// Payload และฟังก์ชัน Create/Update/Delete (คงเดิม ไม่เปลี่ยนแปลง logic หลัก)
 type CurriculumPayload struct {
 	Code              string  `json:"code"`
 	Name              string  `json:"name"`
@@ -144,10 +214,13 @@ type CurriculumPayload struct {
 func (cc *CurriculumController) CreateCurriculum(c *gin.Context) {
 	var payload CurriculumPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		log.Printf("CreateCurriculum bind error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// ✅ คำนวณสถานะอัตโนมัติจากช่วงเวลาที่กรอกมา
+	// (ไม่สนว่า Admin ส่ง status อะไรมา เราจะทับด้วยค่าที่ถูกต้องเสมอ)
+	calculatedStatus := getCalculatedStatus(payload.ApplicationPeriod)
 
 	cur := entity.Curriculum{
 		Code:              payload.Code,
@@ -156,7 +229,7 @@ func (cc *CurriculumController) CreateCurriculum(c *gin.Context) {
 		Link:              payload.Link,
 		GPAXMin:           payload.GPAXMin,
 		PortfolioMaxPages: payload.PortfolioMaxPages,
-		Status:            payload.Status,
+		Status:            calculatedStatus, // ✅ ใช้ค่าที่คำนวณใหม่
 		FacultyID:         payload.FacultyID,
 		ProgramID:         payload.ProgramID,
 		UserID:            payload.UserID,
@@ -165,20 +238,16 @@ func (cc *CurriculumController) CreateCurriculum(c *gin.Context) {
 	}
 
 	if err := cc.db.Create(&cur).Error; err != nil {
-		log.Printf("CreateCurriculum DB error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusCreated, gin.H{"data": cur})
 }
 
 func (cc *CurriculumController) UpdateCurriculum(c *gin.Context) {
 	id := c.Param("id")
-
 	var payload CurriculumPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		log.Printf("UpdateCurriculum bind error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -189,36 +258,38 @@ func (cc *CurriculumController) UpdateCurriculum(c *gin.Context) {
 		return
 	}
 
+	// อัปเดตฟิลด์อื่นๆ
 	cur.Code = payload.Code
 	cur.Name = payload.Name
 	cur.Description = payload.Description
 	cur.Link = payload.Link
 	cur.GPAXMin = payload.GPAXMin
 	cur.PortfolioMaxPages = payload.PortfolioMaxPages
-	cur.Status = payload.Status
 	cur.FacultyID = payload.FacultyID
 	cur.ProgramID = payload.ProgramID
 	cur.UserID = payload.UserID
-	cur.ApplicationPeriod = payload.ApplicationPeriod
 	cur.Quota = payload.Quota
+	
+	// อัปเดตช่วงเวลา
+	cur.ApplicationPeriod = payload.ApplicationPeriod
+
+	// ✅ คำนวณสถานะใหม่ทันที แล้วบันทึกลง DB
+	// เพื่อให้ Query ฝั่งนักเรียน (ที่ Filter status='open') มองเห็นรายการนี้ทันที
+	cur.Status = getCalculatedStatus(payload.ApplicationPeriod)
 
 	if err := cc.db.Save(&cur).Error; err != nil {
-		log.Printf("UpdateCurriculum DB error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"data": cur})
 }
 
 func (cc *CurriculumController) DeleteCurriculum(c *gin.Context) {
 	id := c.Param("id")
-
 	if err := cc.db.Delete(&entity.Curriculum{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"data": true})
 }
 
@@ -247,7 +318,6 @@ func (cc *CurriculumController) GetCurriculumSummary(c *gin.Context) {
 	cc.db.Model(&entity.Education{}).Count(&totalStudents)
 
 	var stats []ProgramStat
-	// ✅ แก้ไขชื่อตาราง Join ในส่วน Summary ด้วยครับ
 	cc.db.Table("educations").
 		Joins("JOIN curriculums ON educations.curriculum_id = curriculums.id").
 		Joins("JOIN programs ON curriculums.program_id = programs.id").
@@ -263,4 +333,81 @@ func (cc *CurriculumController) GetCurriculumSummary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": resp})
+}
+// -------------------- HELPER ใหม่ (Return String) --------------------
+
+// getCalculatedStatus: คำนวณสถานะแล้วคืนค่าเป็น string เพื่อเอาไปบันทึก
+func getCalculatedStatus(period string) string {
+	if period == "" { return "closed" }
+	
+	parts := strings.Split(period, "|")
+	if len(parts) < 2 { return "closed" }
+
+	layout1 := "2006-01-02T15:04"
+	layout2 := "2006-01-02T15:04:05"
+
+	startStr := strings.TrimSpace(parts[0])
+	endStr := strings.TrimSpace(parts[1])
+
+	start, err1 := time.ParseInLocation(layout1, startStr, time.Local)
+	if err1 != nil { start, err1 = time.ParseInLocation(layout2, startStr, time.Local) }
+
+	end, err2 := time.ParseInLocation(layout1, endStr, time.Local)
+	if err2 != nil { end, err2 = time.ParseInLocation(layout2, endStr, time.Local) }
+
+	if err1 != nil || err2 != nil { return "closed" }
+
+	now := time.Now()
+
+	if now.Before(start) {
+		return "opening" // ยังไม่ถึงเวลา
+	} else if now.After(end) {
+		return "closed"  // หมดเวลา
+	} else {
+		return "open"    // เปิดอยู่
+	}
+}
+// Struct สำหรับรับผลลัพธ์ Query
+type StatResult struct {
+	Name      string `json:"name"`
+	Value     int    `json:"value"`
+	GroupName string `json:"group_name,omitempty"` // ใช้เก็บชื่อสำนักวิชา (กรณีเป็นสาขา)
+}
+
+// GET /admin/curricula/stats
+func (cc *CurriculumController) GetSelectionStats(c *gin.Context) {
+	var facultyStats []StatResult
+	var programStats []StatResult
+
+	// 1. สถิติแยกตามสำนักวิชา (Faculty)
+	// นับจำนวน Selection Group ตามชื่อสำนักวิชา
+	if err := cc.db.Table("selections").
+		Joins("JOIN curriculums ON selections.curriculum_id = curriculums.id").
+		Joins("JOIN faculties ON curriculums.faculty_id = faculties.id").
+		Select("faculties.name as name, count(selections.id) as value").
+		Group("faculties.name").
+		Order("value desc"). // เรียงจากมากไปน้อย
+		Scan(&facultyStats).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 2. สถิติแยกตามสาขาวิชา (Program) โดยมีชื่อสำนักวิชากำกับ (GroupName)
+	// เพื่อเอาไว้ Filter ตอน Drill-down
+	if err := cc.db.Table("selections").
+		Joins("JOIN curriculums ON selections.curriculum_id = curriculums.id").
+		Joins("JOIN programs ON curriculums.program_id = programs.id").
+		Joins("JOIN faculties ON curriculums.faculty_id = faculties.id").
+		Select("programs.name as name, count(selections.id) as value, faculties.name as group_name").
+		Group("programs.name, faculties.name").
+		Order("value desc").
+		Scan(&programStats).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"faculty_stats": facultyStats,
+		"program_stats": programStats,
+	})
 }

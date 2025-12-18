@@ -17,10 +17,21 @@ export interface ProfileUser {
 export interface ProfileEducation {
   id?: number;
   education_level_id?: number;
+  school_id?: number;
+  school_type_id?: number;
   curriculum_type_id?: number;
   curriculum_id?: number;
   is_project_based?: boolean;
+  school_name?: string;
+  school_type_name?: string;
   education_level?: { id: number; name: string };
+  school?: {
+    id: number;
+    name: string;
+    school_type?: { id: number; name: string };
+    is_project_based?: boolean;
+  };
+  school_type?: { id: number; name: string };
   curriculum_type?: { id: number; name: string };
 }
 
@@ -73,6 +84,13 @@ export interface StudentProfile {
   btd_test_scores: BTDTestScore[];
   options: {
     education_levels: { id: number; name: string }[];
+    schools?: {
+      id: number;
+      name: string;
+      school_type?: { id: number; name: string };
+      is_project_based?: boolean;
+    }[];
+    school_types?: { id: number; name: string }[];
     curriculum_types: { id: number; name: string }[];
   };
 }
@@ -90,6 +108,10 @@ export interface UpdateStudentProfilePayload {
   education?: {
     education_level_id?: number;
     education_level_name?: string;
+    school_id?: number;
+    school_name?: string;
+    school_type_id?: number;
+    school_type_name?: string;
     curriculum_type_id?: number;
     curriculum_type_name?: string;
     curriculum_id?: number;
@@ -112,7 +134,8 @@ function authHeaders() {
 }
 
 async function uploadFile(file: File): Promise<string> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const formData = new FormData();
   formData.append("file", file);
   const res = await fetch(`${API_URL}/upload`, {
@@ -135,9 +158,13 @@ function normalizeEducation(raw: any): ProfileEducation | undefined {
   return {
     id: raw.id ?? raw.ID,
     education_level_id: raw.education_level_id ?? raw.EducationLevelID,
+    school_id: raw.school_id ?? raw.SchoolID,
+    school_type_id: raw.school_type_id ?? raw.SchoolTypeID,
     curriculum_type_id: raw.curriculum_type_id ?? raw.CurriculumTypeID,
     curriculum_id: raw.curriculum_id ?? raw.CurriculumID,
     is_project_based: raw.is_project_based ?? raw.IsProjectBased,
+    school_name: raw.school_name ?? raw.SchoolName,
+    school_type_name: raw.school_type_name ?? raw.SchoolTypeName,
     education_level: raw.education_level
       ? {
           id:
@@ -148,6 +175,37 @@ function normalizeEducation(raw: any): ProfileEducation | undefined {
             raw.education_level.name ??
             raw.education_level.Name ??
             raw.EducationLevel?.Name,
+        }
+      : undefined,
+    school: raw.school
+      ? {
+          id: raw.school.id ?? raw.school.ID ?? raw.School?.ID,
+          name: raw.school.name ?? raw.school.Name ?? raw.School?.Name,
+          school_type: raw.school.school_type
+            ? {
+                id:
+                  raw.school.school_type.id ??
+                  raw.school.school_type.ID ??
+                  raw.school.SchoolType?.ID,
+                name:
+                  raw.school.school_type.name ??
+                  raw.school.school_type.Name ??
+                  raw.school.SchoolType?.Name,
+              }
+            : undefined,
+          is_project_based:
+            raw.school.is_project_based ??
+            raw.school.IsProjectBased ??
+            raw.School?.IsProjectBased,
+        }
+      : undefined,
+    school_type: raw.school_type
+      ? {
+          id: raw.school_type.id ?? raw.school_type.ID ?? raw.SchoolType?.ID,
+          name:
+            raw.school_type.name ??
+            raw.school_type.Name ??
+            raw.SchoolType?.Name,
         }
       : undefined,
     curriculum_type: raw.curriculum_type
@@ -168,11 +226,30 @@ function normalizeEducation(raw: any): ProfileEducation | undefined {
 function normalizeOptions(raw: any) {
   const levels = raw?.education_levels || raw?.EducationLevels || [];
   const types = raw?.curriculum_types || raw?.CurriculumTypes || [];
+  const schools = raw?.schools || raw?.Schools || [];
+  const schoolTypes = raw?.school_types || raw?.SchoolTypes || [];
 
   return {
     education_levels: levels.map((l: any) => ({
       id: l.id ?? l.ID,
       name: l.name ?? l.Name,
+    })),
+    schools: schools.map((s: any) => ({
+      id: s.id ?? s.ID,
+      name: s.name ?? s.Name,
+      school_type: s.school_type
+        ? {
+            id: s.school_type.id ?? s.school_type.ID ?? s.SchoolType?.ID,
+            name:
+              s.school_type.name ?? s.school_type.Name ?? s.SchoolType?.Name,
+          }
+        : undefined,
+      is_project_based:
+        s.is_project_based ?? s.IsProjectBased ?? s.isProjectBased,
+    })),
+    school_types: schoolTypes.map((t: any) => ({
+      id: t.id ?? t.ID,
+      name: t.name ?? t.Name,
     })),
     curriculum_types: types.map((t: any) => ({
       id: t.id ?? t.ID,
@@ -223,10 +300,10 @@ function normalizeProfile(raw: any): StudentProfile {
     ged_score: raw.ged_score || raw.GEDScore || undefined,
     academic_score: raw.academic_score || raw.AcademicScore || undefined,
     language_scores: (raw.language_scores || raw.LanguageScores || []).map(
-      normalizeLanguage
+      normalizeLanguage,
     ),
     btd_test_scores: (raw.btd_test_scores || raw.BTDTestScores || []).map(
-      normalizeBTD
+      normalizeBTD,
     ),
     options: normalizeOptions(raw.options || raw.Options || {}),
   };
@@ -248,7 +325,7 @@ export async function getStudentProfile(): Promise<StudentProfile> {
 }
 
 export async function updateStudentProfile(
-  payload: UpdateStudentProfilePayload
+  payload: UpdateStudentProfilePayload,
 ): Promise<StudentProfile> {
   const res = await fetch(`${API_URL}/students/me/profile`, {
     method: "PUT",

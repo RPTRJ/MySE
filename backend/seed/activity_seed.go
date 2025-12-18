@@ -15,6 +15,17 @@ func SeedActivities() {
 
 func SeedLevelActivities() {
 	db := config.GetDB()
+
+	var count int64
+	if err := db.Model(&entity.LevelActivity{}).Count(&count).Error; err != nil {
+		log.Println("count level_activities error:", err)
+		return
+	}
+	if count > 0 {
+		log.Println("level_activities already seeded")
+		return
+	}
+
 	levels := []string{
 		"ระดับเขต",
 		"ระดับอำเภอ",
@@ -39,6 +50,17 @@ func SeedLevelActivities() {
 
 func SeedRewards() {
 	db := config.GetDB()
+
+	var count int64
+	if err := db.Model(&entity.Reward{}).Count(&count).Error; err != nil {
+		log.Println("count rewards error:", err)
+		return
+	}
+	if count > 0 {
+		log.Println("rewards already seeded")
+		return
+	}
+
 	rewards := []string{
 		"รางวัลเข้าร่วม",
 		"รางวัลชมเชย",
@@ -64,6 +86,17 @@ func SeedRewards() {
 
 func SeedTypeActivities() {
 	db := config.GetDB()
+
+	var count int64
+	if err := db.Model(&entity.TypeActivity{}).Count(&count).Error; err != nil {
+		log.Println("count type_activities error:", err)
+		return
+	}
+	if count > 0 {
+		log.Println("type_activities already seeded")
+		return
+	}
+
 	types := []string{
 		"ค่ายวิชาการ",
 		"ศิลปะหัตถกรรม",

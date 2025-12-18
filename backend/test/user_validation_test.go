@@ -43,13 +43,29 @@ func TestUserValidationEnglishOnlySuccess(t *testing.T) {
 	g.Expect(err).To(BeNil())
 }
 
-func TestUserValidationMissingNames(t *testing.T) {
+func TestUserValidationAllowsMissingNamesBeforeOnboarding(t *testing.T) {
 	g := NewWithT(t)
 	user := validUser()
 	user.FirstNameTH = ""
 	user.LastNameTH = ""
 	user.FirstNameEN = ""
 	user.LastNameEN = ""
+	user.PDPAConsent = false
+	user.ProfileCompleted = false
+
+	err := user.Validate()
+
+	g.Expect(err).To(BeNil())
+}
+
+func TestUserValidationMissingNamesAfterCompletionFails(t *testing.T) {
+	g := NewWithT(t)
+	user := validUser()
+	user.FirstNameTH = ""
+	user.LastNameTH = ""
+	user.FirstNameEN = ""
+	user.LastNameEN = ""
+	user.ProfileCompleted = true
 
 	err := user.Validate()
 
