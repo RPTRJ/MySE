@@ -42,8 +42,13 @@ export default function Sidebar({ userRole }: SidebarProps) {
         {menuItems.map((item) => {
           // Logic ตรวจสอบสิทธิ์ยังคงอยู่ที่นี่ (หรือย้ายไปเป็น Utility function ก็ได้)
           if (!item.roles.includes(currentRole)) return null;
+          //path home ของแต่ละ role
+          const roleHomePaths = ["/admin", "/teacher", "/student"];
+          // const isActive = pathname === item.href;
+          const isActive = roleHomePaths.includes(item.href)
+          ? pathname === item.href // ถ้าเป็นหน้าหลักของ Role ใดๆ ต้องตรงกันเป๊ะๆ
+          : pathname.startsWith(item.href); // ถ้าเป็นเมนูอื่นๆ ให้เช็คแบบเริ่มต้นด้วย (Sub-path)
 
-          const isActive = pathname === item.href;
 
           return (
             <Link

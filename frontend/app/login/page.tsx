@@ -9,7 +9,6 @@ import {
 } from "@/services/auth";
 import { Lock, Mail, ArrowRight, Loader2, Phone, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion
-import toast from "react-hot-toast";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -54,29 +53,23 @@ export default function AuthPage() {
       const needsOnboarding = !user?.profile_completed || !user?.pdpa_consent;
 
       if (user.type_id === 1) {
-        toast.success("ล็อกอินสำเร็จ");
         if (needsOnboarding) {
           router.push("/student/onboarding");
         } else {
           router.push("/student");
         }
       } else if (user.type_id === 2) {
-        toast.success("ล็อกอินสำเร็จ");
         router.push("/teacher");
       } else if (user.type_id === 3) {
-        toast.success("ล็อกอินสำเร็จ");
         router.push("/admin");
       } else {
         setError("ไม่พบสิทธิ์การใช้งาน");
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        toast.error("ไม่พบสิทธิ์การใช้งาน");
       }
 
     } catch (err: any) {
-      const message = err.message || "เข้าสู่ระบบไม่สำเร็จ";
-      setError(message);
-      toast.error(message);
+      setError(err.message || "เข้าสู่ระบบไม่สำเร็จ");
     } finally {
       setIsLoading(false);
     }
@@ -119,9 +112,7 @@ export default function AuthPage() {
       setConfirmPassword("");
 
     } catch (err: any) {
-      const message = err.message || "สมัครสมาชิกไม่สำเร็จ";
-      setError(message);
-      toast.error(message);
+      setError(err.message || "สมัครสมาชิกไม่สำเร็จ");
     } finally {
       setIsLoading(false);
     }

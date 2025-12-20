@@ -20,3 +20,21 @@ export async function fetchTemplateById(templateId: number) {
     return response.json();
 }
 
+// Create a new template
+export async function createTemplate(templateData: any) {
+    const token = localStorage.getItem("token");
+    const response = await fetch(`${API}/templates`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(templateData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create template");
+    }
+    return response.json();
+}
+

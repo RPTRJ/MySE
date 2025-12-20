@@ -7,8 +7,8 @@ import (
 
 	"github.com/sut68/team14/backend/entity"
 	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 var db *gorm.DB
@@ -48,6 +48,9 @@ func SetupDatabase() {
 		&entity.SchoolType{},
 		&entity.School{},
 		&entity.CurriculumType{},
+		&entity.AcademicScore{},
+		&entity.GEDScore{},
+		&entity.LanguageProficiencyScore{},
 		&entity.Activity{},
 		&entity.ActivityDetail{},
 		&entity.ActivityImage{},
@@ -66,6 +69,8 @@ func SetupDatabase() {
 		&entity.Portfolio{},
 		&entity.PortfolioSection{},
 		&entity.PortfolioBlock{},
+		&entity.PortfolioWork{},
+		&entity.PortfolioActivity{},
 		&entity.PortfolioSubmission{},
 		&entity.Feedback{},
 		&entity.Scorecard{},
@@ -80,6 +85,7 @@ func SetupDatabase() {
 		&entity.Faculty{},
 		&entity.Program{},
 		&entity.Curriculum{},
+		&entity.DocumentType{},
 		&entity.CurriculumRequiredDocument{},
 		&entity.CurriculumSkill{},
 		&entity.Skill{},
@@ -87,10 +93,6 @@ func SetupDatabase() {
 		&entity.TemplateSectionLink{},
 		&entity.Event{},
 		&entity.Selection{},
-		&entity.GEDScore{},
-		&entity.AcademicScore{},
-		&entity.LanguageProficiencyScore{},
-		&entity.STDTestScore{},
 	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

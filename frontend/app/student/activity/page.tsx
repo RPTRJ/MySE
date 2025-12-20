@@ -138,8 +138,12 @@ export default function ActivityUI() {
       resetForm();
       loadAll();
     } catch (error) {
-      console.error(error);
-      alert("Error updating activity");
+      if (error instanceof Error && error.message.includes("duplicated")) {
+        alert("ชื่อกิจกรรมนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+      } else {
+        // console.error(error);
+        alert(error instanceof Error ? error.message : "Error updating activity");
+      }
     }
   };
 
@@ -177,8 +181,12 @@ export default function ActivityUI() {
       setActiveTab("list");
       loadAll();
     } catch (error) {
-      console.error(error);
-      alert("Error creating activity");
+      if (error instanceof Error && error.message.includes("duplicated")) {
+        alert("ชื่อกิจกรรมนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+      } else {
+        // console.error(error);
+        alert(error instanceof Error ? error.message : "Error creating activity");
+      }
     }
   };
 
@@ -410,6 +418,7 @@ export default function ActivityUI() {
                   className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl focus:border-orange-500 outline-none transition-colors"
                   placeholder="เช่น แข่งขันหุ่นยนต์"
                   value={name}
+                  maxLength={50}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
@@ -491,6 +500,7 @@ export default function ActivityUI() {
                 rows={4}
                 placeholder="รายละเอียดสิ่งทีทำ..."
                 value={description}
+                maxLength={200}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
@@ -689,6 +699,7 @@ export default function ActivityUI() {
                       className="w-full px-4 py-3 border-2 border-neutral-200 rounded-xl focus:border-orange-500 outline-none transition-colors"
                       placeholder="เช่น แข่งขันหุ่นยนต์"
                       value={name}
+                      maxLength={50}
                       onChange={(e) => setName(e.target.value)}
                     />
                   </div>
@@ -770,6 +781,7 @@ export default function ActivityUI() {
                     rows={4}
                     placeholder="รายละเอียดสิ่งทีทำ..."
                     value={description}
+                    maxLength={200}
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>

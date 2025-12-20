@@ -24,4 +24,6 @@ type Portfolio struct {
 
 	// one to many
 	PortfolioSections []PortfolioSection `gorm:"foreignKey:PortfolioID" json:"portfolio_sections"`
+	PortfolioWorks    []PortfolioWork    `gorm:"foreignKey:PortfolioID" json:"portfolio_works"`
+	
 }

@@ -4,8 +4,10 @@ import "gorm.io/gorm"
 
 type AcademicScore struct {
 	gorm.Model
-	UserID             uint    `json:"user_id"`
-	User               *User   `gorm:"foreignKey:UserID" json:"user"`
+
+	UserID uint  `json:"user_id" gorm:"uniqueIndex;not null"`
+	User   *User `gorm:"foreignKey:UserID" json:"user"`
+
 	GPAX               float64 `json:"gpax"`
 	GPAXSemesters      int     `json:"gpax_semesters"`
 	GPAMath            float64 `json:"gpa_math"`

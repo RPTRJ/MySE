@@ -1,370 +1,487 @@
+// // "use client";
+
+// // import { useEffect, useState } from "react";
+
+// // export default function SectionsPage() {
+// //   const [sections, setSections] = useState<any[]>([]);
+// //   const [selectedSection, setSelectedSection] = useState<any>(null);
+// //   const [loading, setLoading] = useState(true);
+
+// //   useEffect(() => {
+// //     console.log("Fetching sections...");
+// //     fetch("http://localhost:8080/template_sections")
+// //       .then((res) => res.json())
+// //       .then((data) => {
+// //         console.log("Fetched sections:", data);
+// //         setSections(data);
+// //         setLoading(false);
+// //       })
+// //       .catch((err) => {
+// //         console.error("Error:", err);
+// //         setLoading(false);
+// //       });
+// //   }, []);
+
+// //   if (loading) return <div className="p-6">กำลังโหลด...</div>;
+
+// //   return (
+// //     <div className="p-6">
+// //       <div className="flex w-full items-center justify-between p-3 mb-6">
+// //         <h1 className="text-2xl font-bold">Section Templates</h1>
+// //         <button
+// //           type="button"
+// //           className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+// //         >
+// //           สร้าง Section ใหม่
+// //         </button>
+// //       </div>
+
+// //       {/* Grid แสดง sections */}
+// //       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+// //         {sections.map((section) => (
+// //           <div
+// //             key={section.ID}
+// //             className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+// //             onClick={() => setSelectedSection(section)}
+// //           >
+// //             {/* Header ของ card */}
+// //             <div className="p-4 border-b">
+// //               <h3 className="text-lg font-semibold text-gray-800">
+// //                 {section.section_name}
+// //               </h3>
+// //               <p className="text-sm text-gray-500 mt-1">
+// //                 Type: {section.section_type}
+// //               </p>
+// //               <p className="text-xs text-gray-400 mt-1">
+// //                 {section.SectionBlocks?.length || 0} blocks
+// //               </p>
+// //             </div>
+
+// //             {/* Preview แบบย่อ */}
+// //             <div className="p-4 bg-gray-50">
+// //               <div className="space-y-2">
+// //                 {section.SectionBlocks?.slice(0, 3).map((sb: any, index: number) => (
+// //                   <div
+// //                     key={sb.ID}
+// //                     className="h-12 bg-white border rounded flex items-center justify-center text-xs text-gray-500"
+// //                   >
+// //                     {sb.TemplatesBlock?.block_name || `Block ${index + 1}`}
+// //                   </div>
+// //                 ))}
+// //                 {(section.SectionBlocks?.length || 0) > 3 && (
+// //                   <div className="text-center text-xs text-gray-400">
+// //                     +{section.SectionBlocks.length - 3} more blocks
+// //                   </div>
+// //                 )}
+// //               </div>
+// //             </div>
+
+// //             {/* Footer */}
+// //             <div className="p-4 border-t flex justify-end gap-2">
+// //               <button
+// //                 onClick={(e) => {
+// //                   e.stopPropagation();
+// //                   setSelectedSection(section);
+// //                 }}
+// //                 className="text-sm text-blue-600 hover:text-blue-800"
+// //               >
+// //                 ดูรายละเอียด
+// //               </button>
+// //             </div>
+// //           </div>
+// //         ))}
+// //       </div>
+
+// //       {/* Empty state */}
+// //       {sections.length === 0 && (
+// //         <div className="text-center py-12 text-gray-400">
+// //           <p className="text-lg">ยังไม่มี Section Template</p>
+// //           <p className="text-sm mt-2">กดปุ่มด้านบนเพื่อสร้างใหม่</p>
+// //         </div>
+// //       )}
+
+// //       {/* Modal แสดงรายละเอียด Section */}
+// //       {selectedSection && (
+// //         <div
+// //           className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+// //           onClick={() => setSelectedSection(null)}
+// //         >
+// //           <div
+// //             className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+// //             onClick={(e) => e.stopPropagation()}
+// //           >
+// //             {/* Header */}
+// //             <div className="p-6 border-b flex justify-between items-start">
+// //               <div>
+// //                 <h2 className="text-2xl font-bold text-gray-800">
+// //                   {selectedSection.section_name}
+// //                 </h2>
+// //                 <p className="text-sm text-gray-500 mt-1">
+// //                   Type: {selectedSection.section_type} | ID: {selectedSection.ID}
+// //                 </p>
+// //               </div>
+// //               <button
+// //                 onClick={() => setSelectedSection(null)}
+// //                 className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+// //               >
+// //                 ×
+// //               </button>
+// //             </div>
+
+// //             {/* Content - Scrollable */}
+// //             <div className="flex-1 overflow-y-auto p-6">
+// //               <h3 className="text-lg font-semibold mb-4">
+// //                 Blocks ใน Section ({selectedSection.SectionBlocks?.length || 0})
+// //               </h3>
+
+// //               <div className="space-y-4">
+// //                 {selectedSection.SectionBlocks?.map((sb: any, index: number) => (
+// //                   <div
+// //                     key={sb.ID}
+// //                     className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition"
+// //                   >
+// //                     {/* Block Header */}
+// //                     <div className="flex justify-between items-start mb-3">
+// //                       <div>
+// //                         <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+// //                           Position {sb.order_index}
+// //                         </span>
+// //                         <h4 className="text-md font-semibold mt-2">
+// //                           {sb.TemplatesBlock?.block_name || "Unnamed Block"}
+// //                         </h4>
+// //                         <p className="text-sm text-gray-600">
+// //                           Type: {sb.TemplatesBlock?.block_type || "unknown"}
+// //                         </p>
+// //                       </div>
+// //                       <span className="text-xs text-gray-400">
+// //                         Block ID: {sb.TemplatesBlock?.ID}
+// //                       </span>
+// //                     </div>
+
+// //                     {/* Block Preview */}
+// //                     {sb.TemplatesBlock?.default_style && (
+// //                       <div
+// //                         style={{
+// //                           width: sb.TemplatesBlock.default_style.width || "100%",
+// //                           height: sb.TemplatesBlock.default_style.height || "100px",
+// //                           backgroundColor:sb.TemplatesBlock.default_style.background_color || "#f3f4f6",
+// //                           border: sb.TemplatesBlock.default_style.border || "1px solid #e5e7eb",
+// //                           borderRadius: sb.TemplatesBlock.default_style.border_radius || "4px",
+// //                           padding: sb.TemplatesBlock.default_style.padding || "16px",
+// //                         }}
+// //                         className="flex items-center justify-center text-gray-400 text-sm"
+// //                       >
+// //                         {sb.TemplatesBlock?.block_name} Preview
+// //                       </div>
+// //                     )}
+// //                   </div>
+// //                 ))}
+
+// //                 {(!selectedSection.SectionBlocks || selectedSection.SectionBlocks.length === 0) && (
+// //                   <div className="text-center py-8 text-gray-400">
+// //                     Section นี้ยังไม่มี blocks
+// //                   </div>
+// //                 )}
+// //               </div>
+// //             </div>
+
+// //             {/* Footer */}
+// //             <div className="p-6 border-t flex justify-end gap-3">
+// //               <button
+// //                 onClick={() => setSelectedSection(null)}
+// //                 className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+// //               >
+// //                 ปิด
+// //               </button>
+// //               <button className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">
+// //                 ใช้ Section นี้
+// //               </button>
+// //               <button className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+// //                 แก้ไข Section
+// //               </button>
+// //             </div>
+// //           </div>
+// //         </div>
+// //       )}
+// //     </div>
+// //   );
+// // }
+
+
+// "use client";
+
+// import { useEffect, useState } from "react";
+// import { fetchSections } from "@/services/sections";
+
+// export default function SectionsPage() {
+//   const [sections, setSections] = useState<any[]>([]);
+//   const [selectedSection, setSelectedSection] = useState<any>(null);
+//   const [loading, setLoading] = useState(true);
+
+//   const loadAll = async () => {
+//     try {
+//       const data = await fetchSections();
+//       console.log("Fetched sections:", data);
+//       setSections(data);
+//     } catch (err) {
+//       console.error("Error:", err);
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
+
+      
+//   useEffect(() => {
+//     // fetch("http://localhost:8080/template_sections")
+//     //   .then((res) => res.json())
+//     //   .then((data) => {
+//     //     console.log("Sections data:", data);
+//     //     setSections(data);
+//     //     setLoading(false);
+//     //   })
+//     //   .catch((err) => {
+//     //     console.error("Error:", err);
+//     //     setLoading(false);
+//     //   });
+//     loadAll();
+  
+//   }, []);
+
+//   if (loading) return <div className="p-6">กำลังโหลด...</div>;
+
+//   return (
+//     <div className="p-6">
+//       <div className="flex w-full items-center justify-between p-3 mb-6">
+//         <h1 className="text-2xl font-bold">Section Templates</h1>
+//         <button className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+//           สร้าง Section ใหม่
+//         </button>
+//       </div>
+
+//       {/* Grid แสดง sections */}
+//       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//         {sections.map((section) => (
+//           <div
+//             key={section.ID}
+//             className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+//             onClick={() => setSelectedSection(section)}
+//           >
+//             {/* Header ของ card */}
+//             <div className="p-4 border-b">
+//               <h3 className="text-lg font-semibold text-gray-800">
+//                 {section.section_name}
+//               </h3>
+//               <p className="text-sm text-gray-500 mt-1">
+//                 {section.section_blocks?.length || 0} blocks
+//               </p>
+//             </div>
+
+//             {/* Preview blocks ย่อ */}
+//             <div className="p-4 bg-gray-50">
+//               <div className="space-y-2">
+//                 {section.section_blocks?.slice(0, 3).map((sb: any, index: number) => (
+//                   <div
+//                     key={sb.ID}
+//                     className="h-12 bg-white border rounded flex items-center justify-center text-xs text-gray-500"
+//                   >
+//                     {sb.templates_block?.block_name || `Block ${index + 1}`}
+//                   </div>
+//                 ))}
+//                 {(section.section_blocks?.length || 0) > 3 && (
+//                   <div className="text-center text-xs text-gray-400">
+//                     +{section.section_blocks.length - 3} more blocks
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+
+//             {/* Footer */}
+//             <div className="p-4 border-t flex justify-end">
+//               <button
+//                 onClick={(e) => {
+//                   e.stopPropagation();
+//                   setSelectedSection(section);
+//                 }}
+//                 className="text-sm text-blue-600 hover:text-blue-800"
+//               >
+//                 ดูรายละเอียด
+//               </button>
+//             </div>
+//           </div>
+//         ))}
+//       </div>
+
+//       {/* Empty state */}
+//       {sections.length === 0 && (
+//         <div className="text-center py-12 text-gray-400">
+//           <p className="text-lg">ยังไม่มี Section Template</p>
+//         </div>
+//       )}
+
+//       {/* Modal แสดงรายละเอียด Section */}
+//       {selectedSection && (
+//         <div
+//           className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+//           onClick={() => setSelectedSection(null)}
+//         >
+//           <div
+//             className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+//             onClick={(e) => e.stopPropagation()}
+//           >
+//             {/* Header */}
+//             <div className="p-6 border-b flex justify-between items-start">
+//               <div>
+//                 <h2 className="text-2xl font-bold text-gray-800">
+//                   {selectedSection.section_name}
+//                 </h2>
+//                 <p className="text-sm text-gray-500 mt-1">
+//                   ID: {selectedSection.ID} | {selectedSection.section_blocks?.length || 0} blocks
+//                 </p>
+//               </div>
+//               <button
+//                 onClick={() => setSelectedSection(null)}
+//                 className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+//               >
+//                 ×
+//               </button>
+//             </div>
+
+//             {/* Content - Scrollable */}
+//             <div className="flex-1 overflow-y-auto p-6">
+//               <h3 className="text-lg font-semibold mb-4">
+//                 Blocks ใน Section นี้
+//               </h3>
+
+//               <div className="space-y-4">
+//                 {selectedSection.section_blocks?.map((sb: any, index: number) => {
+//                   const block = sb.templates_block;
+//                   const style = block?.default_style || {};
+
+//                   return (
+//                     <div
+//                       key={sb.ID}
+//                       className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition"
+//                     >
+//                       {/* Block Header */}
+//                       <div className="flex justify-between items-start mb-3">
+//                         <div>
+//                           <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+//                             Position {sb.order_index}
+//                           </span>
+//                           <h4 className="text-md font-semibold mt-2">
+//                             {block?.block_name || "Unnamed Block"}
+//                           </h4>
+//                           <p className="text-sm text-gray-600">
+//                             Type: {block?.block_type || "unknown"}
+//                           </p>
+//                         </div>
+//                         <span className="text-xs text-gray-400">
+//                           Block ID: {block?.ID}
+//                         </span>
+//                       </div>
+
+//                       {/* Block Preview */}
+//                       <div className="mt-3">
+//                         <p className="text-xs text-gray-500 mb-2">Preview:</p>
+//                         <div
+//                           style={{
+//                             width: style.width || "100%",
+//                             height: style.height || "100px",
+//                             backgroundColor: style.background_color || "#f3f4f6",
+//                             border: style.border || "1px solid #e5e7eb",
+//                             borderRadius: style.border_radius || "4px",
+//                             padding: style.padding || "16px",
+//                             boxShadow: style.box_shadow || "none",
+//                             maxWidth: "100%",
+//                             margin: "0 auto",
+//                           }}
+//                           className="flex items-center justify-center text-gray-400 text-sm"
+//                         >
+//                           {block?.block_name}
+//                         </div>
+
+//                         {/* แสดง default_content ถ้ามี */}
+//                         {block?.default_content && (
+//                           <div className="mt-2 text-xs text-gray-600">
+//                             <p className="font-semibold">Default Content:</p>
+//                             <pre className="bg-gray-100 p-2 rounded mt-1 overflow-x-auto">
+//                               {JSON.stringify(block.default_content, null, 2)}
+//                             </pre>
+//                           </div>
+//                         )}
+//                       </div>
+//                     </div>
+//                   );
+//                 })}
+
+//                 {(!selectedSection.section_blocks || selectedSection.section_blocks.length === 0) && (
+//                   <div className="text-center py-8 text-gray-400">
+//                     Section นี้ยังไม่มี blocks
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+
+//             {/* Footer */}
+//             <div className="p-6 border-t flex justify-end gap-3">
+//               <button
+//                 onClick={() => setSelectedSection(null)}
+//                 className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+//               >
+//                 ปิด
+//               </button>
+//               <button className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">
+//                 ใช้ Section นี้
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+//test code v2
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { Section } from "@/src/interfaces/section"; 
+import { fetchSections } from "@/services/sections";
 
-// Use actual API
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-async function fetchMyPortfolios() {
-  const response = await fetch(`${API}/portfolio/my`);
-  if (!response.ok) throw new Error("Failed to fetch portfolios");
-  return response.json();
-}
-
-async function fetchActivities() {
-  const response = await fetch(`${API}/portfolio/activities`);
-  if (!response.ok) throw new Error("Failed to fetch activities");
-  return response.json();
-}
-
-async function fetchWorkings() {
-  const response = await fetch(`${API}/portfolio/workings`);
-  if (!response.ok) throw new Error("Failed to fetch workings");
-  return response.json();
-}
-
-async function createSection(data: any) {
-  const response = await fetch(`${API}/portfolio/section`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error("Failed to create section");
-  return response.json();
-}
-
-async function updateSection(sectionId: number, data: any) {
-  const response = await fetch(`${API}/portfolio/section/${sectionId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error("Failed to update section");
-  return response.json();
-}
-
-async function createBlock(data: any) {
-  const response = await fetch(`${API}/portfolio/block`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error("Failed to create block");
-  return response.json();
-}
-
-async function updateBlock(blockId: number, data: any) {
-  const response = await fetch(`${API}/portfolio/block/${blockId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error("Failed to update block");
-  return response.json();
-}
-
-async function deleteBlock(blockId: number) {
-  const response = await fetch(`${API}/portfolio/block/${blockId}`, {
-    method: "DELETE",
-  });
-  if (!response.ok) throw new Error("Failed to delete block");
-  return response.json();
-}
-
-interface PortfolioSection {
-  ID: number;
-  section_title: string;
-  section_port_key: string;
-  section_blocks: any[];
-  portfolio_id: number;
-  order_index: number;
-  is_enabled: boolean;
-}
-
-function SectionsContent() {
-  const [sections, setSections] = useState<PortfolioSection[]>([]);
-  const [selectedSection, setSelectedSection] = useState<PortfolioSection | null>(null);
+export default function SectionsPage() {
+  const [sections, setSections] = useState<Section[]>([]);
+  const [selectedSection, setSelectedSection] = useState<Section | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentPortfolioID, setCurrentPortfolioID] = useState<number | null>(null);
-  const [currentTemplateID, setCurrentTemplateID] = useState<number | null>(null);
-
-  const [activities, setActivities] = useState<any[]>([]);
-  const [workings, setWorkings] = useState<any[]>([]);
-
-  const [isEditingItem, setIsEditingItem] = useState(false);
-  const [selectedDataType, setSelectedDataType] = useState<'activity' | 'working'>('activity');
-  const [selectedDataId, setSelectedDataId] = useState<string>("");
-  const [currentBlock, setCurrentBlock] = useState<any>(null);
-
-  const searchParams = useSearchParams();
-  const portfolioIdParam = searchParams.get("portfolio_id");
 
   const loadAll = async () => {
     try {
-      const [portfoliosComp, activitiesComp, workingsComp] = await Promise.all([
-        fetchMyPortfolios(),
-        fetchActivities(),
-        fetchWorkings()
-      ]);
-
-      const portfolios = portfoliosComp.data || [];
+     
+      const data = await fetchSections();
       
-      console.log("Activities loaded:", activitiesComp.data);
-      console.log("Workings loaded:", workingsComp.data);
+      console.log("🔍 API Response:", data);
       
-      setActivities(activitiesComp.data || []);
-      setWorkings(workingsComp.data || []);
-
-      let targetPortfolioID: number | null = null;
-      if (portfolioIdParam && !isNaN(Number(portfolioIdParam))) {
-        targetPortfolioID = Number(portfolioIdParam);
-      } else if (portfolios.length > 0) {
-        targetPortfolioID = portfolios[0].ID;
-      }
-
-      setCurrentPortfolioID(targetPortfolioID);
-
-      const targetPortfolio = portfolios.find((p: any) => p.ID === targetPortfolioID);
-
-      if (!targetPortfolio) {
-        console.warn("⚠️ Portfolio ID not found:", targetPortfolioID);
-        setSections([]);
-        setLoading(false);
-        return;
-      }
-
-      if (targetPortfolio.template_id) {
-        setCurrentTemplateID(targetPortfolio.template_id);
-      }
-
-      const allSections: PortfolioSection[] = [];
-      if (targetPortfolio.portfolio_sections) {
-        targetPortfolio.portfolio_sections.forEach((s: any) => {
-          console.log("Section blocks:", s.portfolio_blocks);
-          allSections.push({
-            ID: s.ID,
-            section_title: s.section_title || "Untitled Section",
-            section_port_key: s.section_port_key,
-            section_blocks: s.portfolio_blocks || [],
-            portfolio_id: targetPortfolio.ID,
-            order_index: s.section_order,
-            is_enabled: s.is_enabled !== undefined ? s.is_enabled : true,
-          });
-        });
-      }
-
-      allSections.sort((a, b) => a.order_index - b.order_index);
-      setSections(allSections);
+      // เรียง section_blocks ตาม order_index
+      const sortedData = data.map((section: Section) => ({
+        ...section,
+        section_blocks: section.section_blocks?.sort(
+        (a, b) => a.order_index - b.order_index
+        ) || [],
+      }));
+      
+      setSections(sortedData);
       setLoading(false);
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("Error:", err);
       setLoading(false);
     }
-  };
-
-  const handleCreateSection = async () => {
-    if (!currentPortfolioID) {
-      alert("ไม่พบ Portfolio กรุณาสร้าง Portfolio ก่อน (Use Template)");
-      return;
-    }
-    const name = prompt("ชื่อ Section ใหม่:");
-    if (!name) return;
-
-    try {
-      await createSection({
-        section_title: name,
-        section_port_key: name,
-        portfolio_id: currentPortfolioID,
-        section_order: sections.length + 1,
-        is_enabled: true
-      });
-      alert("สร้าง Section สำเร็จ!");
-      loadAll();
-    } catch (e) {
-      console.error(e);
-      alert("เกิดข้อผิดพลาดในการสร้าง Section");
-    }
-  };
-
-  const handleToggleSection = async (id: number, currentStatus: boolean) => {
-    try {
-      setSections(prev => prev.map(s => s.ID === id ? { ...s, is_enabled: !currentStatus } : s));
-      await updateSection(id, { is_enabled: !currentStatus });
-      alert(!currentStatus ? "เปิดใช้งาน Section แล้ว" : "ปิดการใช้งาน Section");
-    } catch (err) {
-      console.error("Failed to toggle section:", err);
-      setSections(prev => prev.map(s => s.ID === id ? { ...s, is_enabled: currentStatus } : s));
-      alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
-    }
-  };
-
-  const handleSaveItem = async () => {
-    if (!selectedSection || !selectedDataId) {
-      alert("กรุณาเลือกข้อมูลก่อน");
-      return;
-    }
-
-    try {
-      let dataItem: any = null;
-      let dataName = "";
-
-      if (selectedDataType === 'activity') {
-        dataItem = activities.find(a => a.ID.toString() === selectedDataId);
-        dataName = dataItem?.activity_name || "";
-        console.log("Selected activity:", dataItem);
-      } else {
-        dataItem = workings.find(w => w.ID.toString() === selectedDataId);
-        dataName = dataItem?.working_name || "";
-        console.log("Selected working:", dataItem);
-      }
-
-      if (!dataItem) {
-        alert("ไม่พบข้อมูลที่เลือก");
-        return;
-      }
-
-      const contentData = { 
-        title: dataName, 
-        type: selectedDataType,
-        data_id: parseInt(selectedDataId),
-        data: dataItem
-      };
-
-      console.log("Saving content:", contentData);
-
-      // ถ้ามี block อยู่แล้ว = แก้ไข, ถ้าไม่มี = สร้างใหม่
-      if (currentBlock) {
-        await updateBlock(currentBlock.ID, {
-          content: contentData
-        });
-        alert("แก้ไขข้อมูลสำเร็จ!");
-      } else {
-        await createBlock({
-          portfolio_section_id: selectedSection.ID,
-          block_order: 1,
-          content: contentData
-        });
-        alert("เพิ่มข้อมูลสำเร็จ!");
-      }
-
-      setIsEditingItem(false);
-      setSelectedDataId("");
-      setCurrentBlock(null);
-      await loadAll();
-
-      // Refresh selected section
-      const updatedSections = await fetchMyPortfolios();
-      const portfolio = updatedSections.data.find((p: any) => p.ID === currentPortfolioID);
-      const updatedSection = portfolio?.portfolio_sections.find((s: any) => s.ID === selectedSection.ID);
-      if (updatedSection) {
-        setSelectedSection({
-          ID: updatedSection.ID,
-          section_title: updatedSection.section_title,
-          section_port_key: updatedSection.section_port_key,
-          section_blocks: updatedSection.portfolio_blocks || [],
-          portfolio_id: portfolio.ID,
-          order_index: updatedSection.section_order,
-          is_enabled: updatedSection.is_enabled,
-        });
-      }
-    } catch (err) {
-      console.error("Save error:", err);
-      alert("เกิดข้อผิดพลาดในการบันทึก");
-    }
-  };
-
-  const handleDeleteBlock = async (blockId: number) => {
-    if (!confirm("ต้องการลบข้อมูลนี้?")) return;
-
-    try {
-      await deleteBlock(blockId);
-      alert("ลบข้อมูลสำเร็จ!");
-      await loadAll();
-
-      if (selectedSection) {
-        const updatedSections = await fetchMyPortfolios();
-        const portfolio = updatedSections.data.find((p: any) => p.ID === currentPortfolioID);
-        const updatedSection = portfolio?.portfolio_sections.find((s: any) => s.ID === selectedSection.ID);
-        if (updatedSection) {
-          setSelectedSection({
-            ID: updatedSection.ID,
-            section_title: updatedSection.section_title,
-            section_port_key: updatedSection.section_port_key,
-            section_blocks: updatedSection.portfolio_blocks || [],
-            portfolio_id: portfolio.ID,
-            order_index: updatedSection.section_order,
-            is_enabled: updatedSection.is_enabled,
-          });
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      alert("เกิดข้อผิดพลาดในการลบ");
-    }
-  };
-
-  const handleEditBlock = (block: any) => {
-    console.log("Editing block:", block);
-    const content = typeof block.content === 'string' ? JSON.parse(block.content) : block.content;
-    console.log("Block content:", content);
-    
-    setCurrentBlock(block);
-    setSelectedDataType(content.type || 'activity');
-    setSelectedDataId(content.data_id?.toString() || "");
-    setIsEditingItem(true);
-  };
-
-  const getBlockData = (section: PortfolioSection) => {
-    if (!section.section_blocks || section.section_blocks.length === 0) return null;
-    const block = section.section_blocks[0];
-    
-    // Parse content if it's a string
-    let content = block.content;
-    if (typeof content === 'string') {
-      try {
-        content = JSON.parse(content);
-      } catch (e) {
-        console.error("Failed to parse block content:", e);
-        return null;
-      }
-    }
-    
-    const data = content?.data || {};
-    console.log("Block data for section", section.ID, ":", { block, content, data });
-    
-    return { block, content, data };
-  };
-
-  const getImages = (blockData: any) => {
-    if (!blockData) return [];
-    const { content, data } = blockData;
-    
-    let images = [];
-    if (content?.type === 'activity') {
-      // ลำดับความสำคัญ: ActivityDetail (Preload) > activity_detail (JSON)
-      images = data?.ActivityDetail?.Images || 
-               data?.ActivityDetail?.images || 
-               data?.activity_detail?.Images ||
-               data?.activity_detail?.images || 
-               [];
-    } else {
-      // ลำดับความสำคัญ: WorkingDetail (Preload) > working_detail (JSON)
-      images = data?.WorkingDetail?.Images || 
-               data?.WorkingDetail?.images || 
-               data?.working_detail?.Images ||
-               data?.working_detail?.images || 
-               [];
-    }
-    
-    console.log("Images for block (type: " + content?.type + "):", images);
-    return images;
   };
 
   useEffect(() => {
     loadAll();
-  }, [portfolioIdParam]);
+  }, []);
 
   if (loading) {
     return (
@@ -375,451 +492,320 @@ function SectionsContent() {
   }
 
   return (
-    <>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header - Original Design */}
-        <div className="sticky top-0 bg-white shadow-md z-40">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-8">
-                <div className="hidden md:flex items-center gap-6">
-                  <Link href="/admin/template" className="text-gray-600 hover:text-gray-900 transition pb-1">
-                    Templates
-                  </Link>
-                  <Link href="/admin/template/section" className="text-blue-600 font-medium hover:text-blue-700 transition border-b-2 border-blue-600 pb-1">
-                    Sections
-                  </Link>
-                </div>
+    <div className="min-h-screen bg-white-50">
+      {/* Navbar */}
+      <div className="sticky top-0 bg-white shadow-md z-40">
+        <div className="max-w-7xl px-6">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-8">
+
+              <div className="hidden md:flex items-center gap-6">
+                <Link href="/admin/template" className="text-gray-600 hover:text-gray-900 transition pb-1">
+                  Templates
+                </Link>
+                <Link href="/admin/template/section" className="text-orange-600 font-medium hover:text-orange-500 transition border-b-2 border-orange-500 pb-1">
+                  Sections
+                </Link>
               </div>
             </div>
+
           </div>
         </div>
+      </div>
 
-        <div className="max-w-7xl mx-auto p-6">
-          {/* Page Header - Original Design */}
-          <div className="flex items-center justify-between mb-8 mt-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Portfolio Sections</h1>
-              <p className="text-gray-600 mt-2">
-                จัดการ Sections {currentPortfolioID ? `(Portfolio ID: ${currentPortfolioID}` : ""}
-                {currentTemplateID ? `, Template ID: ${currentTemplateID})` : ")"}
-              </p>
-              <p className="text-sm text-amber-600 mt-1">
-                💡 เปิด/ปิด Sections เพื่อควบคุมการแสดงผล • คลิกการ์ดเพื่อจัดการข้อมูล
-              </p>
-            </div>
-            <button
-              onClick={handleCreateSection}
-              className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700 transition shadow-md hover:shadow-lg"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                เพิ่ม Section
-              </span>
-            </button>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="flex items-center justify-between mb-8 mt-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Section Templates</h1>
+            <p className="text-gray-600 mt-2">จัดการ Sections สำหรับสร้าง Portfolio</p>
           </div>
-
-          {/* Sections Grid - Original Design */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sections.map((section) => {
-              const blockData = getBlockData(section);
-              const images = getImages(blockData);
-              const hasData = blockData !== null;
-
-              return (
-                <div
-                  key={section.ID}
-                  className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border-2 ${
-                    section.is_enabled ? 'border-green-200' : 'border-gray-200 opacity-60'
-                  }`}
-                >
-                  {/* Toggle Switch */}
-                  <div
-                    className="absolute top-3 right-3 z-30 flex items-center gap-2 bg-white bg-opacity-95 rounded-full px-3 py-1.5 shadow-md cursor-pointer hover:shadow-lg transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleSection(section.ID, section.is_enabled);
-                    }}
-                  >
-                    <span className={`text-xs font-bold ${section.is_enabled ? 'text-green-600' : 'text-gray-400'}`}>
-                      {section.is_enabled ? 'เปิด' : 'ปิด'}
-                    </span>
-                    <div className={`w-11 h-6 flex items-center rounded-full p-1 duration-300 ease-in-out ${
-                      section.is_enabled ? 'bg-green-500' : 'bg-gray-300'
-                    }`}>
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${
-                        section.is_enabled ? 'translate-x-5' : ''
-                      }`}></div>
-                    </div>
-                  </div>
-
-                  {/* Card Preview */}
-                  <div
-                    className={`min-h-[200px] bg-gradient-to-br from-purple-500 to-pink-600 relative overflow-hidden p-4 cursor-pointer ${
-                      !section.is_enabled && 'grayscale'
-                    }`}
-                    onClick={() => setSelectedSection(section)}
-                  >
-                    <div className="text-white h-full">
-                      <div className="text-xs font-semibold mb-2 opacity-80">PREVIEW</div>
-                      <div className="space-y-2">
-                        {hasData && blockData ? (
-                          <>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded px-3 py-2 text-xs flex gap-2 items-center">
-                              <span>{blockData.content?.type === 'activity' ? '🏆' : '💼'}</span>
-                              <span className="truncate flex-1">{blockData.content?.title || 'Untitled'}</span>
-                            </div>
-                            {images.length > 0 && (
-                              <div className="grid grid-cols-2 gap-1">
-                                {images.slice(0, 2).map((img: any, idx: number) => (
-                                  <div key={idx} className="aspect-square rounded overflow-hidden bg-white bg-opacity-20">
-                                    <img 
-                                      src={img.file_path || img.FilePath || img.image_url || img.ImageUrl || '/placeholder.jpg'} 
-                                      alt={`Preview ${idx + 1}`}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.currentTarget.src = '/placeholder.jpg';
-                                      }}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-xs opacity-60">ยังไม่มีข้อมูล - คลิกเพื่อเพิ่ม</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-bold text-gray-900 truncate">{section.section_title}</h3>
-                      {section.is_enabled && (
-                        <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">
-                          ✓ Visible
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500 mt-3">
-                      <span>ID: {section.ID}</span>
-                      <span>•</span>
-                      <span>{hasData ? '1 รายการ' : '0 รายการ'}</span>
-                    </div>
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="px-5 py-3 bg-gray-50 border-t">
-                    <button
-                      onClick={() => setSelectedSection(section)}
-                      className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition"
-                    >
-                      📝 จัดการข้อมูล
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {sections.length === 0 && (
-            <div className="text-center py-16">
-              <div className="text-gray-400 text-6xl mb-4">📋</div>
-              <p className="text-xl text-gray-600 mb-2">ยังไม่มี Sections ใน Portfolio นี้</p>
-              <p className="text-gray-500">กดปุ่ม "เพิ่ม Section" ด้านบนเพื่อเริ่มต้น</p>
-            </div>
-          )}
+          <button className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700 transition shadow-md hover:shadow-lg">
+            <span className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              สร้าง Section ใหม่
+            </span>
+          </button>
         </div>
 
-        {/* Modal for Section Management */}
-        {selectedSection && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => {
-              setSelectedSection(null);
-              setIsEditingItem(false);
-              setSelectedDataId("");
-              setCurrentBlock(null);
-            }}
-          >
+        {/* Sections Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sections.map((section) => (
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-              onClick={(e) => e.stopPropagation()}
+              key={section.ID}
+              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden group"
+              onClick={() => setSelectedSection(section)}
             >
-              {/* Header */}
-              <div className="p-6 border-b flex items-start justify-between bg-gradient-to-r from-purple-50 to-pink-50">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    {selectedSection.section_title}
-                  </h2>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-500">
-                      Section ID: {selectedSection.ID} • Portfolio ID: {selectedSection.portfolio_id}
-                    </span>
-                    {selectedSection.is_enabled && (
-                      <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">
-                        ✓ เปิดใช้งาน
-                      </span>
+              {/* Section Preview */}
+              <div className="h-48 bg-gradient-to-br from-purple-500 to-pink-600 relative overflow-hidden p-4">
+                <div className="text-white">
+                  <div className="text-xs font-semibold mb-2 opacity-80">PREVIEW</div>
+                  <div className="space-y-2">
+                    {section.section_blocks?.slice(0, 3).map((sb, idx) => (
+                      <div
+                        key={sb.ID}
+                        className="bg-white bg-opacity-20 backdrop-blur-sm rounded px-3 py-2 text-xs"
+                      >
+                        {sb.templates_block?.block_name || `Block ${idx + 1}`}
+                      </div>
+                    ))}
+                    {(section.section_blocks?.length || 0) > 3 && (
+                      <div className="text-xs opacity-70">
+                        +{(section.section_blocks?.length || 0) - 3} more...
+                      </div>
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedSection(null);
-                    setIsEditingItem(false);
-                    setSelectedDataId("");
-                    setCurrentBlock(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-3xl leading-none ml-4"
-                >
-                  ×
-                </button>
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                  <button className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-4 py-2 rounded-lg font-medium transition-all transform scale-90 group-hover:scale-100">
+                    ดูรายละเอียด
+                  </button>
+                </div>
               </div>
 
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {isEditingItem ? (
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                    <h3 className="text-sm font-bold text-blue-900 mb-3">
-                      {currentBlock ? '✏️ แก้ไขข้อมูล' : '➕ เพิ่มข้อมูลใหม่'}
-                    </h3>
-                    
-                    <div className="space-y-3">
-                      {/* Select Type */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">ประเภทข้อมูล:</label>
-                        <select
-                          className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                          value={selectedDataType}
-                          onChange={(e) => {
-                            setSelectedDataType(e.target.value as 'activity' | 'working');
-                            setSelectedDataId("");
-                          }}
-                        >
-                          <option value="activity">🏆 กิจกรรม (Activity)</option>
-                          <option value="working">💼 ผลงาน (Working)</option>
-                        </select>
-                      </div>
+              {/* Section Info */}
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-xl font-bold text-gray-900">{section.section_name}</h3>
+                  {section.section_type && (
+                    <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+                      {section.section_type}
+                    </span>
+                  )}
+                </div>
 
-                      {/* Select Item */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          เลือก{selectedDataType === 'activity' ? 'กิจกรรม' : 'ผลงาน'}:
-                        </label>
-                        <select
-                          className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                          value={selectedDataId}
-                          onChange={(e) => setSelectedDataId(e.target.value)}
-                        >
-                          <option value="">-- เลือกรายการ --</option>
-                          {selectedDataType === 'activity' && activities.map(act => (
-                            <option key={act.ID} value={act.ID}>
-                              {act.activity_name} {act.activity_role && `(${act.activity_role})`}
-                            </option>
-                          ))}
-                          {selectedDataType === 'working' && workings.map(work => (
-                            <option key={work.ID} value={work.ID}>
-                              {work.working_name} {work.position && `(${work.position})`}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleSaveItem}
-                          disabled={!selectedDataId}
-                          className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-                        >
-                          ✓ {currentBlock ? 'บันทึกการแก้ไข' : 'เพิ่มเข้า Section'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsEditingItem(false);
-                            setSelectedDataId("");
-                            setCurrentBlock(null);
-                          }}
-                          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition"
-                        >
-                          ✕ ยกเลิก
-                        </button>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-4 text-sm text-gray-500 mt-4">
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5z" />
+                    </svg>
+                    <span>{section.section_blocks?.length || 0} blocks</span>
                   </div>
-                ) : (
-                  <>
-                    {(() => {
-                      const blockData = getBlockData(selectedSection);
-                      
-                      if (!blockData) {
-                        return (
-                          <div className="text-center py-12">
-                            <div className="text-5xl mb-3">📦</div>
-                            <p className="text-gray-600 mb-4">ยังไม่มีข้อมูลใน Section นี้</p>
-                            <button
-                              onClick={() => {
-                                setIsEditingItem(true);
-                                setCurrentBlock(null);
-                              }}
-                              className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-                            >
-                              ➕ เพิ่มข้อมูล
-                            </button>
-                          </div>
-                        );
-                      }
-
-                      const { block, content, data } = blockData;
-                      const images = getImages(blockData);
-
-                      console.log("Rendering modal with data:", { content, data, images });
-
-                      return (
-                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-5">
-                          <div className="mb-4">
-                            <div className="inline-block bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full mb-2">
-                              {content?.type === 'activity' ? '🏆 กิจกรรม' : '💼 ผลงาน'}
-                            </div>
-                            <h4 className="font-bold text-gray-900 text-lg">{content?.title || 'Untitled'}</h4>
-                          </div>
-
-                          {/* รูปภาพ */}
-                          {images && images.length > 0 && (
-                            <div className="mb-4">
-                              <div className="text-xs font-bold text-gray-700 mb-2">🖼️ รูปภาพ ({images.length} รูป)</div>
-                              <div className="grid grid-cols-3 gap-2">
-                                {images.map((img: any, imgIdx: number) => (
-                                  <div key={imgIdx} className="aspect-square rounded-lg overflow-hidden bg-gray-200">
-                                    <img 
-                                      src={img.file_path || img.FilePath || img.image_url || img.ImageUrl || '/placeholder.jpg'} 
-                                      alt={`Image ${imgIdx + 1}`}
-                                      className="w-full h-full object-cover hover:scale-110 transition-transform"
-                                      onError={(e) => {
-                                        e.currentTarget.src = '/placeholder.jpg';
-                                      }}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* รายละเอียด */}
-                          {content?.data && (
-                            <div className="bg-white bg-opacity-70 rounded-lg p-3 mb-3 text-sm">
-                              {content.type === 'activity' && (
-                                <div className="space-y-1">
-                                  {data.activity_role && (
-                                    <div><strong>บทบาท:</strong> {data.activity_role}</div>
-                                  )}
-                                  {(data.ActivityDetail?.Institution || data.activity_detail?.institution) && (
-                                    <div><strong>สถาบัน:</strong> {data.ActivityDetail?.Institution || data.activity_detail?.institution}</div>
-                                  )}
-                                  {(data.ActivityDetail?.Description || data.activity_detail?.description) && (
-                                    <div className="text-gray-600"><strong>รายละเอียด:</strong> {data.ActivityDetail?.Description || data.activity_detail?.description}</div>
-                                  )}
-                                  {(data.ActivityDetail?.ActivityAt || data.activity_detail?.activity_at) && (
-                                    <div><strong>วันที่:</strong> {new Date(data.ActivityDetail?.ActivityAt || data.activity_detail?.activity_at).toLocaleDateString('th-TH')}</div>
-                                  )}
-                                  {(data.ActivityDetail?.TypeActivity?.TypeName || data.activity_detail?.type_activity?.type_name) && (
-                                    <div><strong>ประเภท:</strong> {data.ActivityDetail?.TypeActivity?.TypeName || data.activity_detail?.type_activity?.type_name}</div>
-                                  )}
-                                  {(data.ActivityDetail?.LevelActivity?.LevelName || data.activity_detail?.level_activity?.level_name) && (
-                                    <div><strong>ระดับ:</strong> {data.ActivityDetail?.LevelActivity?.LevelName || data.activity_detail?.level_activity?.level_name}</div>
-                                  )}
-                                </div>
-                              )}
-                              {content.type === 'working' && (
-                                <div className="space-y-1">
-                                  {data.position && (
-                                    <div><strong>ตำแหน่ง:</strong> {data.position}</div>
-                                  )}
-                                  {(data.WorkingDetail?.CompanyName || data.working_detail?.company_name) && (
-                                    <div><strong>บริษัท:</strong> {data.WorkingDetail?.CompanyName || data.working_detail?.company_name}</div>
-                                  )}
-                                  {(data.WorkingDetail?.Description || data.working_detail?.description) && (
-                                    <div className="text-gray-600"><strong>รายละเอียด:</strong> {data.WorkingDetail?.Description || data.working_detail?.description}</div>
-                                  )}
-                                  {(data.WorkingDetail?.StartDate || data.working_detail?.start_date) && (
-                                    <div><strong>ระยะเวลา:</strong> {new Date(data.WorkingDetail?.StartDate || data.working_detail?.start_date).toLocaleDateString('th-TH')}
-                                    {(data.WorkingDetail?.EndDate || data.working_detail?.end_date) && ` - ${new Date(data.WorkingDetail?.EndDate || data.working_detail?.end_date).toLocaleDateString('th-TH')}`}
-                                    </div>
-                                  )}
-                                  {(data.WorkingDetail?.TypeWorking?.TypeName || data.working_detail?.type_working?.type_name) && (
-                                    <div><strong>ประเภทงาน:</strong> {data.WorkingDetail?.TypeWorking?.TypeName || data.working_detail?.type_working?.type_name}</div>
-                                  )}
-                                  {(data.WorkingDetail?.Links || data.working_detail?.links) && (data.WorkingDetail?.Links?.length > 0 || data.working_detail?.links?.length > 0) && (
-                                    <div>
-                                      <strong>ลิงก์:</strong>
-                                      <div className="pl-3">
-                                        {(data.WorkingDetail?.Links || data.working_detail?.links).map((link: any, idx: number) => (
-                                          <div key={idx}>
-                                            <a href={link.Url || link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                              {link.LinkName || link.link_name || link.Url || link.url}
-                                            </a>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* ปุ่มจัดการ */}
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditBlock(block)}
-                              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-                            >
-                              ✏️ แก้ไข
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBlock(block.ID)}
-                              className="text-red-500 hover:text-red-700 text-sm font-medium px-4 py-2 rounded hover:bg-red-50 transition"
-                            >
-                              🗑️ ลบ
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </>
-                )}
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <span>ID: {section.ID}</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Footer */}
-              <div className="p-6 border-t bg-gray-50 flex justify-end">
+              {/* Actions */}
+              <div className="px-5 py-3 bg-gray-50 border-t flex gap-2">
                 <button
-                  onClick={() => {
-                    setSelectedSection(null);
-                    setIsEditingItem(false);
-                    setSelectedDataId("");
-                    setCurrentBlock(null);
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedSection(section);
                   }}
-                  className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition"
+                  className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-500 transition"
                 >
-                  ปิด
+                  ดูรายละเอียด
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    alert(`แก้ไข: ${section.section_name}`);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                >
+                  แก้ไข
                 </button>
               </div>
             </div>
+          ))}
+        </div>
+
+        {sections.length === 0 && (
+          <div className="text-center py-16">
+            <div className="text-gray-400 text-6xl mb-4">📑</div>
+            <p className="text-xl text-gray-600 mb-2">ยังไม่มี Sections</p>
+            <p className="text-gray-500">กดปุ่มด้านบนเพื่อสร้าง Section ใหม่</p>
           </div>
         )}
       </div>
-    </>
-  );
-}
 
-export default function SectionsPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div>Loading...</div></div>}>
-      <SectionsContent />
-    </Suspense>
+      {/* Modal - Section Detail */}
+      {selectedSection && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedSection(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-b flex items-start justify-between bg-gradient-to-r from-purple-50 to-pink-50">
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  {selectedSection.section_name}
+                </h2>
+                <div className="flex items-center gap-3 mt-3">
+                  {selectedSection.section_type && (
+                    <span className="bg-purple-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      {selectedSection.section_type}
+                    </span>
+                  )}
+                  <span className="text-sm text-gray-500">
+                    Section ID: {selectedSection.ID}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {selectedSection.section_blocks?.length || 0} Blocks
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedSection(null)}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none ml-4"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="bg-purple-100 text-purple-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">
+                  {selectedSection.section_blocks?.length || 0}
+                </span>
+                Blocks ใน Section นี้
+              </h3>
+
+              {/* Section Preview Container */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6 mb-6 min-h-[300px]" style={{ overflow: 'auto', }}>
+                {selectedSection.section_blocks && selectedSection.section_blocks.length > 0 ? (
+                  <>
+                    {selectedSection.section_blocks.map((sb) => {
+                      const block = sb.templates_block;
+                      if (!block) return null;
+
+                      // Parse JSON
+                      let flexSettings: any = {};
+                      let position: any = {};
+                      let defaultStyle: any = {};
+
+                      try {
+                        flexSettings = sb.flex_settings ? 
+                          (typeof sb.flex_settings === 'string' ? JSON.parse(sb.flex_settings) : sb.flex_settings) 
+                          : {};
+                        position = sb.position ? 
+                          (typeof sb.position === 'string' ? JSON.parse(sb.position) : sb.position) 
+                          : {};
+                        defaultStyle = block.default_style ? 
+                          (typeof block.default_style === 'string' ? JSON.parse(block.default_style) : block.default_style) 
+                          : {};
+                      } catch (e) {
+                        console.error('Error parsing JSON:', e);
+                      }
+
+                      // Combined styles - ใช้ค่าจาก database
+                      const combinedStyle: React.CSSProperties = {
+                        ...flexSettings,
+                        ...position,
+                        backgroundColor: defaultStyle.background_color || '#ffffff',
+                        border: defaultStyle.border || '2px solid #e5e7eb',
+                        padding: defaultStyle.padding || '16px',
+                        boxShadow: defaultStyle.box_shadow || '0 2px 4px rgba(0,0,0,0.1)',
+                        position: 'relative',
+                        minHeight: block.block_type === 'image' ? '200px' : '60px',
+                      };
+
+                      return (
+                        <div
+                          key={sb.ID}
+                          style={combinedStyle}
+                          className="hover:shadow-xl hover:scale-[1.02] transition-all duration-200 group cursor-pointer"
+                        >
+                          {/* Block Badge */}
+                          <div className="absolute top-2 left-2 z-10 flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                              #{sb.order_index + 1}
+                            </span>
+                            <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-lg">
+                              {block.block_type}
+                            </span>
+                          </div>
+
+                          {/* Block Content */}
+                          <div className="flex flex-col items-center justify-center h-full min-h-[80px]">
+                            <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">
+                              {block.block_type === 'image' ? '🖼️' : 
+                               block.block_type === 'text' ? '📝' : '📦'}
+                            </div>
+                            <div className="text-sm font-bold text-gray-800 text-center">
+                              {block.block_name}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Type: {block.block_type}
+                            </div>
+                          </div>
+
+                          {/* Layout Badge */}
+                          <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {sb.layout_type && (
+                              <span className="bg-purple-500 text-white text-xs px-2 py-1 rounded-full shadow">
+                                {sb.layout_type}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ clear: 'both' }}></div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full min-h-[250px]">
+                    <div className="text-center">
+                      <div className="text-5xl mb-3 opacity-30">📦</div>
+                      <p className="text-gray-400">Section นี้ยังไม่มี blocks</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Blocks Details */}
+              <div className="space-y-3">
+                {/* <h4 className="font-semibold text-gray-700 mb-3">รายละเอียด Blocks:</h4> */}
+                {selectedSection.section_blocks?.map((sb) => {
+                  const block = sb.templates_block;
+                  if (!block) return null;
+
+                  let flexSettings: any = {};
+                  let position: any = {};
+
+                  try {
+                    flexSettings = sb.flex_settings ? 
+                      (typeof sb.flex_settings === 'string' ? JSON.parse(sb.flex_settings) : sb.flex_settings) 
+                      : {};
+                    position = sb.position ? 
+                      (typeof sb.position === 'string' ? JSON.parse(sb.position) : sb.position) 
+                      : {};
+                  } catch (e) {}
+
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setSelectedSection(null)}
+                className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition"
+              >
+                ปิด
+              </button>
+              <button
+                onClick={() => alert(`แก้ไข: ${selectedSection.section_name}`)}
+                className="px-6 py-2.5 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition"
+              >
+                แก้ไข Section
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

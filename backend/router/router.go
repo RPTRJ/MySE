@@ -19,7 +19,6 @@ func SetupRoutes() *gin.Engine {
 	// --- CORS Config (ส่วนนี้ของคุณถูกต้องแล้ว) ---
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOriginFunc = func(origin string) bool {
-		// Explicitly allow localhost with any port
 		if strings.HasPrefix(origin, "http://localhost") {
 			return true
 		}
@@ -56,7 +55,8 @@ func SetupRoutes() *gin.Engine {
 	facultyController := controller.NewFacultyController()
 	programController := controller.NewProgramController()
 	selectionController := controller.NewSelectionController()
-	profileController := controller.NewStudentProfileController()
+	profileController := controller.NewProfileController(db)
+	referenceController := controller.NewReferenceController(db)
 
 	// --- Public Routes ---
 	authController.RegisterRoutes(r)
@@ -69,12 +69,26 @@ func SetupRoutes() *gin.Engine {
 	protected.Use(middlewares.Authorization())
 	userController.RegisterSelfRoutes(protected)
 
+	protected.GET("/reference/education-levels", referenceController.GetEducationLevels)
+	protected.GET("/reference/school-types", referenceController.GetSchoolTypes)
+	protected.GET("/reference/curriculum-types", referenceController.GetCurriculumTypes)
+	protected.GET("/reference/schools", referenceController.SearchSchools)
+
+	// --- User Profile (full profile) ---
+	protected.GET("/users/me/profile", profileController.GetMe)
+	protected.GET("/users/me/onboarding", profileController.GetOnboardingStatus)
+
+	protected.PUT("/users/me", profileController.UpdateMe)
+	protected.PUT("/users/me/education", profileController.UpsertEducation)
+	protected.PUT("/users/me/academic-score", profileController.UpsertAcademicScore)
+	protected.PUT("/users/me/ged-score", profileController.UpsertGEDScore)
+	protected.PUT("/users/me/language-scores", profileController.ReplaceLanguageScores)
+
 	// --- Onboarded Routes (ต้องผ่านการ Onboard) ---
 	protectedOnboarded := protected.Group("")
 	protectedOnboarded.Use(middlewares.RequireOnboarding())
 
 	userController.RegisterRoutes(protectedOnboarded)
-	profileController.RegisterRoutes(protectedOnboarded)
 
 	// Register Routes เดิมของคุณ
 	curriculumController.RegisterRoutes(r, protectedOnboarded)
@@ -103,6 +117,7 @@ func SetupRoutes() *gin.Engine {
 	TemplateSectionsRoutes(r)
 	SectionBlockRoutes(r)
 	TemplateRoutes(r)
+	CategoryTemplateRoutes(r)
 
 	//ระบบแฟ้มสะสมผลงาน (Portfolio)
 	PortfolioRoutes(r)

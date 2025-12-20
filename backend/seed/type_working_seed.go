@@ -10,16 +10,6 @@ import (
 func SeedTypeWorkings() {
 	db := config.GetDB()
 
-	var count int64
-	if err := db.Model(&entity.TypeWorking{}).Count(&count).Error; err != nil {
-		log.Println("count type_workings error:", err)
-		return
-	}
-	if count > 0 {
-		log.Println("type_workings already seeded")
-		return
-	}
-
 	typeNames := []string{
 		"วิศวกรรม",
 		"ศิลปะ",

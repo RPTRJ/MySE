@@ -113,7 +113,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		user.PDPAConsentAt = &now
 	}
 
-	if err := user.Validate(); err != nil {
+	if err := services.ValidateUserForRegistration(user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

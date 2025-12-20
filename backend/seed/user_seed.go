@@ -13,16 +13,6 @@ import (
 func SeedUsers() {
 	db := config.GetDB()
 
-	var count int64
-	if err := db.Model(&entity.User{}).Count(&count).Error; err != nil {
-		log.Println("count users error:", err)
-		return
-	}
-	if count > 0 {
-		log.Println("users already seeded")
-		return
-	}
-
 	// 1. Ensure Roles (Student, Teacher, Admin)
 	studentTypeID := ensureUserType(db, "Student")
 	teacherTypeID := ensureUserType(db, "Teacher")

@@ -62,7 +62,7 @@ func GetWorkings(c *gin.Context) {
 }
 
 // CreateTemplate creates a new template
-func CreateTemplate(c *gin.Context) {
+func CreateTemplates(c *gin.Context) {
 	var template entity.Templates
 	if err := c.ShouldBindJSON(&template); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

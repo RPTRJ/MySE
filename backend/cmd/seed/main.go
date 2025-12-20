@@ -12,8 +12,7 @@ import (
 func main() {
 	loadEnv()
 	config.ConnectionDatabase()
-
-	seed.SeedEducationData()
+	seed.SeedProfileReference()
 	seed.CurriculumSeed()
 	seed.SeedUsers()
 	seed.SeedTemplateBlocks()
@@ -22,6 +21,7 @@ func main() {
 	seed.SeedTypeWorkings()
 	seed.SeedActivities()
 	seed.SeedColors()
+	seed.SeedCategoryTemplates()
 	seed.SeedPortfolioSubmissions()
 	log.Println("Seed completed successfully")
 }

@@ -124,8 +124,12 @@ export default function WorkingUI() {
       resetForm();
       loadAll();
     } catch (error) {
-      console.error(error);
-      alert("Error updating working");
+      if (error instanceof Error && error.message.includes("duplicated")) {
+        alert("ชื่อผลงานนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+      } else {
+        console.error(error);
+        alert(error instanceof Error ? error.message : "Error updating working");
+      }
     }
   };
 
@@ -166,8 +170,12 @@ export default function WorkingUI() {
       setActiveTab("list");
       loadAll();
     } catch (error) {
-      console.error(error);
-      alert("Error creating working");
+      if (error instanceof Error && error.message.includes("duplicated")) {
+        alert("ชื่อผลงานนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+      } else {
+        console.error(error);
+        alert(error instanceof Error ? error.message : "Error creating working");
+      }
     }
   };
 

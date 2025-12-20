@@ -132,25 +132,24 @@ func SeedTemplatesSections() {
 						})
 					}
 				case "two_pictures_two_texts":
-					if i%2 == 0 { // บล็อกรูปภาพ
+					if i < 2 { // บล็อกรูปภาพ (2 อันแรก - แถวบน)
 						flexSettings, _ = json.Marshal(map[string]string{
-							"flexDirection":  "column",
-							"alignItems":     "center",
-							"justifyContent": "center",
+							"width":  "48%",
+							"margin": "0 1%",
 						})
 						Position, _ = json.Marshal(map[string]string{
-							"display":       "block",
-							"verticalAlign": "top",
+							"display":        "inline-block",
+							"verticalAlign":  "top",
+							"marginBottom":   "20px",
 						})
-					} else { // บล็อกข้อความ
+					} else { // บล็อกข้อความ (2 อันหลัง - แถวล่าง)
 						flexSettings, _ = json.Marshal(map[string]string{
-							"flexDirection":  "column",
-							"alignItems":     "flex-start",
-							"justifyContent": "center",
+							"width":  "48%",
+							"margin": "0 1%",
 						})
 						Position, _ = json.Marshal(map[string]string{
-							"display":       "inline-block",
-							"verticalAlign": "top",
+							"display":        "inline-block",
+							"verticalAlign":  "top",
 						})
 					}
 				case "profile_header_right":

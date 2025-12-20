@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sut68/team14/backend/config"
 	"github.com/sut68/team14/backend/entity"
+	"github.com/sut68/team14/backend/services"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +37,7 @@ func RequireOnboarding() gin.HandlerFunc {
 			return
 		}
 
-		if !user.OnboardingCompleted() {
+		if !services.IsOnboardingCompleted(user) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":               "onboarding_required",
 				"onboarding_required": true,

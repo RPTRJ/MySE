@@ -6,5 +6,5 @@ import (
 
 type TypeWorking struct {
 	gorm.Model
-	TypeName string `json:"type_name"`
+	TypeName string `json:"type_name" valid:"required~Type Name is required" gorm:"unique"`
 }

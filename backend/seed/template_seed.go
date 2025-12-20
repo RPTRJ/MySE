@@ -25,34 +25,42 @@ func SeedTemplates() {
 		sectionMap[s.SectionName] = s.ID
 	}
 
-	// ✅ แก้ไขชื่อ SectionNames ให้ตรงกับที่ Seed ไว้ใน templates_section_seed.go
 	templates := []struct {
 		Name         string
+		Category     string
 		Description  string
+		Thumbnail    string
 		SectionNames []string
 	}{
 		{
 			Name:        "Professional Portfolio",
+			Category:    "Professional",
 			Description: "เทมเพลตสำหรับสร้างพอร์ตโฟลิโอแบบมืออาชีพ",
+			Thumbnail:   "https://example.com/thumbnails/professional-portfolio.jpg",
 			SectionNames: []string{
-				"Profile Left",       // แก้จาก Profile Page Full เป็น Profile Left
-				"Portfolio Showcase", // ชื่อนี้ถูกต้องแล้ว
+				"Profile Left",
+				"Portfolio Showcase",
 			},
 		},
 		{
 			Name:        "Simple Profile",
+			Category:    "Basic",
 			Description: "เทมเพลตโปรไฟล์แบบเรียบง่าย",
+			Thumbnail:   "https://example.com/thumbnails/simple-profile.jpg",
 			SectionNames: []string{
-				"Profile Left", // แก้จาก Profile Page Full
-				"About Me Section", // เพิ่ม About Me เข้าไปหน่อยเพื่อความสมบูรณ์
+				"Profile Right",
+				"About Me Section",
+				"About Me Section",
 			},
 		},
 		{
 			Name:        "Creative Portfolio",
+			Category:    "Creative",
 			Description: "เทมเพลตสำหรับพอร์ตโฟลิโอแนวสร้างสรรค์",
+			Thumbnail:   "https://example.com/thumbnails/creative-portfolio.jpg",
 			SectionNames: []string{
-				"Profile Right",      // แก้จาก Profile Page Full (ลองใช้ Profile Right บ้าง)
-				"Portfolio Showcase", // แก้จาก Portfolio Gallery (เพราะเรายังไม่มี Gallery)
+				"Profile Left",
+				"Profile Right",
 			},
 		},
 	}
@@ -63,7 +71,9 @@ func SeedTemplates() {
 			// สร้าง template ใหม่
 			template := entity.Templates{
 				TemplateName: t.Name,
+				// Category:     t.Category,
 				Description:  t.Description,
+				Thumbnail:    t.Thumbnail,
 			}
 			if err := db.Create(&template).Error; err != nil {
 				log.Printf("❌ Error seeding template %s: %v", t.Name, err)
@@ -93,4 +103,32 @@ func SeedTemplates() {
 			log.Printf("- Template already exists: %s", t.Name)
 		}
 	}
+}
+
+func SeedCategoryTemplates() {
+    db := config.GetDB()
+    categories := []string{
+        "Professional", 
+        "Basic", 
+        "Creative",
+        "Academic",
+        "minimalist",
+        "modern",
+    }
+
+    for _, catName := range categories {
+        var existing entity.CategoryTemplate
+        if err := db.Where("category_name = ?", catName).First(&existing).Error; err != nil {
+            category := entity.CategoryTemplate{
+                CategoryName: catName,
+            }
+            if err := db.Create(&category).Error; err != nil {
+                log.Printf("❌ Error seeding category %s: %v", catName, err)
+                continue
+            }
+            log.Printf("✓ Created category: %s", catName)
+        } else {
+            log.Printf("- Category already exists: %s", catName)
+        }
+    }
 }

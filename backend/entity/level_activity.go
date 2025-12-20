@@ -6,5 +6,5 @@ import (
 
 type LevelActivity struct {
 	gorm.Model
-	LevelName string `json:"level_name"`
+	LevelName string `json:"level_name" valid:"required~Level Name is required"`
 }
