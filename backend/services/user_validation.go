@@ -16,6 +16,9 @@ var (
 	ErrThaiNamesRequired    = errors.New("Thai users must provide names in Thai")
 	ErrEnglishNamesRequired = errors.New("Foreign users must provide names in English")
 	ErrNameRequired         = errors.New("name is required in Thai or English")
+	ErrCitizenIDInvalid     = errors.New("citizen id must be 13 digits")
+	ErrGCodeInvalid         = errors.New("G-Code must start with 'G' followed by 7 digits")
+	ErrPassportInvalid      = errors.New("passport number must be 6-15 alphanumeric characters")
 )
 
 type NameLanguage int
@@ -25,6 +28,15 @@ const (
 	NameLanguageThai
 	NameLanguageEnglish
 	NameLanguageMixed
+)
+
+type IDDocType int
+
+const (
+	IDDocUnknown IDDocType = iota
+	IDDocCitizen
+	IDDocGCode
+	IDDocPassport
 )
 
 func ValidateUser(u *entity.User) error {
@@ -38,6 +50,10 @@ func ValidateUser(u *entity.User) error {
 		return ErrValidationFailed
 	}
 
+	if err := validateIDNumber(u); err != nil {
+		return err
+	}
+
 	return validateUserNames(u)
 }
 
@@ -46,10 +62,15 @@ func ValidateUserForRegistration(u *entity.User) error {
 		return ErrUserRequired
 	}
 
-	if ok, err := govalidator.ValidateStruct(u); err != nil {
-		return err
-	} else if !ok {
-		return ErrValidationFailed
+	email := strings.TrimSpace(u.Email)
+	if email == "" {
+		return errors.New("Email is required")
+	}
+	if !govalidator.IsEmail(email) {
+		return errors.New("Email is invalid")
+	}
+	if strings.TrimSpace(u.Password) == "" {
+		return errors.New("Password is required")
 	}
 
 	lang := detectNameLanguage(u)
@@ -148,4 +169,60 @@ func isEnglishText(value string) bool {
 
 func isAllowedWhitespace(r rune) bool {
 	return r == ' ' || r == '-' || r == '\''
+}
+
+func validateIDNumber(u *entity.User) error {
+	idNum := strings.TrimSpace(u.IDNumber)
+	if idNum == "" {
+		return errors.New("ID number is required")
+	}
+
+	switch detectIDDocType(u) {
+	case IDDocCitizen:
+		if !govalidator.StringMatches(idNum, `^\d{13}$`) {
+			return ErrCitizenIDInvalid
+		}
+	case IDDocGCode:
+		if !govalidator.StringMatches(idNum, `^[Gg]\d{7}$`) {
+			return ErrGCodeInvalid
+		}
+	case IDDocPassport:
+		if !govalidator.StringMatches(idNum, `^[A-Za-z0-9]{6,15}$`) {
+			return ErrPassportInvalid
+		}
+	default:
+		// Unknown type: basic sanity check to avoid empty/too short
+		if len(idNum) < 4 {
+			return errors.New("ID number is too short")
+		}
+	}
+
+	return nil
+}
+
+func detectIDDocType(u *entity.User) IDDocType {
+	// Prefer name if available
+	if u.IDDocType != nil {
+		name := strings.ToLower(strings.TrimSpace(u.IDDocType.IDName))
+		switch {
+		case strings.Contains(name, "citizen") || strings.Contains(name, "id card"):
+			return IDDocCitizen
+		case strings.Contains(name, "g_code") || strings.Contains(name, "g-code") || strings.Contains(name, "gcode"):
+			return IDDocGCode
+		case strings.Contains(name, "passport"):
+			return IDDocPassport
+		}
+	}
+
+	// Fallback by ID (frontend maps 1: citizen, 2: g-code, 3: passport)
+	switch u.IDDocTypeID {
+	case 1:
+		return IDDocCitizen
+	case 2:
+		return IDDocGCode
+	case 3:
+		return IDDocPassport
+	}
+
+	return IDDocUnknown
 }

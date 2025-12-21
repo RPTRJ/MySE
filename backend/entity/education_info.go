@@ -1,8 +1,6 @@
 package entity
 
 import (
-	"time"
-
 	"gorm.io/gorm"
 )
 
@@ -36,11 +34,6 @@ type Education struct {
 	CurriculumType   *CurriculumType `gorm:"foreignKey:CurriculumTypeID" json:"curriculum_type,omitempty"`
 
 	IsProjectBased *bool `json:"is_project_based,omitempty"`
-
-	Status         EducationStatus `json:"status" gorm:"type:varchar(20);default:'current'"`
-	StartDate      *time.Time      `json:"start_date,omitempty"`
-	EndDate        *time.Time      `json:"end_date,omitempty"`
-	GraduationYear *int            `json:"graduation_year,omitempty"`
 }
 
 type EducationLevel struct {

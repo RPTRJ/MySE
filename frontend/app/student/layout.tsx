@@ -75,7 +75,12 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         }
 
         if (completed && isOnboardingPage) {
-          router.replace("/student");
+          router.replace("/student/home");
+          return;
+        }
+
+        if (completed && pathname === "/student") {
+          router.replace("/student/home");
           return;
         }
 

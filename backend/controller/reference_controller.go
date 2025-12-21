@@ -63,6 +63,20 @@ func (rc *ReferenceController) SearchSchools(ctx *gin.Context) {
 		offset = 0
 	}
 
+	schoolTypeID := parseIntWithDefault(ctx.Query("school_type_id"), 0)
+	isProjectBasedParam := strings.TrimSpace(ctx.Query("is_project_based"))
+	var filterProject *bool
+	if isProjectBasedParam != "" {
+		val := strings.ToLower(isProjectBasedParam)
+		if val == "true" || val == "1" {
+			trueVal := true
+			filterProject = &trueVal
+		} else if val == "false" || val == "0" {
+			falseVal := false
+			filterProject = &falseVal
+		}
+	}
+
 	q := rc.DB.Model(&entity.School{}).
 		Preload("SchoolType").
 		Order("name asc").
@@ -73,6 +87,12 @@ func (rc *ReferenceController) SearchSchools(ctx *gin.Context) {
 		like := "%" + searchLower + "%"
 		// DB-agnostic search
 		q = q.Where("LOWER(name) LIKE ? OR LOWER(code) LIKE ?", like, like)
+	}
+	if schoolTypeID > 0 {
+		q = q.Where("school_type_id = ?", schoolTypeID)
+	}
+	if filterProject != nil {
+		q = q.Where("is_project_based = ?", *filterProject)
 	}
 
 	var items []entity.School
@@ -86,6 +106,12 @@ func (rc *ReferenceController) SearchSchools(ctx *gin.Context) {
 	if searchLower != "" {
 		like := "%" + searchLower + "%"
 		countQ = countQ.Where("LOWER(name) LIKE ? OR LOWER(code) LIKE ?", like, like)
+	}
+	if schoolTypeID > 0 {
+		countQ = countQ.Where("school_type_id = ?", schoolTypeID)
+	}
+	if filterProject != nil {
+		countQ = countQ.Where("is_project_based = ?", *filterProject)
 	}
 	if err := countQ.Count(&total).Error; err != nil {
 		respondError(ctx, http.StatusInternalServerError, err)

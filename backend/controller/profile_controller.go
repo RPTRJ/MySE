@@ -425,10 +425,6 @@ func (pc *ProfileController) updateEducationFields(edu *entity.Education, req *d
 	edu.SchoolTypeID = req.SchoolTypeID
 	edu.CurriculumTypeID = req.CurriculumTypeID
 	edu.IsProjectBased = req.IsProjectBased
-	edu.Status = entity.EducationStatus(req.Status)
-	edu.StartDate = req.StartDate
-	edu.EndDate = req.EndDate
-	edu.GraduationYear = req.GraduationYear
 }
 
 func (pc *ProfileController) updateAcademicScoreFields(score *entity.AcademicScore, req *dto.UpsertAcademicScoreRequest) {

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut ,Menu} from "lucide-react"; // import แค่อันที่ใช้ใน UI
+import { Menu } from "lucide-react"; // import แค่อันที่ใช้ใน UI
 import { menuItems, type UserRole } from "./menu"; // Import ข้อมูลเข้ามา
 import { menu } from "framer-motion/client";
 import { useState } from "react";
@@ -26,11 +26,11 @@ export default function Sidebar({ userRole }: SidebarProps) {
     >
 
     {/* Header */}
-      <div className="flex h-16 items-center justify-startx px-5 border-gray-200 border-b">
+      <div className="flex h-16 items-center justify-startx px-5 border-orange-100 border-b bg-orange-50">
         {isOpen && <h1 className="text-xl font-bold text-orange-500 ">MyPortfolio</h1>}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="ml-auto rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-white-500"
+          className="ml-auto rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-200"
         >
           <Menu className="h-6 w-6 text-gray-400" />
         </button>
@@ -57,12 +57,12 @@ export default function Sidebar({ userRole }: SidebarProps) {
               className={`group flex items-center rounded-md px-3 py-3 text-lg font-medium transition-colors ${
                 isActive
                   ? "bg-orange-500 text-white"
-                  : "text-gray-400 hover:bg-orange-100 hover:text-orange-500"
+                  : "text-gray-500 hover:bg-orange-100 hover:text-orange-600"
               }`}
             >
               <item.icon
                 className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                  isActive ? "text-white" : "text-gray-400 group-hover:text-orange-500"
+                  isActive ? "text-white" : "text-gray-400 group-hover:text-orange-600"
                 }`}
               />
               {isOpen && <span className="ml-3">{item.name}</span>}

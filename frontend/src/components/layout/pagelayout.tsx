@@ -21,8 +21,8 @@ export default function PageLayout({ children, userRole, userName, }: PageLayout
 
   const mainClass = `${sidebarOpen ? "ml-64" : "ml-16"} pt-16 p-6 transition-all duration-200  h-[calc(100vh-2rem)] `;
   return (
-  
-    <div className="min-h-screen bg-gray-50">
+
+    <div className="min-h-screen bg-orange-50">
       {/* Sidebar fixed ทางซ้าย */}
       <div className="fixed top-0 left-0 h-screen w-64 z-40">
         <Sidebar userRole={userRole} />

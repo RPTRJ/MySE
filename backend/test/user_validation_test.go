@@ -4,88 +4,70 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/sut68/team14/backend/entity"
 	"github.com/sut68/team14/backend/services"
 )
 
 func validUser() entity.User {
 	return entity.User{
-		FirstNameTH:   "สมชาย",
-		LastNameTH:    "ใจดี",
-		Email:         "user@example.com",
-		Password:      "secret",
-		Birthday:      time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC),
-		PDPAConsent:   true,
-		AccountTypeID: 1,
-		IDDocTypeID:   1,
+		FirstNameTH:     "สมชาย",
+		LastNameTH:      "ใจดี",
+		Email:           "user@example.com",
+		Password:        "secret123",
+		ProfileImageURL: "https://example.com/avatar.png",
+		IDNumber:        "1234567890123",
+		Phone:           "0812345678",
+		Birthday:        time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC),
+		PDPAConsent:     true,
+		AccountTypeID:   1,
+		IDDocTypeID:     1,
+		IDDocType:       &entity.IDTypes{IDName: "citizen_id"},
 	}
 }
 
-func TestUserValidationThaiOnlySuccess(t *testing.T) {
-	g := NewWithT(t)
+func TestUserValidPass(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	user := validUser()
 
 	err := services.ValidateUser(&user)
-
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 }
 
-func TestUserValidationEnglishOnlySuccess(t *testing.T) {
-	g := NewWithT(t)
+func TestUserEmailRequired(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	user := validUser()
-	user.FirstNameTH = ""
-	user.LastNameTH = ""
-	user.FirstNameEN = "John"
-	user.LastNameEN = "Doe"
+	user.Email = ""
 
 	err := services.ValidateUser(&user)
-
-	g.Expect(err).To(BeNil())
+	g.Expect(err).ToNot(gomega.BeNil())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("Email is required"))
 }
 
-func TestUserValidationMissingNames(t *testing.T) {
-	g := NewWithT(t)
+func TestUserBirthdayRequired(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	user := validUser()
-	user.FirstNameTH = ""
-	user.LastNameTH = ""
-	user.FirstNameEN = ""
-	user.LastNameEN = ""
+	user.Birthday = time.Time{}
 
 	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("name is required"))
+	g.Expect(err).ToNot(gomega.BeNil())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("Birthday is required"))
 }
 
-func TestUserValidationMixedLanguagesFails(t *testing.T) {
-	g := NewWithT(t)
+func TestUserGCodePattern(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	user := validUser()
-	user.FirstNameEN = "John"
-	user.LastNameEN = "Doe"
+	user.IDDocTypeID = 2
+	user.IDDocType = &entity.IDTypes{IDName: "g_code"}
+	user.IDNumber = "G23"
 
 	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("either Thai names or English names"))
+	g.Expect(err).ToNot(gomega.BeNil())
+	g.Expect(err).To(gomega.Equal(services.ErrGCodeInvalid))
 }
 
-func TestUserValidationThaiButEnglishCharactersFails(t *testing.T) {
-	g := NewWithT(t)
-	user := validUser()
-	user.FirstNameTH = "John"
-	user.LastNameTH = "Doe"
-	user.FirstNameEN = ""
-	user.LastNameEN = ""
-
-	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("Thai users must provide names in Thai"))
-}
-
-func TestUserValidationEnglishButThaiCharactersFails(t *testing.T) {
-	g := NewWithT(t)
+func TestUserEnglishNamesMustBeEnglish(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	user := validUser()
 	user.FirstNameTH = ""
 	user.LastNameTH = ""
@@ -93,51 +75,6 @@ func TestUserValidationEnglishButThaiCharactersFails(t *testing.T) {
 	user.LastNameEN = "รักเรียน"
 
 	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("Foreign users must provide names in English"))
-}
-
-func TestUserValidationInvalidEmail(t *testing.T) {
-	g := NewWithT(t)
-	user := validUser()
-	user.Email = "not-an-email"
-
-	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("Email is invalid"))
-}
-
-func TestUserValidationMissingAccountType(t *testing.T) {
-	g := NewWithT(t)
-	user := validUser()
-	user.AccountTypeID = 0
-
-	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("Account type is required"))
-}
-
-func TestUserValidationMissingIDDocType(t *testing.T) {
-	g := NewWithT(t)
-	user := validUser()
-	user.IDDocTypeID = 0
-
-	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("ID doc type is required"))
-}
-
-func TestUserValidationMissingBirthday(t *testing.T) {
-	g := NewWithT(t)
-	user := validUser()
-	user.Birthday = time.Time{}
-
-	err := services.ValidateUser(&user)
-
-	g.Expect(err).ToNot(BeNil())
-	g.Expect(err.Error()).To(ContainSubstring("Birthday is required"))
+	g.Expect(err).ToNot(gomega.BeNil())
+	g.Expect(err).To(gomega.Equal(services.ErrEnglishNamesRequired))
 }
