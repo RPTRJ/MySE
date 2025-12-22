@@ -7,7 +7,6 @@ import (
 	"github.com/sut68/team14/backend/config"
 	"github.com/sut68/team14/backend/entity"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 func SeedProfileReference() {
@@ -40,88 +39,122 @@ func SeedProfileReference() {
 }
 
 func seedEducationLevels(tx *gorm.DB) error {
-	items := []entity.EducationLevel{
-		{Name: "มัธยมศึกษาตอนปลาย (ม.4-ม.6)"},
-		{Name: "อาชีวศึกษา (ปวช.)"},
-		{Name: "อาชีวศึกษา (ปวส.)"},
-		{Name: "GED"},
+	items := []string{
+		"มัธยมศึกษาตอนปลาย (ม.4-ม.6)",
+		"อาชีวศึกษา (ปวช.)",
+		"อาชีวศึกษา (ปวส.)",
+		"เทียบเท่า ม.ปลาย (กศน.)",
+		"GED",
+		"International High School",
+		"IB Diploma",
+		"A-Level / UK Curriculum",
+		"AP / US Curriculum",
+		"Homeschool",
+		"อื่นๆ",
 	}
 
-	return tx.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "name"}},
-		DoNothing: true,
-	}).Create(&items).Error
+	for _, name := range items {
+		var existing entity.EducationLevel
+		if err := tx.Where("name = ?", name).First(&existing).Error; err != nil {
+			// ไม่เจอ -> สร้างใหม่
+			newItem := entity.EducationLevel{Name: name}
+			if err := tx.Create(&newItem).Error; err != nil {
+				log.Printf("❌ failed to seed EducationLevel %s: %v\n", name, err)
+				return err
+			} else {
+				log.Printf("✅ seeded EducationLevel: %s\n", name)
+			}
+		}
+	}
+	return nil
 }
 
 func seedSchoolTypes(tx *gorm.DB) error {
-	items := []entity.SchoolType{
-		{Name: "โรงเรียนรัฐบาล"},
-		{Name: "โรงเรียนเอกชน"},
-		{Name: "โรงเรียนสาธิต"},
-		{Name: "โรงเรียนนานาชาติ"},
-		{Name: "อาชีวศึกษา (วิทยาลัย/เทคนิค)"},
-		{Name: "กศน."},
-		{Name: "ต่างประเทศ"},
-		{Name: "Homeschool"},
-		{Name: "อื่นๆ"},
+	items := []string{
+		"โรงเรียนรัฐบาล",
+		"โรงเรียนเอกชน",
+		"โรงเรียนสาธิต",
+		"โรงเรียนนานาชาติ",
+		"อาชีวศึกษา (วิทยาลัย/เทคนิค)",
+		"กศน.",
+		"ต่างประเทศ",
+		"Homeschool",
+		"อื่นๆ",
 	}
 
-	return tx.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "name"}},
-		DoNothing: true,
-	}).Create(&items).Error
+	for _, name := range items {
+		var existing entity.SchoolType
+		if err := tx.Where("name = ?", name).First(&existing).Error; err != nil {
+			newItem := entity.SchoolType{Name: name}
+			if err := tx.Create(&newItem).Error; err != nil {
+				log.Printf("❌ failed to seed SchoolType %s: %v\n", name, err)
+				return err
+			} else {
+				log.Printf("✅ seeded SchoolType: %s\n", name)
+			}
+		}
+	}
+	return nil
 }
 
 func seedCurriculumTypes(tx *gorm.DB) error {
-	items := []entity.CurriculumType{
+	items := []string{
 		// สายสามัญ
-		{Name: "วิทย์-คณิต"},
-		{Name: "ศิลป์-ภาษา"},
-		{Name: "ศิลป์-คำนวณ"},
-		{Name: "ศิลป์-สังคม"},
-		{Name: "ศิลป์-จีน"},
-		{Name: "ศิลป์-ญี่ปุ่น"},
-		{Name: "ศิลป์-เกาหลี"},
-		{Name: "ศิลป์-ฝรั่งเศส"},
-		{Name: "ศิลป์-เยอรมัน"},
-		{Name: "ศิลป์-สเปน"},
-		{Name: "กีฬา"},
-		{Name: "ดนตรี/นาฏศิลป์"},
-		{Name: "ศิลปกรรม"},
-		{Name: "STEM / Gifted"},
-		{Name: "English Program (EP)"},
-		{Name: "Mini English Program (MEP)"},
-
+		"วิทย์-คณิต",
+		"ศิลป์-ภาษา",
+		"ศิลป์-คำนวณ",
+		"ศิลป์-สังคม",
+		"ศิลป์-จีน",
+		"ศิลป์-ญี่ปุ่น",
+		"ศิลป์-เกาหลี",
+		"ศิลป์-ฝรั่งเศส",
+		"ศิลป์-เยอรมัน",
+		"ศิลป์-สเปน",
+		"กีฬา",
+		"ดนตรี/นาฏศิลป์",
+		"ศิลปกรรม",
+		"STEM / Gifted",
+		"English Program (EP)",
+		"Mini English Program (MEP)",
 		// สายอาชีพ
-		{Name: "อุตสาหกรรม (ช่าง)"},
-		{Name: "ช่างยนต์"},
-		{Name: "ช่างไฟฟ้า/อิเล็กทรอนิกส์"},
-		{Name: "ช่างกลโรงงาน"},
-		{Name: "ช่างก่อสร้าง"},
-		{Name: "เทคนิคคอมพิวเตอร์/IT"},
-		{Name: "เมคคาทรอนิกส์/หุ่นยนต์"},
-		{Name: "พาณิชยกรรม/บัญชี"},
-		{Name: "ธุรกิจดิจิทัล"},
-		{Name: "การโรงแรม/ท่องเที่ยว"},
-		{Name: "คหกรรม/อาหาร"},
-		{Name: "เกษตร"},
-		{Name: "โลจิสติกส์"},
-		{Name: "อื่นๆ"},
-
+		"อุตสาหกรรม (ช่าง)",
+		"ช่างยนต์",
+		"ช่างไฟฟ้า/อิเล็กทรอนิกส์",
+		"ช่างกลโรงงาน",
+		"ช่างก่อสร้าง",
+		"เทคนิคคอมพิวเตอร์/IT",
+		"เมคคาทรอนิกส์/หุ่นยนต์",
+		"พาณิชยกรรม/บัญชี",
+		"ธุรกิจดิจิทัล",
+		"การโรงแรม/ท่องเที่ยว",
+		"คหกรรม/อาหาร",
+		"เกษตร",
+		"โลจิสติกส์",
+		"อื่นๆ",
 		// International Tracks
-		{Name: "GED Track"},
-		{Name: "IB Track"},
-		{Name: "A-Level Track"},
-		{Name: "AP Track"},
+		"GED Track",
+		"IB Track",
+		"A-Level Track",
+		"AP Track",
 	}
 
-	return tx.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "name"}},
-		DoNothing: true,
-	}).Create(&items).Error
+	for _, name := range items {
+		var existing entity.CurriculumType
+		if err := tx.Where("name = ?", name).First(&existing).Error; err != nil {
+			newItem := entity.CurriculumType{Name: name}
+			if err := tx.Create(&newItem).Error; err != nil {
+				log.Printf("❌ failed to seed CurriculumType %s: %v\n", name, err)
+				return err
+			} else {
+				log.Printf("✅ seeded CurriculumType: %s\n", name)
+			}
+		}
+	}
+	return nil
 }
 
 func seedSchools(tx *gorm.DB) error {
+	// Lookup IDs ของ SchoolType
 	typeNameToID := map[string]uint{}
 	var st []entity.SchoolType
 	if err := tx.Find(&st).Error; err != nil {
@@ -176,6 +209,7 @@ func seedSchools(tx *gorm.DB) error {
 		return err
 	}
 
+	// ชุดตัวอย่าง
 	items := []entity.School{
 		{Code: "TH-BKK-0001", Name: "โรงเรียนเตรียมอุดมศึกษา", SchoolTypeID: govID},
 		{Code: "TH-BKK-0002", Name: "โรงเรียนสวนกุหลาบวิทยาลัย", SchoolTypeID: govID},
@@ -195,6 +229,7 @@ func seedSchools(tx *gorm.DB) error {
 		{Code: "TH-OTH-0002", Name: "โรงเรียนตัวอย่าง B", SchoolTypeID: otherID},
 	}
 
+	// เพิ่ม dummy โรงเรียนเยอะๆ
 	for i := 1; i <= 200; i++ {
 		code := fmt.Sprintf("TH-DMY-%04d", i)
 		name := fmt.Sprintf("โรงเรียนตัวอย่างสำหรับทดสอบ #%d", i)
@@ -205,8 +240,18 @@ func seedSchools(tx *gorm.DB) error {
 		})
 	}
 
-	return tx.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "code"}},
-		DoNothing: true,
-	}).Create(&items).Error
+	// Insert โดย check ว่ามี code ซ้ำหรือไม่
+	for _, school := range items {
+		var existing entity.School
+		if err := tx.Where("code = ?", school.Code).First(&existing).Error; err != nil {
+			// ไม่เจอ -> สร้างใหม่
+			if err := tx.Create(&school).Error; err != nil {
+				log.Printf("❌ failed to seed School %s: %v\n", school.Code, err)
+				return err
+			} else {
+				log.Printf("✅ seeded School: %s - %s\n", school.Code, school.Name)
+			}
+		}
+	}
+	return nil
 }
