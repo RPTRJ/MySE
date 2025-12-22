@@ -16,7 +16,7 @@ func SetupRoutes() *gin.Engine {
 
 	r := gin.Default()
 
-	// --- CORS Config (ส่วนนี้ของคุณถูกต้องแล้ว) ---
+	// --- CORS Config ---
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOriginFunc = func(origin string) bool {
 		if strings.HasPrefix(origin, "http://localhost") {
@@ -79,6 +79,7 @@ func SetupRoutes() *gin.Engine {
 	protected.GET("/users/me/onboarding", profileController.GetOnboardingStatus)
 
 	protected.PUT("/users/me", profileController.UpdateMe)
+	protected.PUT("/users/me/profile-image", profileController.UpdateProfileImage) // ← เพิ่มใหม่
 	protected.PUT("/users/me/education", profileController.UpsertEducation)
 	protected.PUT("/users/me/academic-score", profileController.UpsertAcademicScore)
 	protected.PUT("/users/me/ged-score", profileController.UpsertGEDScore)
@@ -104,7 +105,6 @@ func SetupRoutes() *gin.Engine {
 
 	// ✅✅✅ Admin Routes Group  ✅✅✅
 	admin := r.Group("/admin")
-
 	{
 		// API สำหรับดึงสถิติ
 		admin.GET("/curricula/stats", curriculumController.GetSelectionStats)
@@ -121,9 +121,6 @@ func SetupRoutes() *gin.Engine {
 
 	//ระบบแฟ้มสะสมผลงาน (Portfolio)
 	PortfolioRoutes(r)
-	// router.PortfolioRoutes(protectedOnboarded)
-	// router.PortfolioSectionRoutes(protectedOnboarded)
-	// router.PortfolioBlockRoutes(protectedOnboarded)
 
 	ColorsRoutes(r)
 
@@ -138,6 +135,11 @@ func SetupRoutes() *gin.Engine {
 	RegisterScoreCriteriaRoutes(r, db)
 	RegisterScorecardRoutes(r, db)
 
-	return r
+	// --- Admin Protected Routes ---
+	adminProtected := protectedOnboarded.Group("/admin")
+	{
+		adminProtected.GET("/users/:id/profile", profileController.GetUserProfile)
+	}
 
+	return r
 }

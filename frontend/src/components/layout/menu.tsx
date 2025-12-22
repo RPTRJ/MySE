@@ -43,6 +43,12 @@ export const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
     roles: ["admin"],
   },
+  {
+    name: "โปรไฟล์ผู้ใช้",
+    href: "/admin/users",
+    icon: Users,
+    roles: ["admin"],
+  },
   // ⭐⭐ เมนูค้นหาหลักสูตรสำหรับ Student ⭐⭐
   {
     name: "ค้นหาหลักสูตร",

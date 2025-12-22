@@ -7,7 +7,7 @@ import {
   registerService,
   RegisterPayload,
 } from "@/services/auth";
-import { Lock, Mail, ArrowRight, Loader2, Phone, Check } from "lucide-react";
+import { Lock, Mail, ArrowRight, Loader2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion
 
 export default function AuthPage() {
@@ -119,202 +119,236 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-neutral-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
-      
-      <motion.div 
-        layout
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="relative w-full max-w-md rounded-2xl border border-neutral-800 bg-black/50 p-8 shadow-2xl backdrop-blur-md sm:p-10 overflow-hidden"
-      >
-        
-        <AnimatePresence mode="wait" initial={false}>
-          {isLoginMode ? (
+    <div className="min-h-screen w-full bg-white flex flex-col">
+      <div className="flex min-h-screen w-full flex-col lg:flex-row">
+        {/* Left hero */}
+        <div
+          className="relative hidden lg:flex lg:flex-[0_0_54%] overflow-hidden"
+          style={{
+            clipPath: "polygon(0 0, 96% 0, 80% 100%, 0 100%)",
+            backgroundColor: "#e66a0a",
+          }}
+        >
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage:
+                "linear-gradient(0deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('/DSC02078-2-scaled.jpg')",
+            }}
+          />
+          <div className="absolute inset-0 bg-[#e66a0a]/78" />
+          <div className="relative z-10 flex flex-col justify-center px-16 py-14 text-white drop-shadow-[0_12px_32px_rgba(0,0,0,0.28)]">
+            <p className="text-4xl font-semibold">Welcome to</p>
+            <h1 className="mt-4 text-7xl font-black tracking-tight">SUTPORTFOLIO</h1>
+            <p className="mt-8 text-xl leading-relaxed text-white/90 max-w-2xl">
+              ระบบจัดการ Portfolio สำหรับนักศึกษา มหาวิทยาลัยเทคโนโลยีสุรนารี
+            </p>
+          </div>
+        </div>
 
-            <motion.div
-              key="login"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold tracking-tight text-white">
-                  ยินดีต้อนรับกลับมา
-                </h2>
-                <p className="mt-2 text-sm text-neutral-400">
-                  กรุณาเข้าสู่ระบบเพื่อใช้งาน MySE Platform
-                </p>
-              </div>
+        {/* Right column */}
+        <div className="relative w-full lg:w-[42%] flex items-center justify-center px-6 py-12 lg:px-12">
+          {/* Mobile accent header */}
+          <div
+            className="absolute top-0 left-0 w-full h-36 bg-gradient-to-r from-[#f97316] to-[#f97316] lg:hidden"
+            style={{
+              clipPath: "polygon(0 0, 100% 0, 100% 60%, 0 100%)",
+            }}
+          />
 
-              {success && (
-                <div className="mb-6 rounded-md bg-green-500/10 p-3 text-sm text-green-400 border border-green-500/20 text-center">
-                  {success}
-                </div>
-              )}
-              {error && (
-                <div className="mb-6 rounded-md bg-red-900/30 p-3 text-sm text-red-400 border border-red-900/50 text-center">
-                  {error}
-                </div>
-              )}
+          <div className="w-full max-w-lg relative z-10">
+            <div className="lg:hidden text-center mb-8 pt-12">
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Welcome to <span className="text-[#e66a0a]">SUTPORTFOLIO</span>
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                ระบบจัดการ Portfolio สำหรับนักศึกษา มหาวิทยาลัยเทคโนโลยีสุรนารี
+              </p>
+            </div>
 
-              <form className="space-y-6" onSubmit={handleLogin}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300">อีเมล</label>
-                    <div className="relative mt-2">
-                      <Mail className="absolute left-3 top-2.5 h-5 w-5 text-neutral-500" />
-                      <input
-                        type="email"
-                        required
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className="block w-full rounded-lg border border-neutral-800 bg-neutral-900/50 py-3 pl-10 pr-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all"
-                        placeholder="student@example.com"
-                      />
+            <div className="bg-white rounded-3xl border border-orange-100 shadow-[0_18px_45px_rgba(0,0,0,0.1)] px-8 py-10">
+              <AnimatePresence mode="wait" initial={false}>
+                {isLoginMode ? (
+                  <motion.div
+                    key="login"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="text-center mb-8">
+                      <h2 className="text-2xl font-bold text-gray-800">ยินดีต้อนรับ</h2>
+                      <p className="mt-2 text-sm text-gray-500">กรุณาเข้าสู่ระบบเพื่อใช้งาน</p>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300">รหัสผ่าน</label>
-                    <div className="relative mt-2">
-                      <Lock className="absolute left-3 top-2.5 h-5 w-5 text-neutral-500" />
-                      <input
-                        type="password"
-                        required
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="block w-full rounded-lg border border-neutral-800 bg-neutral-900/50 py-3 pl-10 pr-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="group relative flex w-full justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-70 transition-all"
-                >
-                  {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                  {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-                  {!isLoading && <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />}
-                </button>
-              </form>
-
-              <div className="mt-8 text-center text-sm text-neutral-500">
-                ยังไม่มีบัญชีผู้ใช้?{" "}
-                <button 
-                  onClick={() => toggleMode(false)} 
-                  className="font-semibold text-blue-500 hover:text-blue-400 hover:underline focus:outline-none"
-                >
-                  สมัครสมาชิกที่นี่
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-
-            <motion.div
-              key="register"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold tracking-tight text-white">
-                  สร้างบัญชีใหม่
-                </h2>
-                <p className="mt-2 text-sm text-neutral-400">
-                  กรอกข้อมูลเพื่อเริ่มต้นใช้งาน
-                </p>
-              </div>
-
-              {error && (
-                <div className="mb-6 rounded-md bg-red-900/30 p-3 text-sm text-red-400 border border-red-900/50 text-center">
-                  {error}
-                </div>
-              )}
-
-              <form className="space-y-6" onSubmit={handleRegister}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300">อีเมล</label>
-                    <div className="relative mt-2">
-                      <Mail className="absolute left-3 top-2.5 h-5 w-5 text-neutral-500" />
-                      <input
-                        type="email"
-                        required
-                        value={regData.email}
-                        onChange={(e) => setRegData({...regData, email: e.target.value})}
-                        className="block w-full rounded-lg border border-neutral-800 bg-neutral-900/50 py-3 pl-10 pr-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all"
-                        placeholder="student@example.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300">รหัสผ่าน</label>
-                    <div className="relative mt-2">
-                      <Lock className="absolute left-3 top-2.5 h-5 w-5 text-neutral-500" />
-                      <input
-                        type="password"
-                        required
-                        minLength={6}
-                        value={regData.password}
-                        onChange={(e) => setRegData({...regData, password: e.target.value})}
-                        className="block w-full rounded-lg border border-neutral-800 bg-neutral-900/50 py-3 pl-10 pr-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition-all"
-                        placeholder="•••••••• (ขั้นต่ำ 6 ตัวอักษร)"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300">ยืนยันรหัสผ่าน</label>
-                    <div className="relative mt-2">
-                      <Check className="absolute left-3 top-2.5 h-5 w-5 text-neutral-500" />
-                      <input
-                        type="password"
-                        required
-                        minLength={6}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`block w-full rounded-lg border ${
-                          confirmPassword && regData.password !== confirmPassword 
-                          ? "border-red-500 focus:ring-red-500" 
-                          : "border-neutral-800 focus:ring-blue-500"
-                        } bg-neutral-900/50 py-3 pl-10 pr-4 text-neutral-200 focus:border-blue-500 focus:outline-none focus:ring-1 sm:text-sm transition-all`}
-                        placeholder="กรอกรหัสผ่านอีกครั้ง"
-                      />
-                    </div>
-                    {confirmPassword && regData.password !== confirmPassword && (
-                      <p className="mt-1 text-xs text-red-400">รหัสผ่านไม่ตรงกัน</p>
+                    {success && (
+                      <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 text-center">
+                        {success}
+                      </div>
                     )}
-                  </div>
+                    {error && (
+                      <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 text-center">
+                        {error}
+                      </div>
+                    )}
 
-                </div>
+                    <form className="space-y-5" onSubmit={handleLogin}>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700">อีเมล</label>
+                          <div className="relative mt-2">
+                            <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#e66a0a]" />
+                            <input
+                              type="email"
+                              required
+                              value={loginEmail}
+                              onChange={(e) => setLoginEmail(e.target.value)}
+                              className="w-full h-12 rounded-xl border border-orange-100 bg-orange-50/40 pl-12 pr-4 text-gray-800 placeholder:text-gray-400 focus:border-[#e66a0a] focus:ring-2 focus:ring-orange-100 transition"
+                              placeholder="student@example.com"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700">รหัสผ่าน</label>
+                          <div className="relative mt-2">
+                            <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#e66a0a]" />
+                            <input
+                              type="password"
+                              required
+                              value={loginPassword}
+                              onChange={(e) => setLoginPassword(e.target.value)}
+                              className="w-full h-12 rounded-xl border border-orange-100 bg-orange-50/40 pl-12 pr-4 text-gray-800 placeholder:text-gray-400 focus:border-[#e66a0a] focus:ring-2 focus:ring-orange-100 transition"
+                              placeholder="••••••••"
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="group relative flex w-full justify-center rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-500 disabled:opacity-70 transition-all"
-                >
-                  {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                  {isLoading ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
-                </button>
-              </form>
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="group relative flex w-full items-center justify-center rounded-xl bg-[#f97316] px-4 py-3 text-base font-semibold text-white shadow-[0_10px_20px_rgba(249,115,22,0.3)] hover:bg-[#f86805] transition disabled:opacity-70"
+                      >
+                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                        {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+                        {!isLoading && <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                      </button>
+                    </form>
 
-              <div className="mt-8 text-center text-sm text-neutral-500">
-                มีบัญชีอยู่แล้ว?{" "}
-                <button 
-                  onClick={() => toggleMode(true)} 
-                  className="font-semibold text-blue-500 hover:text-blue-400 hover:underline focus:outline-none"
-                >
-                  กลับไปเข้าสู่ระบบ
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+                    <p className="mt-6 text-center text-sm text-gray-500">
+                      ยังไม่มีบัญชีผู้ใช้ใหม่?{" "}
+                      <button
+                        type="button"
+                        onClick={() => toggleMode(false)}
+                        className="font-semibold text-[#e66a0a] hover:underline"
+                      >
+                        สมัครสมาชิกที่นี่
+                      </button>
+                    </p>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="register"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="text-center mb-8">
+                      <h2 className="text-2xl font-bold text-gray-800">สร้างบัญชีใหม่</h2>
+                      <p className="mt-2 text-sm text-gray-500">ลงทะเบียนเพื่อเริ่มใช้งาน MySE Platform</p>
+                    </div>
+
+                    {error && (
+                      <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 text-center">
+                        {error}
+                      </div>
+                    )}
+
+                    <form className="space-y-5" onSubmit={handleRegister}>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700">อีเมล</label>
+                          <div className="relative mt-2">
+                            <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#e66a0a]" />
+                            <input
+                              type="email"
+                              required
+                              value={regData.email}
+                              onChange={(e) => setRegData({ ...regData, email: e.target.value })}
+                              className="w-full h-12 rounded-xl border border-orange-100 bg-orange-50/40 pl-12 pr-4 text-gray-800 placeholder:text-gray-400 focus:border-[#e66a0a] focus:ring-2 focus:ring-orange-100 transition"
+                              placeholder="student@example.com"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700">รหัสผ่าน</label>
+                          <div className="relative mt-2">
+                            <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#e66a0a]" />
+                            <input
+                              type="password"
+                              required
+                              minLength={6}
+                              value={regData.password}
+                              onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                              className="w-full h-12 rounded-xl border border-orange-100 bg-orange-50/40 pl-12 pr-4 text-gray-800 placeholder:text-gray-400 focus:border-[#e66a0a] focus:ring-2 focus:ring-orange-100 transition"
+                              placeholder="•••••••• (ขั้นต่ำ 6 ตัวอักษร)"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700">ยืนยันรหัสผ่าน</label>
+                          <div className="relative mt-2">
+                            <Check className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#e66a0a]" />
+                            <input
+                              type="password"
+                              required
+                              minLength={6}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              className={`w-full h-12 rounded-xl border bg-orange-50/40 pl-12 pr-4 text-gray-800 placeholder:text-gray-400 focus:ring-2 transition ${
+                                confirmPassword && regData.password !== confirmPassword
+                                  ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                  : "border-orange-100 focus:border-[#e66a0a] focus:ring-orange-100"
+                              }`}
+                              placeholder="กรอกรหัสผ่านอีกครั้ง"
+                            />
+                          </div>
+                          {confirmPassword && regData.password !== confirmPassword && (
+                            <p className="mt-2 text-xs font-medium text-red-600">รหัสผ่านไม่ตรงกัน</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="group relative flex w-full items-center justify-center rounded-xl bg-[#16a34a] px-4 py-3 text-base font-semibold text-white shadow-[0_10px_20px_rgba(22,163,74,0.25)] hover:bg-[#0f9c42] transition disabled:opacity-70"
+                      >
+                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                        {isLoading ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
+                      </button>
+                    </form>
+
+                    <p className="mt-6 text-center text-sm text-gray-500">
+                      มีบัญชีอยู่แล้ว?{" "}
+                      <button
+                        type="button"
+                        onClick={() => toggleMode(true)}
+                        className="font-semibold text-[#e66a0a] hover:underline"
+                      >
+                        กลับไปเข้าสู่ระบบ
+                      </button>
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

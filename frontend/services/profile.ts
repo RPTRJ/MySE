@@ -194,6 +194,38 @@ export async function fetchMyProfile(token: string): Promise<ProfileResponse> {
   };
 }
 
+export async function fetchUsers(token: string): Promise<ApiUser[]> {
+  const data = await authorizedFetch<{ data?: any[]; items?: any[]; users?: any[] }>(
+    "/users",
+    token,
+    "ไม่สามารถโหลดรายชื่อผู้ใช้ได้",
+  );
+
+  const list = data.data || data.items || data.users;
+  if (!Array.isArray(list)) return [];
+
+  return list.map((item) => {
+    const numericId = Number(item.id ?? item.ID ?? item.user_id ?? 0);
+    return {
+      ...item,
+      id: Number.isFinite(numericId) && numericId > 0 ? numericId : item.id,
+    } as ApiUser;
+  });
+}
+
+export async function fetchUserProfileByAdmin(
+  token: string,
+  userId: number | string,
+): Promise<ProfileResponse> {
+  const idNum = Number(userId);
+  const safeId = Number.isFinite(idNum) && idNum > 0 ? idNum : userId;
+  return authorizedFetch<ProfileResponse>(
+    `/admin/users/${safeId}/profile`,
+    token,
+    "ไม่สามารถโหลดโปรไฟล์ผู้ใช้ได้",
+  );
+}
+
 export async function updatePersonalInfo(token: string, payload: UpdatePersonalPayload): Promise<ApiUser> {
   const data = await authorizedFetch<{ data?: ApiUser; user?: ApiUser }>(
     "/users/me/onboarding",
@@ -278,4 +310,21 @@ export async function replaceLanguageScores(
   );
 
   return true;
+}
+
+export async function updateProfileImage(
+  token: string,
+  profileImageUrl: string
+): Promise<ApiUser> {
+  const data = await authorizedFetch<{ user: ApiUser }>(
+    "/users/me/profile-image",
+    token,
+    "ไม่สามารถอัพเดตรูปโปรไฟล์ได้",
+    {
+      method: "PUT",
+      body: JSON.stringify({ profile_image_url: profileImageUrl }),
+    }
+  );
+
+  return data.user;
 }

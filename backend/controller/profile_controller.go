@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -55,6 +56,48 @@ func (pc *ProfileController) GetMe(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, profile)
 }
 
+// GetUserProfile allows admins to view the full profile of any user.
+func (pc *ProfileController) GetUserProfile(ctx *gin.Context) {
+	requesterID, err := getAuthUserID(ctx)
+	if err != nil {
+		respondError(ctx, http.StatusUnauthorized, err)
+		return
+	}
+
+	var requester entity.User
+	if err := pc.DB.First(&requester, requesterID).Error; err != nil {
+		handleDBError(ctx, err, "requester not found")
+		return
+	}
+
+	// Only admin (AccountTypeID = 3) is allowed to view others' profiles.
+	if requester.AccountTypeID != 3 {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "admin_only"})
+		return
+	}
+
+	targetParam := strings.TrimSpace(ctx.Param("id"))
+	targetID, err := strconv.ParseUint(targetParam, 10, 64)
+	if err != nil || targetID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	user, err := pc.getUser(uint(targetID))
+	if err != nil {
+		handleDBError(ctx, err, "user not found")
+		return
+	}
+
+	profile, err := pc.buildUserProfile(uint(targetID), user)
+	if err != nil {
+		respondError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, profile)
+}
+
 // UpdateMe updates the authenticated user's basic information
 func (pc *ProfileController) UpdateMe(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
@@ -81,6 +124,39 @@ func (pc *ProfileController) UpdateMe(ctx *gin.Context) {
 	}
 
 	pc.updateUserFields(user, &req)
+
+	if err := pc.DB.Save(user).Error; err != nil {
+		respondError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+// UpdateProfileImage updates the authenticated user's profile image
+func (pc *ProfileController) UpdateProfileImage(ctx *gin.Context) {
+	userID, err := getAuthUserID(ctx)
+	if err != nil {
+		respondError(ctx, http.StatusUnauthorized, err)
+		return
+	}
+
+	var req struct {
+		ProfileImageURL string `json:"profile_image_url" binding:"required,url"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		respondError(ctx, http.StatusBadRequest, errors.New("profile_image_url is required and must be a valid URL"))
+		return
+	}
+
+	user, err := pc.getUser(userID)
+	if err != nil {
+		handleDBError(ctx, err, "user not found")
+		return
+	}
+
+	user.ProfileImageURL = strings.TrimSpace(req.ProfileImageURL)
 
 	if err := pc.DB.Save(user).Error; err != nil {
 		respondError(ctx, http.StatusInternalServerError, err)
@@ -538,12 +614,44 @@ func respondError(ctx *gin.Context, status int, err error) {
 	ctx.JSON(status, gin.H{"error": err.Error()})
 }
 
-func handleDBError(ctx *gin.Context, err error, notFoundMsg string) {
+func handleDBError(ctx *gin.Context, err error, msg string) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		respondError(ctx, http.StatusNotFound, errors.New(notFoundMsg))
-	} else {
-		respondError(ctx, http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusNotFound, gin.H{"error": msg})
+		return
 	}
+	respondError(ctx, http.StatusInternalServerError, err)
+}
+
+func isThaiText(s string) bool {
+	for _, r := range s {
+		if !unicode.In(r, unicode.Thai, unicode.Space, unicode.Punct) {
+			return false
+		}
+	}
+	return true
+}
+
+func isEnglishText(s string) bool {
+	for _, r := range s {
+		if !unicode.In(r, unicode.Latin, unicode.Space, unicode.Punct) && !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizePhone(phone string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(phone, "-", ""), " ", "")
+}
+
+func isValidEducationStatus(status string) bool {
+	validStatuses := []string{"current", "graduated", "other"}
+	for _, v := range validStatuses {
+		if status == v {
+			return true
+		}
+	}
+	return false
 }
 
 func derefTime(t *time.Time) time.Time {
@@ -551,70 +659,4 @@ func derefTime(t *time.Time) time.Time {
 		return time.Time{}
 	}
 	return *t
-}
-
-func normalizePhone(v string) string {
-	// Remove all whitespace and dashes
-	v = strings.Map(func(r rune) rune {
-		if r == ' ' || r == '-' {
-			return -1
-		}
-		return r
-	}, v)
-	return strings.TrimSpace(v)
-}
-
-func isValidEducationStatus(status string) bool {
-	validStatuses := []entity.EducationStatus{
-		entity.EducationStatusCurrent,
-		entity.EducationStatusGraduated,
-		entity.EducationStatusOther,
-	}
-
-	for _, valid := range validStatuses {
-		if status == string(valid) {
-			return true
-		}
-	}
-	return false
-}
-
-// Text validation functions
-
-func isThaiText(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return false
-	}
-
-	for _, r := range value {
-		if isAllowedWhitespace(r) {
-			continue
-		}
-		if !unicode.In(r, unicode.Thai) {
-			return false
-		}
-	}
-	return true
-}
-
-func isEnglishText(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return false
-	}
-
-	for _, r := range value {
-		if isAllowedWhitespace(r) {
-			continue
-		}
-		if !unicode.In(r, unicode.Latin) || !unicode.IsLetter(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isAllowedWhitespace(r rune) bool {
-	return r == ' ' || r == '-' || r == '\''
 }

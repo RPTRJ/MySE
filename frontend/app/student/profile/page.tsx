@@ -1,6 +1,6 @@
 "use client";
+
 import React, { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,14 +13,11 @@ import {
   ProfileResponse,
   fetchMyProfile,
 } from "@/services/profile";
+import { ProfileImageUploader } from "@/components/ProfileImageUploader";
 
-const AVATAR_PLACEHOLDER =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" fill="none"><rect width="320" height="320" rx="160" fill="#FFE7D1"/><circle cx="160" cy="128" r="68" fill="#FFB566"/><path d="M72 270c0-48.6 39.4-88 88-88s88 39.4 88 88" fill="#FF9A3C"/></svg>`
-  );
+type Option = { id: number; name: string };
 
-type Option = { id: string | number; name: string };
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return "-";
@@ -67,26 +64,24 @@ export default function ProfilePage() {
   const [schoolTypes, setSchoolTypes] = useState<Option[]>([]);
   const [curriculumTypes, setCurriculumTypes] = useState<Option[]>([]);
   const [refsLoaded, setRefsLoaded] = useState(false);
-  const [educationDisplay, setEducationDisplay] = useState<{
-    level: string;
-    schoolType: string;
-    schoolName: string;
-    curriculum: string;
-  } | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const authToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    if (!token) {
+    if (!authToken) {
       setError("กรุณาเข้าสู่ระบบอีกครั้ง");
       router.replace("/login");
       setLoading(false);
       return;
     }
 
-    setToken(token);
-    fetchMyProfile(token)
-      .then((data) => setProfile(data))
+    setToken(authToken);
+    fetchMyProfile(authToken)
+      .then((data) => {
+        setProfile(data);
+        setProfileImageUrl(data.user?.profile_image_url);
+      })
       .catch((err: unknown) => {
         if (err instanceof HttpError && err.status === 401) {
           localStorage.removeItem("token");
@@ -109,6 +104,41 @@ export default function ProfilePage() {
   const ged: ApiGEDScore | undefined = profile?.ged_score;
   const languageScores: ApiLanguageScore[] = profile?.language_scores || [];
 
+  useEffect(() => {
+    if (!token) return;
+
+    fetch(`${API_URL}/reference/education-levels`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.data || [];
+        setEducationLevels(normalizeOptions(items));
+      });
+
+    fetch(`${API_URL}/reference/school-types`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.data || [];
+        setSchoolTypes(normalizeOptions(items));
+      });
+
+    fetch(`${API_URL}/reference/curriculum-types`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data?.items || data?.data || [];
+        setCurriculumTypes(items.length ? normalizeOptions(items) : []);
+        setRefsLoaded(true);
+      })
+      .catch(() => {
+        setRefsLoaded(true);
+      });
+  }, [token]);
+
   const normalizeOptions = (items: any[]): Option[] =>
     items
       .map((item) => {
@@ -124,8 +154,9 @@ export default function ProfilePage() {
   const resolveNameById = (items: Option[], id?: number | null) => {
     if (id === undefined || id === null) return undefined;
     const numericId = Number(id);
-    return items.find((item) => String(item.id) === String(id) || (Number.isFinite(numericId) && item.id === numericId))
-      ?.name;
+    return items.find(
+      (item) => String(item.id) === String(id) || (Number.isFinite(numericId) && item.id === numericId)
+    )?.name;
   };
 
   const educationLevelName = useMemo(() => {
@@ -153,91 +184,46 @@ export default function ProfilePage() {
     return byId || "-";
   }, [education, curriculumTypes]);
 
-  // Derive display strings once profile + refs are available to avoid flicker/mismatch.
-  useEffect(() => {
-    if (!education) {
-      setEducationDisplay(null);
-      return;
-    }
-    const level = education.education_level?.name?.trim() || educationLevelName || "-";
-    const schoolType = education.school_type?.name?.trim() || schoolTypeName || "-";
-    const schoolName = education.school?.name || education.school_name || "-";
-    const curriculum = education.curriculum_type?.name?.trim() || curriculumName || "-";
-    setEducationDisplay({ level, schoolType, schoolName, curriculum });
-  }, [education, educationLevelName, schoolTypeName, curriculumName]);
-
-  useEffect(() => {
-    if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    Promise.all([
-      fetch(`${apiBase}/reference/education-levels`, { headers }),
-      fetch(`${apiBase}/reference/school-types`, { headers }),
-      fetch(`${apiBase}/reference/curriculum-types`, { headers }),
-    ])
-      .then(async ([levelRes, schoolTypeRes, curriculumRes]) => {
-        const [levelData, schoolTypeData, curriculumData] = await Promise.all([
-          levelRes.json().catch(() => ({})),
-          schoolTypeRes.json().catch(() => ({})),
-          curriculumRes.json().catch(() => ({})),
-        ]);
-
-        const pickArray = (payload: any) => {
-          if (Array.isArray(payload)) return payload;
-          if (Array.isArray(payload?.items)) return payload.items;
-          if (Array.isArray(payload?.data)) return payload.data;
-          if (Array.isArray(payload?.data?.items)) return payload.data.items;
-          return [];
-        };
-
-        const levels = pickArray(levelData);
-        const schoolTypeList = pickArray(schoolTypeData);
-        const curriculumList = pickArray(curriculumData);
-
-        setEducationLevels(levels.length ? normalizeOptions(levels) : []);
-        setSchoolTypes(schoolTypeList.length ? normalizeOptions(schoolTypeList) : []);
-        setCurriculumTypes(curriculumList.length ? normalizeOptions(curriculumList) : []);
-        setRefsLoaded(true);
-      })
-      .catch(() => {
-        /* ignore reference load errors */
-        setRefsLoaded(true);
-      });
-  }, [token]);
   const displayNames = useMemo(() => {
     const thai = [user?.first_name_th, user?.last_name_th].filter(Boolean).join(" ").trim();
     const eng = [user?.first_name_en, user?.last_name_en].filter(Boolean).join(" ").trim();
     return {
       primary: thai || eng || "Student",
-      secondary: thai && eng ? eng : eng ? eng : thai,
+      secondary: thai && eng ? eng : "",
     };
   }, [user?.first_name_en, user?.first_name_th, user?.last_name_en, user?.last_name_th]);
 
+  // ตรวจสอบว่าชื่อที่มีเป็นภาษาไทยหรืออังกฤษ
+  const nameLanguage = useMemo(() => {
+    if (user?.first_name_th || user?.last_name_th) return "thai";
+    if (user?.first_name_en || user?.last_name_en) return "english";
+    return "none";
+  }, [user]);
+
+  // แก้ไข: ลบ "คะแนนภาษา" ออกจากการตรวจสอบ
   const missingSections = useMemo(() => {
     const missing: string[] = [];
     if (!education) missing.push("ข้อมูลการศึกษา");
-    if (!academic) missing.push("ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX");
-    if (!ged) missing.push("ข้อมูลคะแนน GED");
-    if (!languageScores.length) missing.push("คะแนนภาษา TGAT/TPAT/A-Level");
+    if (!academic && !ged) missing.push("ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX");
     return missing;
-  }, [education, academic, ged, languageScores.length]);
+  }, [education, academic, ged]);
 
   const educationFields = [
     {
       label: "ระดับการศึกษา",
-      value: educationDisplay?.level || "-",
+      value: educationLevelName,
     },
     {
       label: "ประเภทโรงเรียน",
-      value: educationDisplay?.schoolType || "-",
+      value: schoolTypeName,
     },
     {
       label: "ชื่อสถานศึกษา",
-      value: educationDisplay?.schoolName || "-",
+      value: education?.school?.name || education?.school_name || "-",
     },
     {
       label: "หลักสูตร",
-      value: educationDisplay?.curriculum || "-",
+      value: curriculumName,
     },
   ];
 
@@ -267,97 +253,168 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-amber-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
-        {missingSections.length ? (
-          <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-5 shadow-sm">
-            <div className="text-sm font-semibold text-red-600 mb-3">มีบางรายการยังไม่สมบูรณ์</div>
-            <ul className="space-y-2">
-              {missingSections.map((item) => (
-                <li
-                  key={item}
-                  className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 shadow border border-red-100 text-sm text-gray-700"
+        {missingSections.length > 0 && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-yellow-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
                 >
-                  <span className="text-red-400">⨀</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+                  <path
+                    fillRule="evenodd"
+                    d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">ข้อมูลยังไม่ครบถ้วน</h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>กรุณากรอกข้อมูลต่อไปนี้ให้ครบถ้วน:</p>
+                  <ul className="list-disc list-inside mt-1">
+                    {missingSections.map((section) => (
+                      <li key={section}>{section}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : null}
+        )}
 
-        <div className="bg-white rounded-2xl shadow-md border border-orange-100 px-6 py-8">
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex flex-col items-center min-w-[120px]">
-              <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-full border border-gray-300 bg-white overflow-hidden flex items-center justify-center">
-                <Image
-                  src={user.profile_image_url || AVATAR_PLACEHOLDER}
-                  alt="Profile"
-                  fill
-                  className="object-cover"
+        {/* Header Card - ยุบเข้าด้วยกัน */}
+        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl shadow-xl overflow-hidden">
+          <div className="px-6 py-10 sm:px-10">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
+              {/* Profile Image - ซ้าย */}
+              <div className="flex-shrink-0">
+                <ProfileImageUploader
+                  currentImageUrl={profileImageUrl}
+                  onImageUpdated={(newUrl) => setProfileImageUrl(newUrl)}
                 />
               </div>
-              <div className="mt-2 text-orange-500 text-sm">แก้ไขรูปภาพ</div>
-            </div>
 
-            <div className="flex-1 w-full space-y-5">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-semibold text-gray-900">ข้อมูลส่วนตัว</div>
-                <Link href="/student/profile/edit/personal" className="text-sm text-orange-500 hover:underline">
-                  แก้ไข
-                </Link>
-              </div>
+              {/* Personal Info - ขวา */}
+              <div className="flex-1 space-y-4 w-full">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-3xl font-bold text-white">{displayNames.primary}</h1>
+                  <Link
+                    href="/student/profile/edit/personal"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur-sm transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                    แก้ไข
+                  </Link>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5 text-sm">
-                {[
-                  { label: "ชื่อ", value: user.first_name_th || user.first_name_en || "" },
-                  { label: "นามสกุล", value: user.last_name_th || user.last_name_en || "" },
-                  { label: "email", value: user.email || "" },
-                  { label: "หมายเลขโทรศัพท์", value: user.phone || "" },
-                  { label: "หมายเลขประจำตัว", value: user.id_number || "" },
-                  { label: "วันเกิด", value: formatDate(user.birthday) !== "-" ? formatDate(user.birthday) : "" },
-                ].map((row) => (
-                  <div key={row.label} className="flex flex-col gap-1">
-                    <span className="text-gray-700">{row.label}</span>
-                    <div className="h-10 px-3 flex items-center rounded-full border border-gray-300 bg-white text-gray-900">
-                      {row.value}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* ชื่อ */}
+                  {nameLanguage === "thai" && (
+                    <>
+                      <div>
+                        <div className="text-xs text-orange-100 mb-1">ชื่อ (ไทย)</div>
+                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                          {user.first_name_th || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-orange-100 mb-1">นามสกุล (ไทย)</div>
+                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                          {user.last_name_th || "-"}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {nameLanguage === "english" && (
+                    <>
+                      <div>
+                        <div className="text-xs text-orange-100 mb-1">ชื่อ (อังกฤษ)</div>
+                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                          {user.first_name_en || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-orange-100 mb-1">นามสกุล (อังกฤษ)</div>
+                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                          {user.last_name_en || "-"}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* อีเมล */}
+                  <div>
+                    <div className="text-xs text-orange-100 mb-1">อีเมล</div>
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                      {user.email}
                     </div>
                   </div>
-                ))}
+
+                  {/* เบอร์โทรศัพท์ */}
+                  <div>
+                    <div className="text-xs text-orange-100 mb-1">เบอร์โทรศัพท์</div>
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                      {user.phone || "-"}
+                    </div>
+                  </div>
+
+                  {/* วันเกิด */}
+                  <div>
+                    <div className="text-xs text-orange-100 mb-1">วันเกิด</div>
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
+                      {formatDate(user.birthday)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white backdrop-blur-sm">
+                    <span className="mr-1.5">🎓</span>
+                    {user.type_id === 1 ? "นักศึกษา" : "STUDENT"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Education Info */}
         <SectionCard
-          title="การศึกษา"
+          title="ข้อมูลการศึกษา"
           action={
-            <div className="flex items-center gap-3">
-              <Link href="/student/profile/edit/education" className="text-sm text-orange-500 hover:underline">
-                แก้ไข
-              </Link>
-            </div>
+            <Link href="/student/profile/edit/education" className="text-sm text-orange-500 hover:underline">
+              แก้ไข
+            </Link>
           }
-          noDivider
         >
-          <div className="py-5">
+          <div className="px-6 py-5">
             {education ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5 text-sm">
-                {educationFields.map((row) => (
-                  <div key={row.label} className="flex flex-col gap-1">
-                    <span className="text-gray-700">{row.label}</span>
-                    <div className="h-10 px-3 flex items-center rounded-full border border-gray-300 bg-white text-gray-900">
-                      {row.value}
-                    </div>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                {educationFields.map((field) => (
+                  <div key={field.label}>
+                    <dt className="text-gray-500 mb-1">{field.label}</dt>
+                    <dd className="text-gray-900 font-medium">{field.value}</dd>
                   </div>
                 ))}
-              </div>
-            ) : refsLoaded ? (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลการศึกษา</p>
+              </dl>
             ) : (
-              <p className="text-sm text-gray-500">กำลังโหลดข้อมูลการศึกษา...</p>
+              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลการศึกษา</p>
             )}
           </div>
         </SectionCard>
 
+        {/* Academic Score */}
         <SectionCard
           title="ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX"
           action={
@@ -374,7 +431,7 @@ export default function ProfilePage() {
                   <dd className="text-gray-900 font-semibold">{formatScore(academic.gpax)}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">จำนวนเทอม</dt>
+                  <dt className="text-gray-500">เทอม</dt>
                   <dd className="text-gray-900 font-semibold">{academic.gpax_semesters ?? "-"}</dd>
                 </div>
                 <div>
@@ -409,13 +466,14 @@ export default function ProfilePage() {
                 </div>
               </dl>
             ) : (
-              <p className="text-sm text-gray-500">กรุณาเพิ่มข้อมูลคะแนน</p>
+              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลคะแนนหลักสูตรแกนกลาง</p>
             )}
           </div>
         </SectionCard>
 
+        {/* GED Score */}
         <SectionCard
-          title="คะแนน GED"
+          title="ข้อมูลคะแนน GED"
           action={
             <Link href="/student/profile/edit/ged-score" className="text-sm text-orange-500 hover:underline">
               แก้ไข
@@ -447,9 +505,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <dt className="text-gray-500">ไฟล์ใบรับรอง</dt>
-                  <dd className="text-gray-900 font-semibold break-words">
-                    {ged.cert_file_path || "-"}
-                  </dd>
+                  <dd className="text-gray-900 font-semibold break-words">{ged.cert_file_path || "-"}</dd>
                 </div>
               </dl>
             ) : (
@@ -458,6 +514,7 @@ export default function ProfilePage() {
           </div>
         </SectionCard>
 
+        {/* Language Scores */}
         <SectionCard
           title="ข้อมูลคะแนนภาษา"
           action={
@@ -469,31 +526,51 @@ export default function ProfilePage() {
           <div className="px-6 py-5">
             {languageScores.length ? (
               <div className="space-y-3">
-                {languageScores.map((score) => (
+                {languageScores.map((score, idx) => (
                   <div
-                    key={score.id || `${score.test_type}-${score.test_date}`}
+                    key={score.id || `${score.test_type}-${idx}`}
                     className="flex flex-col md:flex-row md:items-center md:justify-between border border-orange-100 bg-orange-50/40 rounded-xl px-4 py-3 text-sm"
                   >
                     <div className="space-y-1">
                       <div className="font-semibold text-gray-900">{score.test_type}</div>
                       <div className="text-xs text-gray-600">
                         ระดับ {score.test_level || "-"} | คะแนน {score.score || "-"}
-                        {score.sat_math !== undefined && score.sat_math !== null ? ` | SAT Math ${score.sat_math}` : ""}
+                        {score.sat_math !== undefined && score.sat_math !== null
+                          ? ` | SAT Math ${score.sat_math}`
+                          : ""}
                       </div>
                       {score.cert_file_path ? (
-                        <div className="text-[11px] text-gray-500 break-words">
-                          ไฟล์แนบ: {score.cert_file_path}
-                        </div>
+                        <a
+                          href={score.cert_file_path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-orange-500 hover:underline inline-flex items-center"
+                        >
+                          <svg
+                            className="w-3 h-3 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          ดูไฟล์
+                        </a>
                       ) : null}
                     </div>
-                    <div className="text-xs text-gray-500 mt-2 md:mt-0 text-right">
-                      {formatDate(score.test_date)}
+                    <div className="text-xs text-gray-500 mt-2 md:mt-0">
+                      {score.test_date ? formatDate(score.test_date) : "ไม่ระบุวันที่"}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">โปรดเพิ่มข้อมูลคะแนนภาษา</p>
+              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลคะแนนภาษา</p>
             )}
           </div>
         </SectionCard>
