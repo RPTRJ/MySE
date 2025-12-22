@@ -17,23 +17,22 @@ func CurriculumSeed() {
 		return
 	}
 
+	seedUserID := firstUserID(db)
+	if seedUserID == 0 {
+		log.Println("CurriculumSeed skip: no user found to own curriculums (user_id is required)")
+		return
+	}
+
 	// 1. Seed ข้อมูลคณะและสาขาวิชาก่อน (เพราะหลักสูตรต้องอ้างอิงสิ่งเหล่านี้)
 	seedFaculties(db)
 	seedPrograms(db)
 
 	// 2. Seed ข้อมูลหลักสูตร
-	seedCurriculums(db)
+	seedCurriculums(db, seedUserID)
 }
 
 func seedFaculties(db *gorm.DB) {
-	var count int64
-	if err := db.Model(&entity.Faculty{}).Count(&count).Error; err != nil {
-		log.Println("count faculties error:", err)
-		return
-	}
-
-	if count > 0 {
-		log.Println("faculties already seeded")
+	if skipIfSeededDefault(db, &entity.Faculty{}, "faculties") {
 		return
 	}
 
@@ -57,14 +56,7 @@ func seedFaculties(db *gorm.DB) {
 }
 
 func seedPrograms(db *gorm.DB) {
-	var count int64
-	if err := db.Model(&entity.Program{}).Count(&count).Error; err != nil {
-		log.Println("count programs error:", err)
-		return
-	}
-
-	if count > 0 {
-		log.Println("programs already seeded")
+	if skipIfSeededDefault(db, &entity.Program{}, "programs") {
 		return
 	}
 
@@ -101,16 +93,8 @@ func seedPrograms(db *gorm.DB) {
 }
 
 // ฟังก์ชันสำหรับ Seed หลักสูตร
-func seedCurriculums(db *gorm.DB) {
-	var count int64
-	// เช็คว่ามีข้อมูลหลักสูตรอยู่แล้วหรือไม่
-	if err := db.Model(&entity.Curriculum{}).Count(&count).Error; err != nil {
-		log.Println("count curriculums error:", err)
-		return
-	}
-
-	if count > 0 {
-		log.Println("curriculums already seeded")
+func seedCurriculums(db *gorm.DB, userID uint) {
+	if skipIfSeededDefault(db, &entity.Curriculum{}, "curriculums") {
 		return
 	}
 
@@ -147,8 +131,7 @@ func seedCurriculums(db *gorm.DB) {
 
 			FacultyID: engFac.ID,
 			ProgramID: cpeProg.ID,
-			// หมายเหตุ: UserID อาจจำเป็นต้องใส่ถ้า Database บังคับ แต่ต้องมั่นใจว่ามี User ID 1 อยู่แล้ว หรืออาจต้องย้ายลำดับการ Seed User มาก่อน
-			// UserID: 1, 
+			UserID:    userID,
 		},
 		{
 			Code:              "CPE68-Quata",
@@ -168,6 +151,7 @@ func seedCurriculums(db *gorm.DB) {
 
 			FacultyID: engFac.ID,
 			ProgramID: cpeProg.ID,
+			UserID:    userID,
 		},
 	}
 
@@ -177,4 +161,14 @@ func seedCurriculums(db *gorm.DB) {
 	}
 
 	log.Println("seed curriculums completed")
+}
+
+// firstUserID returns the first user id to satisfy curriculum user_id FK requirement.
+func firstUserID(db *gorm.DB) uint {
+	var u entity.User
+	if err := db.Order("id asc").First(&u).Error; err != nil {
+		log.Printf("CurriculumSeed: cannot find user for FK: %v", err)
+		return 0
+	}
+	return u.ID
 }

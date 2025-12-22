@@ -10,6 +10,10 @@ import (
 func SeedColors() {
 	db := config.GetDB()
 
+	if skipIfSeededDefault(db, &entity.Colors{}, "colors") {
+		return
+	}
+
 	colors := []entity.Colors{
 		{
 			ColorsName:      "Ocean Blue",

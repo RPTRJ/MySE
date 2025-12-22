@@ -10,6 +10,10 @@ import (
 func SeedTemplateBlocks() {
 	db := config.GetDB()
 
+	if skipIfSeededDefault(db, &entity.TemplatesBlock{}, "template_blocks") {
+		return
+	}
+
 
 // สร้าง Template Blocks ที่เป็น Text Block เปล่าๆ
 templateBlocks := []entity.TemplatesBlock{

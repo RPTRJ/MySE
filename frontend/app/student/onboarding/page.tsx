@@ -11,6 +11,52 @@ const ALLOWED_LEVELS = [
   "GED",
 ];
 
+type Option = { id: number; name: string };
+
+const pickArrayFromResponse = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  return [];
+};
+
+const extractId = (item: any): number | null => {
+  if (item?.id !== undefined && item?.id !== null) {
+    const num = Number(item.id);
+    if (Number.isFinite(num) && num > 0) return num;
+  }
+  if (item?.ID !== undefined && item?.ID !== null) {
+    const num = Number(item.ID);
+    if (Number.isFinite(num) && num > 0) return num;
+  }
+  return null;
+};
+
+const extractName = (item: any): string | null => {
+  if (item?.name !== undefined && item?.name !== null) {
+    return String(item.name).trim();
+  }
+  if (item?.Name !== undefined && item?.Name !== null) {
+    return String(item.Name).trim();
+  }
+  return null;
+};
+
+const normalizeOptions = (items: any[]): Option[] => {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => {
+      const id = extractId(item);
+      const name = extractName(item);
+      if (id === null || name === null || name === "") return null;
+      return { id, name };
+    })
+    .filter((item): item is Option => item !== null);
+};
+
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -80,19 +126,17 @@ export default function OnboardingPage() {
     },
   };
 
-  // State 1: ข้อมูลส่วนตัว (User) - Mapping ตรงกับ backend/entity/users.go
   const [userForm, setUserForm] = useState<UserInterface>({
     FirstNameTH: "",
     LastNameTH: "",
     IDNumber: "",
     IDDocTypeID: undefined,
     Phone: "",
-    Birthday: "", // รอรับค่าจาก input type="date"
-    Email: "", // อาจจะดึงมาจาก Context หรือ Token ได้
+    Birthday: "",
+    Email: "",
     PDPAConsent: false,
   });
 
-  // State 2: ข้อมูลการศึกษา (Education) - Mapping ตรงกับ backend/entity/education_info.go
   const [eduForm, setEduForm] = useState<EducationInterface>({
     SchoolName: "",
     SchoolID: undefined,
@@ -106,7 +150,6 @@ export default function OnboardingPage() {
     EndDate: null,
   });
 
-  // โหลด reference ระดับการศึกษา/ประเภท/หลักสูตร (รันครั้งเดียว)
   useEffect(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -123,70 +166,64 @@ export default function OnboardingPage() {
         ]);
 
         const [levelsData, schoolTypesData, curriculumData] = await Promise.all(
-          [levelsRes.json(), schoolTypesRes.json(), curriculumRes.json()],
+          [levelsRes.json(), schoolTypesRes.json(), curriculumRes.json()]
         );
 
-        const levels = Array.isArray(levelsData.items)
-          ? levelsData.items
-          : levelsData.data;
-        const schoolTypesList = Array.isArray(schoolTypesData.items)
-          ? schoolTypesData.items
-          : schoolTypesData.data;
-        const curriculumList = Array.isArray(curriculumData.items)
-          ? curriculumData.items
-          : curriculumData.data;
+        console.log("API Response - Education Levels:", levelsData);
+        console.log("API Response - School Types:", schoolTypesData);
+        console.log("API Response - Curriculum Types:", curriculumData);
 
-        if (Array.isArray(levels)) {
-          const filtered = levels.filter((l: any) =>
-            ALLOWED_LEVELS.includes(l.name),
+        const levels = pickArrayFromResponse(levelsData);
+        const schoolTypesList = pickArrayFromResponse(schoolTypesData);
+        const curriculumList = pickArrayFromResponse(curriculumData);
+
+        const normalizedLevels = normalizeOptions(levels);
+        const normalizedSchoolTypes = normalizeOptions(schoolTypesList);
+        const normalizedCurriculums = normalizeOptions(curriculumList);
+
+        console.log("Normalized Education Levels:", normalizedLevels);
+        console.log("Normalized School Types:", normalizedSchoolTypes);
+        console.log("Normalized Curriculum Types:", normalizedCurriculums);
+
+        if (normalizedLevels.length > 0) {
+          const filtered = normalizedLevels.filter((l) =>
+            ALLOWED_LEVELS.includes(l.name)
           );
-          const mapped = filtered.map((l: any, idx: number) => ({
-            id: Number(l.id ?? idx + 1),
-            name: l.name,
-          }));
-          setEducationLevels(
-            mapped.length
-              ? mapped
-              : ALLOWED_LEVELS.map((name, idx) => ({ id: idx + 1, name })),
-          );
-        } else {
-          setEducationLevels(
-            ALLOWED_LEVELS.map((name, idx) => ({ id: idx + 1, name })),
-          );
+          console.log("🔍 Filtered Education Levels:", filtered);
+          setEducationLevels(filtered.length > 0 ? filtered : normalizedLevels);
         }
-        if (Array.isArray(schoolTypesList)) {
-          setSchoolTypes(
-            schoolTypesList.map((t: any, idx: number) => ({
-              id: Number(t.id ?? idx + 1),
-              name: t.name,
-            })),
-          );
+
+        if (normalizedSchoolTypes.length > 0) {
+          setSchoolTypes(normalizedSchoolTypes);
         }
-        if (Array.isArray(curriculumList)) {
-          setCurriculumTypes(
-            curriculumList.map((c: any, idx: number) => ({
-              id: Number(c.id ?? idx + 1),
-              name: c.name,
-            })),
-          );
+
+        if (normalizedCurriculums.length > 0) {
+          setCurriculumTypes(normalizedCurriculums);
         }
       } catch (e) {
-        console.error("failed to load reference data", e);
+        console.error("❌ Failed to load reference data:", e);
       }
     };
 
     fetchReference();
   }, [API_URL]);
 
-  // กำหนดประเภทโรงเรียนที่แสดงตามระดับการศึกษา
   useEffect(() => {
+    if (educationLevels.length === 0 || schoolTypes.length === 0) {
+      return;
+    }
+
     const levelName =
       educationLevels.find((l) => l.id === eduForm.EducationLevelID)?.name ||
       "";
-    const matchTypes = (names: string[]) =>
-      schoolTypes.filter((t) => names.includes(t.name));
 
-    let filtered: { id: number; name: string }[] = schoolTypes;
+    const matchTypes = (names: string[]) =>
+      schoolTypes.filter((t) =>
+        names.some((n) => t.name.includes(n) || n.includes(t.name))
+      );
+
+    let filtered: { id: number; name: string }[] = [...schoolTypes];
+
     if (levelName.includes("GED")) {
       filtered = matchTypes([
         "โรงเรียนนานาชาติ",
@@ -201,7 +238,9 @@ export default function OnboardingPage() {
       levelName.includes("ปวส")
     ) {
       filtered = matchTypes([
-        "อาชีวศึกษา (วิทยาลัย/เทคนิค)",
+        "อาชีวศึกษา",
+        "วิทยาลัย",
+        "เทคนิค",
         "โรงเรียนรัฐบาล",
         "โรงเรียนเอกชน",
         "อื่นๆ",
@@ -216,9 +255,9 @@ export default function OnboardingPage() {
         "อื่นๆ",
       ]);
     }
-    setAllowedSchoolTypes(filtered.length ? filtered : schoolTypes);
 
-    // ปรับค่าเลือกประเภทโรงเรียนอัตโนมัติเมื่อเลือกระดับแล้ว
+    setAllowedSchoolTypes(filtered.length > 0 ? filtered : schoolTypes);
+
     if (eduForm.EducationLevelID && filtered.length) {
       if (!filtered.some((t) => t.id === eduForm.SchoolTypeID)) {
         setEduForm((prev) => ({
@@ -227,7 +266,6 @@ export default function OnboardingPage() {
         }));
       }
     } else if (!eduForm.EducationLevelID) {
-      // ยังไม่เลือกระดับ ให้ยังไม่บังคับเลือกประเภท
       if (!schoolTypes.some((t) => t.id === eduForm.SchoolTypeID)) {
         setEduForm((prev) => ({ ...prev, SchoolTypeID: undefined }));
       }
@@ -239,7 +277,6 @@ export default function OnboardingPage() {
     schoolTypes,
   ]);
 
-  // โหลดรายชื่อโรงเรียน (ค้นหาตาม query)
   useEffect(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -261,23 +298,31 @@ export default function OnboardingPage() {
           {
             headers,
             signal: controller.signal,
-          },
+          }
         );
         const data = await res.json();
-        const items = Array.isArray(data.items) ? data.items : data.data;
-        if (Array.isArray(items)) {
-          setSchools(
-            items.map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              schoolTypeId: s.school_type_id ?? s.schoolTypeID,
-              isProjectBased: s.is_project_based,
-            })),
-          );
-        }
+        const items = pickArrayFromResponse(data);
+
+        const validSchools = items
+          .map((s: any) => {
+            const id = extractId(s);
+            const name = extractName(s);
+            if (id === null || name === null) return null;
+            return {
+              id,
+              name,
+              schoolTypeId:
+                s.school_type_id ?? s.SchoolTypeID ?? s.schoolTypeID ?? null,
+              isProjectBased:
+                s.is_project_based ?? s.IsProjectBased ?? null,
+            };
+          })
+          .filter((s: any): s is NonNullable<typeof s> => s !== null);
+
+        setSchools(validSchools);
       } catch (e) {
         if ((e as any).name === "AbortError") return;
-        console.error("failed to load schools", e);
+        console.error("❌ Failed to load schools:", e);
       }
     };
 
@@ -285,15 +330,13 @@ export default function OnboardingPage() {
     return () => controller.abort();
   }, [API_URL, schoolQuery, eduForm.SchoolTypeID]);
 
-  // Handle Input Change สำหรับ User Form
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setUserForm({ ...userForm, [name]: value });
   };
 
-  // Handle Input Change สำหรับ Education Form
   const handleEduChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     if (name === "SchoolName") {
@@ -320,14 +363,12 @@ export default function OnboardingPage() {
 
   const filteredCurriculums = useMemo(() => {
     const query = curriculumQuery.trim().toLowerCase();
-    return curriculumTypes.filter((c) =>
-      c.name.toLowerCase().includes(query),
-    );
+    return curriculumTypes.filter((c) => c.name.toLowerCase().includes(query));
   }, [curriculumQuery, curriculumTypes]);
 
   useEffect(() => {
     const selected = curriculumTypes.find(
-      (c) => c.id === eduForm.CurriculumTypeID,
+      (c) => c.id === eduForm.CurriculumTypeID
     );
     if (selected) {
       setCurriculumQuery(selected.name);
@@ -348,7 +389,7 @@ export default function OnboardingPage() {
       IsProjectBased: school.isProjectBased ?? eduForm.IsProjectBased,
     });
     setIsProjectBasedDisplay(
-      school.isProjectBased !== undefined ? !!school.isProjectBased : null,
+      school.isProjectBased !== undefined ? !!school.isProjectBased : null
     );
     setSchoolQuery(school.name);
     setShowSchoolList(false);
@@ -362,7 +403,7 @@ export default function OnboardingPage() {
   const handleCurriculumChange = (value: string) => {
     setCurriculumQuery(value);
     const matched = curriculumTypes.find(
-      (c) => c.name.toLowerCase() === value.trim().toLowerCase(),
+      (c) => c.name.toLowerCase() === value.trim().toLowerCase()
     );
     setEduForm((prev) => ({
       ...prev,
@@ -379,12 +420,11 @@ export default function OnboardingPage() {
 
   const selectedDoc =
     docTypeOptions.find(
-      (opt) => docTypeIdByKey[opt.key] === userForm.IDDocTypeID,
+      (opt) => docTypeIdByKey[opt.key] === userForm.IDDocTypeID
     ) || null;
   const selectedDocKey = selectedDoc?.key || "default";
   const docMeta = docFieldMeta[selectedDocKey] || docFieldMeta.default;
 
-  // sync แสดงผล project-based เมื่อค่าใน form เปลี่ยน
   useEffect(() => {
     if (
       eduForm.IsProjectBased !== undefined &&
@@ -463,7 +503,6 @@ export default function OnboardingPage() {
       return;
     }
 
-    // รวมข้อมูลเตรียมส่ง Backend
     const useThai = nameLanguage === "thai";
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -473,7 +512,6 @@ export default function OnboardingPage() {
     };
 
     try {
-      // อัปเดตข้อมูลผู้ใช้/PDPA/ชื่อ และ ID
       await fetch(`${API_URL}/users/me/onboarding`, {
         method: "PUT",
         headers,
@@ -490,7 +528,14 @@ export default function OnboardingPage() {
         }),
       });
 
-      // อัปเดตข้อมูลการศึกษา
+      console.log("📤 Submitting education:", {
+        education_level_id: eduForm.EducationLevelID,
+        school_id: eduForm.SchoolID,
+        school_name: eduForm.SchoolID ? undefined : eduForm.SchoolName,
+        school_type_id: eduForm.SchoolTypeID,
+        curriculum_type_id: eduForm.CurriculumTypeID,
+      });
+
       await fetch(`${API_URL}/users/me/education`, {
         method: "PUT",
         headers,
@@ -506,42 +551,9 @@ export default function OnboardingPage() {
 
       router.replace("/student/home");
     } catch (err) {
-      console.error("submit onboarding failed", err);
+      console.error("❌ Submit onboarding failed:", err);
       alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองอีกครั้ง");
     }
-
-    return;
-
-    const payload = {
-      user: {
-        ...userForm,
-        FirstNameTH: useThai ? userForm.FirstNameTH : "",
-        LastNameTH: useThai ? userForm.LastNameTH : "",
-        FirstNameEN: useThai ? "" : userForm.FirstNameTH,
-        LastNameEN: useThai ? "" : userForm.LastNameTH,
-        // แปลงวันที่หากจำเป็น (Backend Go รับ time.Time อาจต้องส่งเป็น ISO String)
-        Birthday: userForm.Birthday
-          ? new Date(userForm.Birthday as string).toISOString()
-          : null,
-      },
-      education: {
-        ...eduForm,
-        // กำหนด school_id เป็น null ถ้าเป็นโรงเรียนที่พิมพ์เอง (Custom School)
-        SchoolID: eduForm.SchoolID ?? null,
-      },
-    };
-
-    console.log("🚀 Ready to submit payload:", payload);
-
-    // TODO: เรียก API ยิงไป Backend
-    // try {
-    //   await axios.put('/users/profile', payload.user);
-    //   await axios.post('/education', payload.education);
-    //   router.push("/student/profile");
-    // } catch (error) { ... }
-
-    // จำลองว่าสำเร็จแล้วไปหน้า Profile
-    router.push("/student/profile");
   };
 
   return (
@@ -782,7 +794,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* --- STEP 2: ข้อมูลการศึกษา --- */}
+// STEP 2: ข้อมูลการศึกษา
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -914,7 +926,7 @@ export default function OnboardingPage() {
                     </div>
                   )}
                   <p className="mt-1 text-xs text-gray-500">
-                  ค้นหาแล้วเลือกจากระบบ หรือพิมพ์ชื่อเองได้
+                    ค้นหาแล้วเลือกจากระบบ หรือพิมพ์ชื่อเองได้
                   </p>
                   {errors.SchoolName && (
                     <p className="text-xs text-red-500 mt-1">

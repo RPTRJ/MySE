@@ -13,6 +13,10 @@ import (
 func SeedTemplatesSections() {
 	db := config.GetDB()
 
+	if skipIfSeededDefault(db, &entity.TemplatesSection{}, "template_sections") {
+		return
+	}
+
 	// ดึง blocks ที่มีอยู่
 	var blocks []entity.TemplatesBlock
 	db.Find(&blocks)

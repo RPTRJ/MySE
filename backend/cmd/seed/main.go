@@ -13,8 +13,8 @@ func main() {
 	loadEnv()
 	config.ConnectionDatabase()
 	seed.SeedProfileReference()
-	seed.CurriculumSeed()
-	seed.SeedUsers()
+	seed.SeedUsers()      // ensure users exist before curriculums reference them
+	seed.CurriculumSeed() // now curriculums can safely use a UserID
 	seed.SeedTemplateBlocks()
 	seed.SeedTemplatesSections()
 	seed.SeedTemplates()

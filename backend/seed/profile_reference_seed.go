@@ -44,14 +44,7 @@ func seedEducationLevels(tx *gorm.DB) error {
 		{Name: "มัธยมศึกษาตอนปลาย (ม.4-ม.6)"},
 		{Name: "อาชีวศึกษา (ปวช.)"},
 		{Name: "อาชีวศึกษา (ปวส.)"},
-		{Name: "เทียบเท่า ม.ปลาย (กศน.)"},
 		{Name: "GED"},
-		{Name: "International High School"},
-		{Name: "IB Diploma"},
-		{Name: "A-Level / UK Curriculum"},
-		{Name: "AP / US Curriculum"},
-		{Name: "Homeschool"},
-		{Name: "อื่นๆ"},
 	}
 
 	return tx.Clauses(clause.OnConflict{
@@ -129,7 +122,6 @@ func seedCurriculumTypes(tx *gorm.DB) error {
 }
 
 func seedSchools(tx *gorm.DB) error {
-	// Lookup IDs ของ SchoolType ที่เพิ่ง seed ไป
 	typeNameToID := map[string]uint{}
 	var st []entity.SchoolType
 	if err := tx.Find(&st).Error; err != nil {
@@ -184,7 +176,6 @@ func seedSchools(tx *gorm.DB) error {
 		return err
 	}
 
-	// ชุดตัวอย่าง (ไม่ใช่รหัสจริง) ใช้ dev/test
 	items := []entity.School{
 		{Code: "TH-BKK-0001", Name: "โรงเรียนเตรียมอุดมศึกษา", SchoolTypeID: govID},
 		{Code: "TH-BKK-0002", Name: "โรงเรียนสวนกุหลาบวิทยาลัย", SchoolTypeID: govID},
@@ -194,20 +185,16 @@ func seedSchools(tx *gorm.DB) error {
 		{Code: "TH-BKK-0006", Name: "NIST International School", SchoolTypeID: interID},
 		{Code: "TH-BKK-0007", Name: "โรงเรียนอัสสัมชัญ", SchoolTypeID: privateID},
 		{Code: "TH-VOC-0001", Name: "วิทยาลัยเทคนิคกรุงเทพ", SchoolTypeID: vocaID},
-
 		{Code: "TH-NAK-0001", Name: "โรงเรียนสุรนารีวิทยา", SchoolTypeID: govID},
 		{Code: "TH-NAK-0002", Name: "โรงเรียนราชสีมาวิทยาลัย", SchoolTypeID: govID},
 		{Code: "TH-NAK-0003", Name: "วิทยาลัยเทคนิคนครราชสีมา", SchoolTypeID: vocaID},
-
 		{Code: "TH-NFE-0001", Name: "กศน. เขตพื้นที่ (ตัวอย่าง)", SchoolTypeID: nonFormalID},
 		{Code: "TH-HSC-0001", Name: "Homeschool Program (ตัวอย่าง)", SchoolTypeID: homeID},
-
 		{Code: "TH-FOR-0001", Name: "High School - USA (Sample)", SchoolTypeID: foreignID},
 		{Code: "TH-OTH-0001", Name: "โรงเรียนตัวอย่าง A", SchoolTypeID: otherID},
 		{Code: "TH-OTH-0002", Name: "โรงเรียนตัวอย่าง B", SchoolTypeID: otherID},
 	}
 
-	// เพิ่ม dummy โรงเรียนเยอะๆ ให้ FE ทดสอบ search/select
 	for i := 1; i <= 200; i++ {
 		code := fmt.Sprintf("TH-DMY-%04d", i)
 		name := fmt.Sprintf("โรงเรียนตัวอย่างสำหรับทดสอบ #%d", i)

@@ -10,6 +10,10 @@ import (
 // SeedPortfolioSubmissions จะสร้าง User และ Portfolio พื้นฐานให้เองถ้าไม่มี
 func SeedPortfolioSubmissions() error {
 	db := config.GetDB()
+	if skipIfSeededDefault(db, &entity.PortfolioSubmission{}, "portfolio_submissions") {
+		return nil
+	}
+
 	now := time.Now()
 
 	// --- Ensure UserTypes และ IDTypes ---

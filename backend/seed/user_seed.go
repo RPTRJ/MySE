@@ -10,6 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type referenceSet struct {
+	levels      []entity.EducationLevel
+	schools     []entity.School
+	curriculums []entity.CurriculumType
+}
+
 func SeedUsers() {
 	db := config.GetDB()
 
@@ -18,14 +24,17 @@ func SeedUsers() {
 	teacherTypeID := ensureUserType(db, "Teacher")
 	adminTypeID := ensureUserType(db, "Admin")
 
-	idTypeID := ensureIDType(db, "citizen_id")
-	_ = ensureIDType(db, "passport")
-	_ = ensureIDType(db, "g_code")
+	// Align ID types with onboarding payload values from FE
+	idCardTypeID := ensureIDType(db, "ID Card")
+	passportTypeID := ensureIDType(db, "Passport")
+	gcodeTypeID := ensureIDType(db, "G-Code")
 
-	if studentTypeID == 0 || teacherTypeID == 0 || adminTypeID == 0 || idTypeID == 0 {
+	if studentTypeID == 0 || teacherTypeID == 0 || adminTypeID == 0 || idCardTypeID == 0 {
 		log.Println("skip seeding users because base reference data missing")
 		return
 	}
+
+	refs := loadReferenceSet(db)
 
 	parseDate := func(value string) time.Time {
 		t, err := time.Parse("02-01-2006", value)
@@ -35,94 +44,121 @@ func SeedUsers() {
 		return t
 	}
 
-	// 2. Create Users (2 per role: 1 Thai, 1 Foreigner)
-	users := []entity.User{
-		// --- Student ---
+	type seedUser struct {
+		entity.User
+		Completed bool // Whether onboarding (PDPA + profile) is already done
+	}
+
+	// 2. Create Users (students: include 1 pending onboarding, 1 TH completed, 1 EN completed)
+	users := []seedUser{
 		{
-			// Thai Student (No English Name)
-			FirstNameTH:   "สมชาย",
-			LastNameTH:    "รักเรียน",
-			Email:         "student_th@example.com",
-			Password:      "password123",
-			IDNumber:      "1100000000001",
-			Phone:         "0810000001",
-			Birthday:      parseDate("01-01-2003"),
-			PDPAConsent:   true,
-			AccountTypeID: studentTypeID,
-			IDDocTypeID:   idTypeID,
+			// Student who still needs onboarding (PDPA not given, profile incomplete)
+			User: entity.User{
+				Email:         "student_pending@example.com",
+				Password:      "password123",
+				IDNumber:      "PENDING-ONBOARD-001",
+				Phone:         "",
+				Birthday:      time.Time{},
+				AccountTypeID: studentTypeID,
+				IDDocTypeID:   idCardTypeID,
+			},
+			Completed: false,
 		},
 		{
-			// Foreign Student (No Thai Name)
-			FirstNameEN:   "John",
-			LastNameEN:    "Doe",
-			Email:         "student_en@example.com",
-			Password:      "password123",
-			IDNumber:      "1100000000002",
-			Phone:         "0810000002",
-			Birthday:      parseDate("02-02-2003"),
-			PDPAConsent:   true,
-			AccountTypeID: studentTypeID,
-			IDDocTypeID:   idTypeID,
+			// Thai Student - onboarding already done
+			User: entity.User{
+				FirstNameTH:   "สมชาย",
+				LastNameTH:    "รักเรียน",
+				Email:         "student_th@example.com",
+				Password:      "password123",
+				IDNumber:      "1100000000001",
+				Phone:         "0810000001",
+				Birthday:      parseDate("01-01-2003"),
+				AccountTypeID: studentTypeID,
+				IDDocTypeID:   idCardTypeID,
+			},
+			Completed: true,
+		},
+		{
+			// Foreign Student - onboarding already done
+			User: entity.User{
+				FirstNameEN:   "John",
+				LastNameEN:    "Doe",
+				Email:         "student_en@example.com",
+				Password:      "password123",
+				IDNumber:      "1100000000002",
+				Phone:         "0810000002",
+				Birthday:      parseDate("02-02-2003"),
+				AccountTypeID: studentTypeID,
+				IDDocTypeID:   passportTypeID,
+			},
+			Completed: true,
 		},
 
 		// --- Teacher ---
 		{
-			// Thai Teacher (No English Name)
-			FirstNameTH:   "สมศรี",
-			LastNameTH:    "สอนดี",
-			Email:         "teacher_th@example.com",
-			Password:      "password123",
-			IDNumber:      "2100000000001",
-			Phone:         "0820000001",
-			Birthday:      parseDate("10-05-1980"),
-			PDPAConsent:   true,
-			AccountTypeID: teacherTypeID,
-			IDDocTypeID:   idTypeID,
+			User: entity.User{
+				FirstNameTH:   "สมศรี",
+				LastNameTH:    "สอนดี",
+				Email:         "teacher_th@example.com",
+				Password:      "password123",
+				IDNumber:      "2100000000001",
+				Phone:         "0820000001",
+				Birthday:      parseDate("10-05-1980"),
+				AccountTypeID: teacherTypeID,
+				IDDocTypeID:   idCardTypeID,
+			},
+			Completed: true,
 		},
 		{
-			// Foreign Teacher (No Thai Name)
-			FirstNameEN:   "Robert",
-			LastNameEN:    "Smith",
-			Email:         "teacher_en@example.com",
-			Password:      "password123",
-			IDNumber:      "2100000000002",
-			Phone:         "0820000002",
-			Birthday:      parseDate("15-08-1982"),
-			PDPAConsent:   true,
-			AccountTypeID: teacherTypeID,
-			IDDocTypeID:   idTypeID,
+			User: entity.User{
+				FirstNameEN:   "Robert",
+				LastNameEN:    "Smith",
+				Email:         "teacher_en@example.com",
+				Password:      "password123",
+				IDNumber:      "2100000000002",
+				Phone:         "0820000002",
+				Birthday:      parseDate("15-08-1982"),
+				AccountTypeID: teacherTypeID,
+				IDDocTypeID:   passportTypeID,
+			},
+			Completed: true,
 		},
 
 		// --- Admin ---
 		{
-			// Thai Admin (No English Name)
-			FirstNameTH:   "สมศักดิ์",
-			LastNameTH:    "ดูแล",
-			Email:         "admin_th@example.com",
-			Password:      "password123",
-			IDNumber:      "3100000000001",
-			Phone:         "0830000001",
-			Birthday:      parseDate("01-01-1990"),
-			PDPAConsent:   true,
-			AccountTypeID: adminTypeID,
-			IDDocTypeID:   idTypeID,
+			User: entity.User{
+				FirstNameTH:   "สมศักดิ์",
+				LastNameTH:    "ดูแล",
+				Email:         "admin_th@example.com",
+				Password:      "password123",
+				IDNumber:      "3100000000001",
+				Phone:         "0830000001",
+				Birthday:      parseDate("01-01-1990"),
+				AccountTypeID: adminTypeID,
+				IDDocTypeID:   idCardTypeID,
+			},
+			Completed: true,
 		},
 		{
-			// Foreign Admin (No Thai Name)
-			FirstNameEN:   "Alice",
-			LastNameEN:    "Wonder",
-			Email:         "admin_en@example.com",
-			Password:      "password123",
-			IDNumber:      "3100000000002",
-			Phone:         "0830000002",
-			Birthday:      parseDate("12-12-1992"),
-			PDPAConsent:   true,
-			AccountTypeID: adminTypeID,
-			IDDocTypeID:   idTypeID,
+			User: entity.User{
+				FirstNameEN:   "Alice",
+				LastNameEN:    "Wonder",
+				Email:         "admin_en@example.com",
+				Password:      "password123",
+				IDNumber:      "3100000000002",
+				Phone:         "0830000002",
+				Birthday:      parseDate("12-12-1992"),
+				AccountTypeID: adminTypeID,
+				IDDocTypeID:   gcodeTypeID,
+			},
+			Completed: true,
 		},
 	}
 
-	for _, user := range users {
+	for i, item := range users {
+		user := item.User
+
 		// Hash password
 		hashed, err := config.HashPassword(user.Password)
 		if err != nil {
@@ -131,16 +167,38 @@ func SeedUsers() {
 		}
 		user.Password = hashed
 
-		// Set consent date if consented
-		if user.PDPAConsent {
+		if item.Completed {
+			// Post-onboarding state
+			user.PDPAConsent = true
 			now := time.Now()
 			user.PDPAConsentAt = &now
 			user.ProfileCompleted = true
+		} else {
+			// Pre-onboarding state
+			user.PDPAConsent = false
+			user.PDPAConsentAt = nil
+			user.ProfileCompleted = false
 		}
 
 		// Create User if not exists
-		if err := db.Where("email = ?", user.Email).FirstOrCreate(&entity.User{}, user).Error; err != nil {
+		var existing entity.User
+		if err := db.Where("email = ?", user.Email).First(&existing).Error; err == nil {
+			log.Printf("ℹ️  user already exists: %s", user.Email)
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("failed to query user %s: %v\n", user.Email, err)
+			continue
+		}
+
+		if err := db.Create(&user).Error; err != nil {
 			log.Printf("failed to seed user %s: %v\n", user.Email, err)
+		} else {
+			log.Printf("✓ seeded user: %s", user.Email)
+		}
+
+		// Seed a sample education record per user (only if references exist)
+		if len(refs.levels) > 0 {
+			seedEducationForUser(db, user, refs, i)
 		}
 	}
 }
@@ -175,4 +233,72 @@ func ensureIDType(db *gorm.DB, name string) uint {
 		}
 	}
 	return idType.ID
+}
+
+func loadReferenceSet(db *gorm.DB) referenceSet {
+	refs := referenceSet{}
+	if err := db.Find(&refs.levels).Error; err != nil {
+		log.Printf("⚠️  failed to load education_levels: %v", err)
+	}
+	// Ensure at least the basic education levels exist so we can seed education for users
+	if len(refs.levels) == 0 {
+		defaultLevels := []entity.EducationLevel{
+			{Name: "มัธยมศึกษาตอนปลาย (ม.4-ม.6)"},
+			{Name: "อาชีวศึกษา (ปวช.)"},
+			{Name: "อาชีวศึกษา (ปวส.)"},
+			{Name: "GED"},
+		}
+		if err := db.Create(&defaultLevels).Error; err != nil {
+			log.Printf("⚠️  failed to seed default education_levels: %v", err)
+		} else {
+			refs.levels = defaultLevels
+		}
+	}
+	if err := db.Find(&refs.schools).Error; err != nil {
+		log.Printf("⚠️  failed to load schools: %v", err)
+	}
+	if err := db.Find(&refs.curriculums).Error; err != nil {
+		log.Printf("⚠️  failed to load curriculum_types: %v", err)
+	}
+	return refs
+}
+
+func seedEducationForUser(db *gorm.DB, user entity.User, refs referenceSet, idx int) {
+	var existing entity.Education
+	if err := db.Where("user_id = ?", user.ID).First(&existing).Error; err == nil {
+		log.Printf("ℹ️  education already exists for user %s", user.Email)
+		return
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("⚠️  failed to query education for user %s: %v", user.Email, err)
+		return
+	}
+
+	level := refs.levels[idx%len(refs.levels)]
+	edu := entity.Education{
+		UserID:           user.ID,
+		EducationLevelID: level.ID,
+		SchoolName:       "Sample School",
+	}
+
+	// Attach a school if available
+	if len(refs.schools) > 0 {
+		school := refs.schools[idx%len(refs.schools)]
+		edu.SchoolID = &school.ID
+		edu.SchoolName = school.Name
+		edu.SchoolTypeID = &school.SchoolTypeID
+		isPB := school.IsProjectBased
+		edu.IsProjectBased = &isPB
+	}
+
+	// Attach a curriculum type if available
+	if len(refs.curriculums) > 0 {
+		cur := refs.curriculums[idx%len(refs.curriculums)]
+		edu.CurriculumTypeID = &cur.ID
+	}
+
+	if err := db.Create(&edu).Error; err != nil {
+		log.Printf("⚠️  failed to seed education for user %s: %v", user.Email, err)
+	} else {
+		log.Printf("✓ seeded education for user %s (level: %s)", user.Email, level.Name)
+	}
 }

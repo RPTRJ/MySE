@@ -10,6 +10,10 @@ import (
 func SeedTemplates() {
 	db := config.GetDB()
 
+	if skipIfSeededDefault(db, &entity.Templates{}, "templates") {
+		return
+	}
+
 	// ดึง sections ที่มีอยู่
 	var sections []entity.TemplatesSection
 	db.Find(&sections)
@@ -107,6 +111,9 @@ func SeedTemplates() {
 
 func SeedCategoryTemplates() {
     db := config.GetDB()
+    if skipIfSeededDefault(db, &entity.CategoryTemplate{}, "category_templates") {
+        return
+    }
     categories := []string{
         "Professional", 
         "Basic", 

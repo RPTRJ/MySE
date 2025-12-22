@@ -10,6 +10,10 @@ import (
 func SeedTypeWorkings() {
 	db := config.GetDB()
 
+	if skipIfSeededDefault(db, &entity.TypeWorking{}, "type_workings") {
+		return
+	}
+
 	typeNames := []string{
 		"วิศวกรรม",
 		"ศิลปะ",

@@ -48,7 +48,9 @@ type SchoolType struct {
 
 type CurriculumType struct {
 	gorm.Model
-	Name string `json:"name" gorm:"size:100;uniqueIndex;not null"`
+	Name         string      `json:"name" gorm:"size:150;not null;index:idx_curriculum_name_schooltype,unique"`
+	SchoolTypeID *uint       `json:"school_type_id,omitempty" gorm:"index:idx_curriculum_name_schooltype,unique"`
+	SchoolType   *SchoolType `gorm:"foreignKey:SchoolTypeID" json:"school_type,omitempty"`
 }
 
 type School struct {

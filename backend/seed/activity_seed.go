@@ -15,6 +15,9 @@ func SeedActivities() {
 
 func SeedLevelActivities() {
 	db := config.GetDB()
+	if skipIfSeededDefault(db, &entity.LevelActivity{}, "level_activities") {
+		return
+	}
 	levels := []string{
 		"ระดับเขต",
 		"ระดับอำเภอ",
@@ -39,6 +42,9 @@ func SeedLevelActivities() {
 
 func SeedRewards() {
 	db := config.GetDB()
+	if skipIfSeededDefault(db, &entity.Reward{}, "rewards") {
+		return
+	}
 	rewards := []string{
 		"รางวัลเข้าร่วม",
 		"รางวัลชมเชย",
@@ -64,6 +70,9 @@ func SeedRewards() {
 
 func SeedTypeActivities() {
 	db := config.GetDB()
+	if skipIfSeededDefault(db, &entity.TypeActivity{}, "type_activities") {
+		return
+	}
 	types := []string{
 		"ค่ายวิชาการ",
 		"ศิลปะหัตถกรรม",

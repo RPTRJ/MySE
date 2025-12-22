@@ -38,7 +38,14 @@ func (rc *ReferenceController) GetSchoolTypes(ctx *gin.Context) {
 
 func (rc *ReferenceController) GetCurriculumTypes(ctx *gin.Context) {
 	var items []entity.CurriculumType
-	if err := rc.DB.Order("name asc").Find(&items).Error; err != nil {
+	schoolTypeID := parseIntWithDefault(ctx.Query("school_type_id"), 0)
+
+	q := rc.DB.Model(&entity.CurriculumType{}).Order("name asc")
+	if schoolTypeID > 0 {
+		q = q.Where("school_type_id = ? OR school_type_id IS NULL", schoolTypeID)
+	}
+
+	if err := q.Find(&items).Error; err != nil {
 		respondError(ctx, http.StatusInternalServerError, err)
 		return
 	}
