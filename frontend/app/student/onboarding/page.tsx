@@ -201,7 +201,7 @@ export default function OnboardingPage() {
           setCurriculumTypes(normalizedCurriculums);
         }
       } catch (e) {
-        console.error("❌ Failed to load reference data:", e);
+        console.error("Failed to load reference data:", e);
       }
     };
 

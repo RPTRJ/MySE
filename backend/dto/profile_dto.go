@@ -15,7 +15,7 @@ type UpsertEducationRequest struct {
 	SchoolTypeID     *uint      `json:"school_type_id,omitempty"`
 	CurriculumTypeID *uint      `json:"curriculum_type_id,omitempty"`
 	IsProjectBased   *bool      `json:"is_project_based,omitempty"`
-	Status           string     `json:"status"` // "current" | "graduated" | "other"
+	Status           string     `json:"status"`
 	StartDate        *time.Time `json:"start_date,omitempty"`
 	EndDate          *time.Time `json:"end_date,omitempty"`
 	GraduationYear   *int       `json:"graduation_year,omitempty"`
@@ -46,7 +46,7 @@ type UpsertGEDScoreRequest struct {
 }
 
 type LanguageScoreItem struct {
-	TestType     string     `json:"test_type"` // e.g. IELTS, TOEFL, SAT
+	TestType     string     `json:"test_type"`
 	Score        string     `json:"score"`
 	TestLevel    string     `json:"test_level"`
 	SATMath      *int       `json:"sat_math,omitempty"`

@@ -78,7 +78,6 @@ func ValidateUserForRegistration(u *entity.User) error {
 		return nil
 	}
 
-	// ถ้ามีชื่อแล้ว ค่อยตรวจเข้มเหมือนเดิม
 	return validateUserNames(u)
 }
 
@@ -191,7 +190,6 @@ func validateIDNumber(u *entity.User) error {
 			return ErrPassportInvalid
 		}
 	default:
-		// Unknown type: basic sanity check to avoid empty/too short
 		if len(idNum) < 4 {
 			return errors.New("ID number is too short")
 		}
@@ -201,7 +199,6 @@ func validateIDNumber(u *entity.User) error {
 }
 
 func detectIDDocType(u *entity.User) IDDocType {
-	// Prefer name if available
 	if u.IDDocType != nil {
 		name := strings.ToLower(strings.TrimSpace(u.IDDocType.IDName))
 		switch {
@@ -214,7 +211,6 @@ func detectIDDocType(u *entity.User) IDDocType {
 		}
 	}
 
-	// Fallback by ID (frontend maps 1: citizen, 2: g-code, 3: passport)
 	switch u.IDDocTypeID {
 	case 1:
 		return IDDocCitizen

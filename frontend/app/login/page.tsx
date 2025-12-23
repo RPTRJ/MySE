@@ -8,7 +8,7 @@ import {
   RegisterPayload,
 } from "@/services/auth";
 import { Lock, Mail, ArrowRight, Loader2, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -121,7 +121,6 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen w-full bg-white flex flex-col">
       <div className="flex min-h-screen w-full flex-col lg:flex-row">
-        {/* Left hero */}
         <div
           className="relative hidden lg:flex lg:flex-[0_0_54%] overflow-hidden"
           style={{
@@ -145,17 +144,13 @@ export default function AuthPage() {
             </p>
           </div>
         </div>
-
-        {/* Right column */}
         <div className="relative w-full lg:w-[42%] flex items-center justify-center px-6 py-12 lg:px-12">
-          {/* Mobile accent header */}
           <div
             className="absolute top-0 left-0 w-full h-36 bg-gradient-to-r from-[#f97316] to-[#f97316] lg:hidden"
             style={{
               clipPath: "polygon(0 0, 100% 0, 100% 60%, 0 100%)",
             }}
           />
-
           <div className="w-full max-w-lg relative z-10">
             <div className="lg:hidden text-center mb-8 pt-12">
               <h3 className="text-2xl font-semibold text-gray-800">
@@ -165,7 +160,6 @@ export default function AuthPage() {
                 ระบบจัดการ Portfolio สำหรับนักศึกษา มหาวิทยาลัยเทคโนโลยีสุรนารี
               </p>
             </div>
-
             <div className="bg-white rounded-3xl border border-orange-100 shadow-[0_18px_45px_rgba(0,0,0,0.1)] px-8 py-10">
               <AnimatePresence mode="wait" initial={false}>
                 {isLoginMode ? (
@@ -321,7 +315,6 @@ export default function AuthPage() {
                           )}
                         </div>
                       </div>
-
                       <button
                         type="submit"
                         disabled={isLoading}

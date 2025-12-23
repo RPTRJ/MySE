@@ -14,26 +14,18 @@ const (
 
 type Education struct {
 	gorm.Model
-
-	// 1 record ต่อ user
-	UserID uint  `json:"user_id" gorm:"uniqueIndex;not null"`
-	User   *User `gorm:"foreignKey:UserID" json:"user"`
-
+	UserID           uint            `json:"user_id" gorm:"uniqueIndex;not null"`
+	User             *User           `gorm:"foreignKey:UserID" json:"user"`
 	EducationLevelID uint            `json:"education_level_id" gorm:"index;not null"`
 	EducationLevel   *EducationLevel `gorm:"foreignKey:EducationLevelID" json:"education_level"`
-
-	SchoolID *uint   `json:"school_id,omitempty" gorm:"index"`
-	School   *School `gorm:"foreignKey:SchoolID" json:"school,omitempty"`
-
-	SchoolName string `json:"school_name,omitempty" gorm:"size:255"`
-
-	SchoolTypeID *uint       `json:"school_type_id,omitempty" gorm:"index"`
-	SchoolType   *SchoolType `gorm:"foreignKey:SchoolTypeID" json:"school_type,omitempty"`
-
+	SchoolID         *uint           `json:"school_id,omitempty" gorm:"index"`
+	School           *School         `gorm:"foreignKey:SchoolID" json:"school,omitempty"`
+	SchoolName       string          `json:"school_name,omitempty" gorm:"size:255"`
+	SchoolTypeID     *uint           `json:"school_type_id,omitempty" gorm:"index"`
+	SchoolType       *SchoolType     `gorm:"foreignKey:SchoolTypeID" json:"school_type,omitempty"`
 	CurriculumTypeID *uint           `json:"curriculum_type_id,omitempty" gorm:"index"`
 	CurriculumType   *CurriculumType `gorm:"foreignKey:CurriculumTypeID" json:"curriculum_type,omitempty"`
-
-	IsProjectBased *bool `json:"is_project_based,omitempty"`
+	IsProjectBased   *bool           `json:"is_project_based,omitempty"`
 }
 
 type EducationLevel struct {

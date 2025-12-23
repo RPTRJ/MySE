@@ -29,11 +29,8 @@ func NewProfileController(db *gorm.DB) *ProfileController {
 	return &ProfileController{DB: db}
 }
 
-// ============================================================================
 // Public Handlers
-// ============================================================================
-
-// GetMe retrieves the authenticated user's complete profile
+// GetMe
 func (pc *ProfileController) GetMe(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -56,7 +53,7 @@ func (pc *ProfileController) GetMe(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, profile)
 }
 
-// GetUserProfile allows admins to view the full profile of any user.
+// GetUserProfile
 func (pc *ProfileController) GetUserProfile(ctx *gin.Context) {
 	requesterID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -70,7 +67,7 @@ func (pc *ProfileController) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 
-	// Only admin (AccountTypeID = 3) is allowed to view others' profiles.
+	//admin
 	if requester.AccountTypeID != 3 {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "admin_only"})
 		return
@@ -98,7 +95,7 @@ func (pc *ProfileController) GetUserProfile(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, profile)
 }
 
-// UpdateMe updates the authenticated user's basic information
+// Update
 func (pc *ProfileController) UpdateMe(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -133,7 +130,7 @@ func (pc *ProfileController) UpdateMe(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// UpdateProfileImage updates the authenticated user's profile image
+// UpdateProfileImage
 func (pc *ProfileController) UpdateProfileImage(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -166,7 +163,7 @@ func (pc *ProfileController) UpdateProfileImage(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// UpsertEducation creates or updates education information
+// UpsertEducation
 func (pc *ProfileController) UpsertEducation(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -201,7 +198,7 @@ func (pc *ProfileController) UpsertEducation(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"education": edu})
 }
 
-// UpsertAcademicScore creates or updates academic score
+// UpsertAcademicScore
 func (pc *ProfileController) UpsertAcademicScore(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -236,7 +233,7 @@ func (pc *ProfileController) UpsertAcademicScore(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"academic_score": score})
 }
 
-// UpsertGEDScore creates or updates GED score
+// UpsertGEDScore
 func (pc *ProfileController) UpsertGEDScore(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -271,7 +268,7 @@ func (pc *ProfileController) UpsertGEDScore(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"ged_score": score})
 }
 
-// ReplaceLanguageScores replaces all language proficiency scores
+// ReplaceLanguageScores
 func (pc *ProfileController) ReplaceLanguageScores(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -298,7 +295,7 @@ func (pc *ProfileController) ReplaceLanguageScores(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// GetOnboardingStatus returns the completion status of onboarding steps
+// GetOnboardingStatus
 func (pc *ProfileController) GetOnboardingStatus(ctx *gin.Context) {
 	userID, err := getAuthUserID(ctx)
 	if err != nil {
@@ -316,10 +313,7 @@ func (pc *ProfileController) GetOnboardingStatus(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, status)
 }
 
-// ============================================================================
-// Helper Methods - Database Operations
-// ============================================================================
-
+// Helper
 func (pc *ProfileController) getUser(userID uint) (*entity.User, error) {
 	var user entity.User
 	err := pc.DB.First(&user, userID).Error
@@ -329,28 +323,24 @@ func (pc *ProfileController) getUser(userID uint) (*entity.User, error) {
 func (pc *ProfileController) buildUserProfile(userID uint, user *entity.User) (gin.H, error) {
 	profile := gin.H{"user": user}
 
-	// Load language scores (always included, empty array if none)
 	langScores, err := pc.getLanguageScores(userID)
 	if err != nil {
 		return nil, err
 	}
 	profile["language_scores"] = langScores
 
-	// Load optional education data
 	if edu, err := pc.getEducation(userID); err == nil {
 		profile["education"] = edu
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
-	// Load optional academic score
 	if acad, err := pc.getAcademicScore(userID); err == nil {
 		profile["academic_score"] = acad
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
-	// Load optional GED score
 	if ged, err := pc.getGEDScore(userID); err == nil {
 		profile["ged_score"] = ged
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -467,10 +457,7 @@ func (pc *ProfileController) hasRecords(model interface{}, userID uint) bool {
 	return count > 0
 }
 
-// ============================================================================
-// Helper Methods - Field Updates
-// ============================================================================
-
+// Helper Field Updates
 func (pc *ProfileController) updateUserFields(user *entity.User, req *dto.UpdateMeRequest) {
 	first := strings.TrimSpace(req.FirstName)
 	last := strings.TrimSpace(req.LastName)
@@ -524,21 +511,17 @@ func (pc *ProfileController) updateGEDScoreFields(score *entity.GEDScore, req *d
 	score.CertFilePath = strings.TrimSpace(req.CertFilePath)
 }
 
-// ============================================================================
-// Helper Methods - Validation
-// ============================================================================
+//Helper Validation
 
 func (pc *ProfileController) validateUpdateMeRequest(req *dto.UpdateMeRequest) error {
 	first := strings.TrimSpace(req.FirstName)
 	last := strings.TrimSpace(req.LastName)
 	phone := strings.TrimSpace(req.Phone)
 
-	// Names must be provided together
 	if (first != "" && last == "") || (first == "" && last != "") {
 		return errors.New("first_name and last_name must be provided together")
 	}
 
-	// Names must be in the same language
 	if first != "" && last != "" {
 		isThai := isThaiText(first) && isThaiText(last)
 		isEng := isEnglishText(first) && isEnglishText(last)
@@ -547,7 +530,6 @@ func (pc *ProfileController) validateUpdateMeRequest(req *dto.UpdateMeRequest) e
 		}
 	}
 
-	// Phone validation
 	if phone != "" {
 		normalized := normalizePhone(phone)
 		if !phoneRegex.MatchString(normalized) {
@@ -555,7 +537,6 @@ func (pc *ProfileController) validateUpdateMeRequest(req *dto.UpdateMeRequest) e
 		}
 	}
 
-	// At least one field must be provided
 	if first == "" && last == "" && phone == "" {
 		return errors.New("no fields to update")
 	}
@@ -606,10 +587,7 @@ func (pc *ProfileController) validateLanguageScoreItems(items []dto.LanguageScor
 	return nil
 }
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
+// Utility
 func respondError(ctx *gin.Context, status int, err error) {
 	ctx.JSON(status, gin.H{"error": err.Error()})
 }

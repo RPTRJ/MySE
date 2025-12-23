@@ -7,7 +7,6 @@ import (
 )
 
 func getAuthUserID(ctx *gin.Context) (uint, error) {
-	// ตัวอย่าง: middleware set ctx.Set("user_id", uint(...))
 	v, ok := ctx.Get("user_id")
 	if !ok {
 		return 0, errors.New("missing auth user_id in context")
