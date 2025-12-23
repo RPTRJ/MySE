@@ -24,7 +24,7 @@ export default function OnboardingPage() {
     { id: number; name: string }[]
   >([]);
   const [curriculumTypes, setCurriculumTypes] = useState<
-    { id: number; name: string }[]
+    { id: number; name: string; schoolTypeId?: number }[]
   >([]);
   const [allowedSchoolTypes, setAllowedSchoolTypes] = useState<
     { id: number; name: string }[]
@@ -105,11 +105,11 @@ export default function OnboardingPage() {
   });
 
   useEffect(() => {
-    console.log("📍 Current Step:", step);
+    console.log("Current Step:", step);
   }, [step]);
 
   useEffect(() => {
-    console.log("📚 Education Levels Count:", educationLevels.length);
+    console.log("Education Levels Count:", educationLevels.length);
   }, [educationLevels]);
 
   const checkIDDuplicate = useCallback(
@@ -228,7 +228,7 @@ export default function OnboardingPage() {
 
     const fetchAll = async () => {
       try {
-        console.log("🔵 Fetching reference data...");
+        console.log("Fetching reference data...");
         const [levelsRes, schoolTypesRes, curriculumTypesRes, schoolsRes] =
           await Promise.all([
             fetch(`${API_URL}/reference/education-levels`, { headers }),
@@ -254,10 +254,10 @@ export default function OnboardingPage() {
         const mappedCurriculum = mapItems(curriculumTypesData.items || []).sort((a, b) => a.id - b.id);
         const mappedSchools = mapItems(schoolsData.items || []).sort((a, b) => a.name.localeCompare(b.name));
 
-        console.log("✅ Education Levels:", mappedLevels.length);
-        console.log("✅ School Types:", mappedSchoolTypes.length);
-        console.log("✅ Curriculum Types:", mappedCurriculum.length);
-        console.log("✅ Schools:", mappedSchools.length);
+        console.log("Education Levels:", mappedLevels.length);
+        console.log("School Types:", mappedSchoolTypes.length);
+        console.log("Curriculum Types:", mappedCurriculum.length);
+        console.log("Schools:", mappedSchools.length);
 
         setEducationLevels(mappedLevels);
         setSchoolTypes(mappedSchoolTypes);
@@ -272,32 +272,101 @@ export default function OnboardingPage() {
   }, [API_URL]);
 
   useEffect(() => {
+    if (!eduForm.SchoolTypeID) return;
+
+    const authToken =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!authToken) return;
+
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authToken}`,
+    };
+
+    console.log(`Fetching curriculum for school_type_id: ${eduForm.SchoolTypeID}`);
+
+    fetch(`${API_URL}/reference/curriculum-types?school_type_id=${eduForm.SchoolTypeID}`, { headers })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        const items = data.items || [];
+        const mapped = items
+          .map((item: any) => ({
+            id: item.ID || item.id,
+            name: item.name,
+            schoolTypeId: item.school_type_id || item.SchoolTypeID,
+          }))
+          .sort((a: any, b: any) => a.id - b.id);
+
+        console.log(`Curriculum Types (${mapped.length}):`, mapped.map((c: any) => c.name));
+        setCurriculumTypes(mapped);
+        
+        // Reset curriculum selection เมื่อเปลี่ยน SchoolType
+        setEduForm((prev) => ({
+          ...prev,
+          CurriculumTypeID: undefined,
+        }));
+        setCurriculumQuery("");
+      })
+      .catch((error) => {
+        console.error("Error fetching curriculum:", error);
+      });
+  }, [eduForm.SchoolTypeID, API_URL]);
+
+  useEffect(() => {
     if (!educationLevels.length) {
       setAllowedSchoolTypes(schoolTypes);
       return;
     }
 
-    const selectedLevel = educationLevels.find((level) => level.id === eduForm.EducationLevelID);
+    const selectedLevel = educationLevels.find(
+      (level) => level.id === eduForm.EducationLevelID
+    );
 
     if (!selectedLevel) {
       setAllowedSchoolTypes(schoolTypes);
       return;
     }
 
+    let filtered: { id: number; name: string }[] = [];
+
+    //มัธยมปลาย
     if (selectedLevel.name === "มัธยมศึกษาตอนปลาย (ม.4-ม.6)") {
-      const filtered = schoolTypes.filter((st) => ["โรงเรียนรัฐบาล", "โรงเรียนเอกชน"].includes(st.name));
-      setAllowedSchoolTypes(filtered.length ? filtered : schoolTypes);
-      return;
+      filtered = schoolTypes.filter((st) =>
+        [
+          "โรงเรียนรัฐบาล",
+          "โรงเรียนเอกชน",
+          "โรงเรียนสาธิต",
+          "โรงเรียนนานาชาติ",
+        ].includes(st.name)
+      );
+    }
+    //อาชีวศึกษา
+    else if (
+      selectedLevel.name === "อาชีวศึกษา (ปวช.)" ||
+      selectedLevel.name === "อาชีวศึกษา (ปวส.)"
+    ) {
+      filtered = schoolTypes.filter((st) => st.name === "อาชีวศึกษา (วิทยาลัย/เทคนิค)");
+    }
+    //GED
+    else if (selectedLevel.name === "GED") {
+      filtered = schoolTypes.filter((st) =>
+        ["โรงเรียนนานาชาติ", "ต่างประเทศ", "Homeschool"].includes(st.name)
+      );
+    } else {
+      filtered = schoolTypes;
     }
 
-    if (selectedLevel.name === "อาชีวศึกษา (ปวช.)" || selectedLevel.name === "อาชีวศึกษา (ปวส.)") {
-      const filtered = schoolTypes.filter((st) => ["วิทยาลัยเทคนิค", "วิทยาลัยอาชีวศึกษา"].includes(st.name));
-      setAllowedSchoolTypes(filtered.length ? filtered : schoolTypes);
-      return;
-    }
-
-    // GED หรืออื่นๆ แสดงทั้งหมด
-    setAllowedSchoolTypes(schoolTypes);
+    const finalFiltered = filtered.length > 0 ? filtered : schoolTypes;
+    
+    console.log(`Education Level: ${selectedLevel.name}`);
+    console.log(`Allowed School Types (${finalFiltered.length}):`, finalFiltered.map(st => st.name));
+    
+    setAllowedSchoolTypes(finalFiltered);
   }, [eduForm.EducationLevelID, educationLevels, schoolTypes]);
 
   // Handle education level change
@@ -336,7 +405,6 @@ export default function OnboardingPage() {
     }));
     setShowSchoolList(false);
     
-    // แก้ไข: ใช้ type assertion เพื่อแก้ type error
     if (school.isProjectBased !== undefined) {
       setIsProjectBasedDisplay(school.isProjectBased as boolean | null);
     } else {
@@ -398,14 +466,31 @@ export default function OnboardingPage() {
 
     return list;
   }, [schools, schoolQuery, allowedSchoolTypeIds, eduForm.SchoolTypeID]);
-
   // Filtered curriculums
   const filteredCurriculums = useMemo(() => {
-    if (!curriculumQuery) return curriculumTypes;
-    return curriculumTypes.filter((curriculum) =>
-      curriculum.name.toLowerCase().includes(curriculumQuery.toLowerCase())
-    );
-  }, [curriculumTypes, curriculumQuery]);
+    let list = curriculumTypes;
+
+    if (eduForm.SchoolTypeID) {
+      list = list.filter((curriculum) => {
+        return (
+          curriculum.schoolTypeId === null ||
+          curriculum.schoolTypeId === undefined ||
+          String(curriculum.schoolTypeId) === String(eduForm.SchoolTypeID)
+        );
+      });
+    }
+
+    // Filter ตาม search query
+    if (curriculumQuery) {
+      list = list.filter((curriculum) =>
+        curriculum.name.toLowerCase().includes(curriculumQuery.toLowerCase())
+      );
+    }
+
+    console.log(`Filtered Curriculums (${list.length}):`, list.map((c: any) => c.name));
+
+    return list;
+  }, [curriculumTypes, curriculumQuery, eduForm.SchoolTypeID]);
 
   // Get selected doc metadata
   const selectedDocKey: string =
@@ -414,7 +499,6 @@ export default function OnboardingPage() {
     ) ?? "default";
   const docMeta = docFieldMeta[selectedDocKey] || docFieldMeta.default;
 
-  // แก้ไข: เพิ่ม selectedDoc สำหรับใช้ใน component
   const selectedDoc = docTypeOptions.find(
     (d) => d.id === userForm.IDDocTypeID
   );
@@ -546,16 +630,16 @@ export default function OnboardingPage() {
       }
 
       if (validateStep1()) {
-        console.log("✅ Moving to Step 2");
+        console.log("Moving to Step 2");
         setStep(2);
       } else {
-        console.log("❌ Validation failed for Step 1");
+        console.log("Validation failed for Step 1");
       }
     }
   };
 
   const handleBack = () => {
-    console.log("⬅️ Moving back to Step 1");
+    console.log("Moving back to Step 1");
     setStep(1);
   };
 
@@ -948,7 +1032,7 @@ export default function OnboardingPage() {
                   )}
                 </div>
 
-                {/* School Type Dropdown (แสดงเฉพาะระดับที่กำหนด) */}
+                {/* School Type Dropdown */}
                 <div>
                   <label
                     htmlFor="SchoolTypeID"
@@ -963,7 +1047,6 @@ export default function OnboardingPage() {
                       setEduForm((prev) => ({
                         ...prev,
                         SchoolTypeID: e.target.value ? Number(e.target.value) : undefined,
-                        // เปลี่ยนประเภทโรงเรียนแล้วให้รีเซ็ตโรงเรียนที่เลือก เพื่อความสัมพันธ์ของข้อมูล
                         SchoolID: undefined,
                         SchoolName: "",
                       }))
@@ -996,7 +1079,6 @@ export default function OnboardingPage() {
                       onChange={(e) => handleSchoolChange(e.target.value)}
                       onFocus={() => setShowSchoolList(true)}
                       onBlur={() => {
-                        // ปิด dropdown หลังจาก delay เล็กน้อย (ให้ onMouseDown ทำงานก่อน)
                         setTimeout(() => setShowSchoolList(false), 200);
                       }}
                       className={`mt-1 block w-full border ${
@@ -1006,7 +1088,7 @@ export default function OnboardingPage() {
                       autoComplete="off"
                     />
                     {showSchoolList && filteredSchools.length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                      <div className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                         {filteredSchools.map((school, idx) => (
                           <button
                             type="button"
@@ -1031,7 +1113,7 @@ export default function OnboardingPage() {
                 </div>
 
                 {/* Curriculum Type (optional) */}
-                {curriculumTypes.length > 0 && (
+                {filteredCurriculums.length > 0 && (
                   <div>
                     <label
                       htmlFor="CurriculumTypeID"
@@ -1048,7 +1130,6 @@ export default function OnboardingPage() {
                         onChange={(e) => handleCurriculumChange(e.target.value)}
                         onFocus={() => setShowCurriculumList(true)}
                         onBlur={() => {
-                          // ปิด dropdown หลังจาก delay เล็กน้อย
                           setTimeout(() => setShowCurriculumList(false), 200);
                         }}
                         className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
@@ -1057,7 +1138,7 @@ export default function OnboardingPage() {
                       />
                       {showCurriculumList &&
                         filteredCurriculums.length > 0 && (
-                          <div className="absolute z-10 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                          <div className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                             {filteredCurriculums.map((curriculum) => (
                               <button
                                 type="button"

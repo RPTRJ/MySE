@@ -49,13 +49,12 @@ func seedEducationLevels(tx *gorm.DB) error {
 	for _, name := range items {
 		var existing entity.EducationLevel
 		if err := tx.Where("name = ?", name).First(&existing).Error; err != nil {
-			// ไม่เจอ -> สร้างใหม่
 			newItem := entity.EducationLevel{Name: name}
 			if err := tx.Create(&newItem).Error; err != nil {
-				log.Printf("❌ failed to seed EducationLevel %s: %v\n", name, err)
+				log.Printf("failed to seed EducationLevel %s: %v\n", name, err)
 				return err
 			} else {
-				log.Printf("✅ seeded EducationLevel: %s\n", name)
+				log.Printf("seeded EducationLevel: %s\n", name)
 			}
 		}
 	}
@@ -80,10 +79,10 @@ func seedSchoolTypes(tx *gorm.DB) error {
 		if err := tx.Where("name = ?", name).First(&existing).Error; err != nil {
 			newItem := entity.SchoolType{Name: name}
 			if err := tx.Create(&newItem).Error; err != nil {
-				log.Printf("❌ failed to seed SchoolType %s: %v\n", name, err)
+				log.Printf("failed to seed SchoolType %s: %v\n", name, err)
 				return err
 			} else {
-				log.Printf("✅ seeded SchoolType: %s\n", name)
+				log.Printf("seeded SchoolType: %s\n", name)
 			}
 		}
 	}
@@ -91,63 +90,107 @@ func seedSchoolTypes(tx *gorm.DB) error {
 }
 
 func seedCurriculumTypes(tx *gorm.DB) error {
-	items := []string{
-		// สายสามัญ
-		"วิทย์-คณิต",
-		"ศิลป์-ภาษา",
-		"ศิลป์-คำนวณ",
-		"ศิลป์-สังคม",
-		"ศิลป์-จีน",
-		"ศิลป์-ญี่ปุ่น",
-		"ศิลป์-เกาหลี",
-		"ศิลป์-ฝรั่งเศส",
-		"ศิลป์-เยอรมัน",
-		"ศิลป์-สเปน",
-		"กีฬา",
-		"ดนตรี/นาฏศิลป์",
-		"ศิลปกรรม",
-		"STEM / Gifted",
-		"English Program (EP)",
-		"Mini English Program (MEP)",
-		// สายอาชีพ
-		"อุตสาหกรรม (ช่าง)",
-		"ช่างยนต์",
-		"ช่างไฟฟ้า/อิเล็กทรอนิกส์",
-		"ช่างกลโรงงาน",
-		"ช่างก่อสร้าง",
-		"เทคนิคคอมพิวเตอร์/IT",
-		"เมคคาทรอนิกส์/หุ่นยนต์",
-		"พาณิชยกรรม/บัญชี",
-		"ธุรกิจดิจิทัล",
-		"การโรงแรม/ท่องเที่ยว",
-		"คหกรรม/อาหาร",
-		"เกษตร",
-		"โลจิสติกส์",
-		"อื่นๆ",
-		// International Tracks
-		"GED Track",
-		"IB Track",
-		"A-Level Track",
-		"AP Track",
+	// Lookup IDs ของ SchoolType
+	typeNameToID := map[string]uint{}
+	var st []entity.SchoolType
+	if err := tx.Find(&st).Error; err != nil {
+		return err
+	}
+	for _, x := range st {
+		typeNameToID[x.Name] = x.ID
 	}
 
-	for _, name := range items {
+	getID := func(name string) *uint {
+		if id, ok := typeNameToID[name]; ok && id > 0 {
+			return &id
+		}
+		return nil
+	}
+
+	interID := getID("โรงเรียนนานาชาติ")
+	vocaID := getID("อาชีวศึกษา (วิทยาลัย/เทคนิค)")
+
+	generalCurriculums := []struct {
+		name       string
+		schoolType *uint
+	}{
+		{"สายวิทย์-คณิต", nil},
+		{"สายศิลป์-คำนวณ", nil},
+		{"สายศิลป์-ภาษา", nil},
+		{"สายศิลป์-สังคม", nil},
+		{"สายศิลป์-ทั่วไป", nil},
+	}
+
+	vocationalCurriculums := []struct {
+		name       string
+		schoolType *uint
+	}{
+		{"อุตสาหกรรม (ช่าง)", vocaID},
+		{"พาณิชยกรรม/บัญชี", vocaID},
+		{"เทคนิคคอมพิวเตอร์/IT", vocaID},
+		{"การโรงแรม/ท่องเที่ยว", vocaID},
+		{"คหกรรม/อาหาร", vocaID},
+	}
+
+	internationalCurriculums := []struct {
+		name       string
+		schoolType *uint
+	}{
+		{"GED Track", interID},
+		{"IB Track", interID},
+		{"A-Level Track", interID},
+		{"AP Track", interID},
+		{"IGCSE Track", interID},
+	}
+
+	// รวมทุก curriculum เข้าด้วยกัน
+	allCurriculums := []struct {
+		name       string
+		schoolType *uint
+	}{}
+	allCurriculums = append(allCurriculums, generalCurriculums...)
+	allCurriculums = append(allCurriculums, vocationalCurriculums...)
+	allCurriculums = append(allCurriculums, internationalCurriculums...)
+
+	// Insert curricula
+	for _, curr := range allCurriculums {
 		var existing entity.CurriculumType
-		if err := tx.Where("name = ?", name).First(&existing).Error; err != nil {
-			newItem := entity.CurriculumType{Name: name}
+
+		// Check ด้วย name และ school_type_id
+		query := tx.Where("name = ?", curr.name)
+		if curr.schoolType != nil {
+			query = query.Where("school_type_id = ?", *curr.schoolType)
+		} else {
+			query = query.Where("school_type_id IS NULL")
+		}
+
+		if err := query.First(&existing).Error; err != nil {
+			newItem := entity.CurriculumType{
+				Name:         curr.name,
+				SchoolTypeID: curr.schoolType,
+			}
 			if err := tx.Create(&newItem).Error; err != nil {
-				log.Printf("❌ failed to seed CurriculumType %s: %v\n", name, err)
+				log.Printf("failed to seed CurriculumType %s: %v\n", curr.name, err)
 				return err
 			} else {
-				log.Printf("✅ seeded CurriculumType: %s\n", name)
+				schoolTypeName := "ทุกประเภท"
+				if curr.schoolType != nil {
+					for name, id := range typeNameToID {
+						if id == *curr.schoolType {
+							schoolTypeName = name
+							break
+						}
+					}
+				}
+				log.Printf("seeded CurriculumType: %s (SchoolType: %s)\n", curr.name, schoolTypeName)
 			}
 		}
 	}
+
 	return nil
 }
 
 func seedSchools(tx *gorm.DB) error {
-	// Lookup IDs ของ SchoolType
 	typeNameToID := map[string]uint{}
 	var st []entity.SchoolType
 	if err := tx.Find(&st).Error; err != nil {
@@ -165,6 +208,7 @@ func seedSchools(tx *gorm.DB) error {
 		return id, nil
 	}
 
+	// Get all required school type IDs
 	govID, err := mustID("โรงเรียนรัฐบาล")
 	if err != nil {
 		return err
@@ -202,49 +246,86 @@ func seedSchools(tx *gorm.DB) error {
 		return err
 	}
 
-	// ชุดตัวอย่าง
-	items := []entity.School{
-		{Code: "TH-BKK-0001", Name: "โรงเรียนเตรียมอุดมศึกษา", SchoolTypeID: govID},
-		{Code: "TH-BKK-0002", Name: "โรงเรียนสวนกุหลาบวิทยาลัย", SchoolTypeID: govID},
-		{Code: "TH-BKK-0003", Name: "โรงเรียนสตรีวิทยา", SchoolTypeID: govID},
-		{Code: "TH-BKK-0004", Name: "โรงเรียนสาธิตจุฬาลงกรณ์มหาวิทยาลัย", SchoolTypeID: demoID},
-		{Code: "TH-BKK-0005", Name: "Bangkok Patana School", SchoolTypeID: interID},
-		{Code: "TH-BKK-0006", Name: "NIST International School", SchoolTypeID: interID},
-		{Code: "TH-BKK-0007", Name: "โรงเรียนอัสสัมชัญ", SchoolTypeID: privateID},
-		{Code: "TH-VOC-0001", Name: "วิทยาลัยเทคนิคกรุงเทพ", SchoolTypeID: vocaID},
-		{Code: "TH-NAK-0001", Name: "โรงเรียนสุรนารีวิทยา", SchoolTypeID: govID},
-		{Code: "TH-NAK-0002", Name: "โรงเรียนราชสีมาวิทยาลัย", SchoolTypeID: govID},
-		{Code: "TH-NAK-0003", Name: "วิทยาลัยเทคนิคนครราชสีมา", SchoolTypeID: vocaID},
-		{Code: "TH-NFE-0001", Name: "กศน. เขตพื้นที่ (ตัวอย่าง)", SchoolTypeID: nonFormalID},
-		{Code: "TH-HSC-0001", Name: "Homeschool Program (ตัวอย่าง)", SchoolTypeID: homeID},
-		{Code: "TH-FOR-0001", Name: "High School - USA (Sample)", SchoolTypeID: foreignID},
-		{Code: "TH-OTH-0001", Name: "โรงเรียนตัวอย่าง A", SchoolTypeID: otherID},
-		{Code: "TH-OTH-0002", Name: "โรงเรียนตัวอย่าง B", SchoolTypeID: otherID},
+	highSchoolGov := []entity.School{
+		{Code: "TH-BKK-G001", Name: "โรงเรียนเตรียมอุดมศึกษา", SchoolTypeID: govID},
+		{Code: "TH-BKK-G002", Name: "โรงเรียนสวนกุหลาบวิทยาลัย", SchoolTypeID: govID},
+		{Code: "TH-BKK-G003", Name: "โรงเรียนสตรีวิทยา", SchoolTypeID: govID},
+		{Code: "TH-NAK-G001", Name: "โรงเรียนสุรนารีวิทยา", SchoolTypeID: govID},
+		{Code: "TH-CMI-G001", Name: "โรงเรียนยุพราชวิทยาลัย", SchoolTypeID: govID},
 	}
 
-	// เพิ่ม dummy โรงเรียนเยอะๆ
-	for i := 1; i <= 200; i++ {
-		code := fmt.Sprintf("TH-DMY-%04d", i)
-		name := fmt.Sprintf("โรงเรียนตัวอย่างสำหรับทดสอบ #%d", i)
-		items = append(items, entity.School{
-			Code:         code,
-			Name:         name,
-			SchoolTypeID: govID,
-		})
+	highSchoolPrivate := []entity.School{
+		{Code: "TH-BKK-P001", Name: "โรงเรียนอัสสัมชัญ", SchoolTypeID: privateID},
+		{Code: "TH-BKK-P002", Name: "โรงเรียนเซนต์โยเซฟคอนเวนต์", SchoolTypeID: privateID},
+		{Code: "TH-BKK-P003", Name: "โรงเรียนเซนต์คาเบรียล", SchoolTypeID: privateID},
+		{Code: "TH-CNX-P001", Name: "โรงเรียนมงฟอร์ตวิทยาลัย (เชียงใหม่)", SchoolTypeID: privateID},
+		{Code: "TH-PKT-P001", Name: "โรงเรียนภูเก็ตวิทยาลัย", SchoolTypeID: privateID},
 	}
 
-	// Insert โดย check ว่ามี code ซ้ำหรือไม่
+	highSchoolDemo := []entity.School{
+		{Code: "TH-BKK-D001", Name: "โรงเรียนสาธิตจุฬาลงกรณ์มหาวิทยาลัย", SchoolTypeID: demoID},
+		{Code: "TH-BKK-D002", Name: "โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ", SchoolTypeID: demoID},
+		{Code: "TH-BKK-D003", Name: "โรงเรียนสาธิตมหาวิทยาลัยเกษตรศาสตร์", SchoolTypeID: demoID},
+		{Code: "TH-BKK-D004", Name: "โรงเรียนสาธิตมหาวิทยาลัยรังสิต", SchoolTypeID: demoID},
+		{Code: "TH-KKN-D001", Name: "โรงเรียนสาธิตมหาวิทยาลัยขอนแก่น", SchoolTypeID: demoID},
+	}
+
+	highSchoolInter := []entity.School{
+		{Code: "TH-BKK-I001", Name: "Bangkok Patana School", SchoolTypeID: interID},
+		{Code: "TH-BKK-I002", Name: "NIST International School", SchoolTypeID: interID},
+		{Code: "TH-BKK-I003", Name: "ISB International School Bangkok", SchoolTypeID: interID},
+		{Code: "TH-BKK-I004", Name: "KIS International School", SchoolTypeID: interID},
+		{Code: "TH-PTY-I001", Name: "Regents International School Pattaya", SchoolTypeID: interID},
+	}
+
+	vocationalSchools := []entity.School{
+		{Code: "TH-BKK-V001", Name: "วิทยาลัยเทคนิคกรุงเทพ", SchoolTypeID: vocaID},
+		{Code: "TH-BKK-V002", Name: "วิทยาลัยการอาชีพดุสิต", SchoolTypeID: vocaID},
+		{Code: "TH-NAK-V001", Name: "วิทยาลัยเทคนิคนครราชสีมา", SchoolTypeID: vocaID},
+		{Code: "TH-CNX-V001", Name: "วิทยาลัยเทคนิคเชียงใหม่", SchoolTypeID: vocaID},
+		{Code: "TH-KBI-V001", Name: "วิทยาลัยอาชีวศึกษากระบี่", SchoolTypeID: vocaID},
+	}
+
+	foreignSchools := []entity.School{
+		{Code: "US-CA-001", Name: "High School - California, USA", SchoolTypeID: foreignID},
+		{Code: "UK-LON-001", Name: "Secondary School - London, UK", SchoolTypeID: foreignID},
+		{Code: "AU-SYD-001", Name: "High School - Sydney, Australia", SchoolTypeID: foreignID},
+		{Code: "SG-001", Name: "Junior College - Singapore", SchoolTypeID: foreignID},
+		{Code: "JP-TKY-001", Name: "High School - Tokyo, Japan", SchoolTypeID: foreignID},
+	}
+
+	otherSchools := []entity.School{
+		{Code: "TH-NFE-001", Name: "กศน.กรุงเทพมหานคร", SchoolTypeID: nonFormalID},
+		{Code: "TH-HSC-001", Name: "Homeschool Thailand Program", SchoolTypeID: homeID},
+		{Code: "TH-OTH-001", Name: "โรงเรียนอื่นๆ (ระบุเอง)", SchoolTypeID: otherID},
+	}
+
+	items := []entity.School{}
+	items = append(items, highSchoolGov...)
+	items = append(items, highSchoolPrivate...)
+	items = append(items, highSchoolDemo...)
+	items = append(items, highSchoolInter...)
+	items = append(items, vocationalSchools...)
+	items = append(items, foreignSchools...)
+	items = append(items, otherSchools...)
+
+	log.Printf("Total schools to seed: %d\n", len(items))
+
+	// Insert
 	for _, school := range items {
 		var existing entity.School
 		if err := tx.Where("code = ?", school.Code).First(&existing).Error; err != nil {
-			// ไม่เจอ -> สร้างใหม่
 			if err := tx.Create(&school).Error; err != nil {
-				log.Printf("❌ failed to seed School %s: %v\n", school.Code, err)
+				log.Printf("failed to seed School %s: %v\n", school.Code, err)
 				return err
 			} else {
-				log.Printf("✅ seeded School: %s - %s\n", school.Code, school.Name)
+				log.Printf("seeded School: %s - %s\n", school.Code, school.Name)
 			}
+		} else {
+			log.Printf("⏭School already exists: %s\n", school.Code)
 		}
 	}
+
+	log.Printf("Completed seeding %d schools\n", len(items))
 	return nil
 }

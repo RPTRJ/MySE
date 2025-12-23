@@ -435,8 +435,33 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <dt className="text-gray-500">ไฟล์ Transcript</dt>
-                    <dd className="text-gray-900 font-semibold break-words">
-                      {academic.transcript_file_path || "-"}
+                    <dd className="text-gray-900 font-semibold">
+                      {academic.transcript_file_path ? (
+                        <a
+                          href={academic.transcript_file_path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          ดูไฟล์
+                        </a>
+                      ) : (
+                        "-"
+                      )}
                     </dd>
                   </div>
                 </dl>
@@ -482,7 +507,34 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <dt className="text-gray-500">ไฟล์ใบรับรอง</dt>
-                    <dd className="text-gray-900 font-semibold break-words">{ged.cert_file_path || "-"}</dd>
+                    <dd className="text-gray-900 font-semibold">
+                      {ged.cert_file_path ? (
+                        <a
+                          href={ged.cert_file_path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          ดูไฟล์
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </dd>
                   </div>
                 </dl>
               ) : (

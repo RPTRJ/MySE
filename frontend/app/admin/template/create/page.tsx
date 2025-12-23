@@ -22,6 +22,32 @@ export default function CreateTemplatePage() {
   const [loadingSections, setLoadingSections] = useState(true);
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  
+  // Validation errors
+  const [errors, setErrors] = useState<{[key: string]: string}>({
+    template_name: '',
+    category_template_id: '',
+    sections: ''
+  });
+  
+  // Modal state (for success/error from API only)
+  const [modal, setModal] = useState<{show: boolean; title: string; message: string; type: 'success' | 'error' | 'warning'}>({
+    show: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'warning' = 'success', autoClose = true) => {
+    setModal({ show: true, title, message, type });
+    if (autoClose) {
+      setTimeout(() => setModal({ show: false, title: '', message: '', type: 'success' }), 2500);
+    }
+  };
+
+  const closeModal = () => {
+    setModal({ show: false, title: '', message: '', type: 'success' });
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -74,16 +100,37 @@ export default function CreateTemplatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate thumbnail
-    if (!formData.thumbnail || formData.thumbnail.trim() === "") {
-      alert("กรุณาอัพโหลดรูปภาพหรือใส่ URL รูปภาพ");
-      return;
+
+    // Reset errors
+    const newErrors: {[key: string]: string} = {
+      template_name: '',
+      category_template_id: '',
+      sections: ''
+    };
+
+    let hasError = false;
+
+    // Validate template name
+    if (!formData.template_name || formData.template_name.trim() === '') {
+      newErrors.template_name = 'กรุณากรอกชื่อเทมเพลต';
+      hasError = true;
+    }
+
+    // Validate category
+    if (!formData.category_template_id || formData.category_template_id === 0) {
+      newErrors.category_template_id = 'กรูณาเลือกหมวดหมู่';
+      hasError = true;
     }
 
     // Validate sections selection
     if (selectedSections.length < 2) {
-      alert("กรุณาเลือก Section อย่างน้อย 2 รายการ");
+      newErrors.sections = 'กรุณาเลือก Section อย่างน้อย 2 รายการ';
+      hasError = true;
+    }
+
+    setErrors(newErrors);
+
+    if (hasError) {
       return;
     }
 
@@ -91,7 +138,7 @@ export default function CreateTemplatePage() {
 
     try {
       const templateData = {
-        template_name: formData.template_name,
+        template_name: formData.template_name.trim(),
         category_template_id: formData.category_template_id,
         description: formData.description,
         thumbnail: formData.thumbnail,
@@ -104,11 +151,11 @@ export default function CreateTemplatePage() {
       const result = await createTemplate(templateData);
       console.log("Template created:", result);
       
-      alert("สร้างเทมเพลตสำเร็จ!");
-      router.push("/admin/template");
+      showModal("สำเร็จ!", "สร้างเทมเพลตเรียบร้อยแล้ว", 'success');
+      setTimeout(() => router.push("/admin/template"), 2000);
     } catch (error) {
       console.error("Error creating template:", error);
-      alert("เกิดข้อผิดพลาดในการสร้างเทมเพลต: " + (error as Error).message);
+      showModal("เกิดข้อผิดพลาด", "ไม่สามารถสร้างเทมเพลตได้ กรุณาลองใหม่อีกครั้ง", 'error', false);
     } finally {
       setLoading(false);
     }
@@ -116,6 +163,81 @@ export default function CreateTemplatePage() {
 
   return (
     <div className="min-h-screen bg-orange-50 relative">
+      {/* Modal Popup */}
+      {modal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={closeModal}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 animate-scale-up">
+            {/* Close Button */}
+            <button
+              onClick={closeModal}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+              {modal.type === 'success' && (
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {modal.type === 'error' && (
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+              {modal.type === 'warning' && (
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Title */}
+            <h3 className={`text-2xl font-bold text-center mb-2 ${
+              modal.type === 'success' ? 'text-green-700' :
+              modal.type === 'error' ? 'text-red-700' :
+              'text-orange-700'
+            }`}>
+              {modal.title}
+            </h3>
+
+            {/* Message */}
+            <p className="text-gray-600 text-center mb-6">
+              {modal.message}
+            </p>
+
+            {/* Button */}
+            <button
+              onClick={closeModal}
+              className={`w-full py-3 rounded-xl font-semibold text-white transition-all hover:shadow-lg ${
+                modal.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                modal.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                'bg-orange-600 hover:bg-orange-700'
+              }`}
+            >
+              ตกลง
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Navbar */}
       <div className="sticky top-0 bg-white shadow-md z-40">
         <div className="max-w-7xl px-6">
@@ -134,122 +256,221 @@ export default function CreateTemplatePage() {
       </div>
 
       {/* Main Content */}
-      <div className="p-6 ">
-        <div className="mt-4 bg-white rounded-xl shadow-md p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">สร้างเทมเพลตใหม่</h1>
-          <p className="text-gray-600 mt-2">กรอกข้อมูลเพื่อสร้างเทมเพลตพอร์ตโฟลิโอใหม่</p>
+      <div className="p-6 max-w-5xl mx-auto">
+        {/* Header Card with Gradient */}
+        <div className="mt-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg p-8 mb-6 text-white">
+          <div className="flex items-center gap-3 mb-2">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h1 className="text-3xl font-bold">สร้างเทมเพลตใหม่</h1>
+          </div>
+          <p className="text-blue-100 text-lg">กรอกข้อมูลเพื่อสร้างเทมเพลตพอร์ตโฟลิโอแบบมืออาชีพ</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-8">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="space-y-6">
             {/* Template Name */}
-            <div>
-              <label htmlFor="template_name" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="group">
+              <label htmlFor="template_name" className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
                 ชื่อเทมเพลต <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                id="template_name"
-                required
-                value={formData.template_name}
-                onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="เช่น Professional Portfolio"
-                maxLength={50}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.template_name.length}/50 ตัวอักษร
-              </p>
+              <div className="relative">
+                <input
+                  type="text"
+                  id="template_name"
+                  required
+                  value={formData.template_name}
+                  onChange={(e) => {
+                    setFormData({ ...formData, template_name: e.target.value });
+                    if (errors.template_name) {
+                      setErrors({ ...errors, template_name: '' });
+                    }
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 transition-all duration-200 bg-gray-50 focus:bg-white ${
+                    errors.template_name 
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-300'
+                  }`}
+                  placeholder="เช่น Professional Portfolio"
+                  maxLength={50}
+                />
+                {errors.template_name && (
+                  <div className="flex items-center gap-1 mt-2 text-red-600 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>{errors.template_name}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    กรอกชื่อที่สื่อความหมายของเทมเพลต
+                  </p>
+                  <span className={`text-xs font-medium ${
+                    formData.template_name.length > 40 ? 'text-orange-600' : 
+                    formData.template_name.length > 0 ? 'text-blue-600' : 'text-gray-400'
+                  }`}>
+                    {formData.template_name.length}/50
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Category */}
-            <div>
-              <label htmlFor="category_template_id" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="group">
+              <label htmlFor="category_template_id" className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
                 หมวดหมู่ <span className="text-red-500">*</span>
               </label>
-              <select
-                id="category_template_id"
-                required
-                value={formData.category_template_id}
-                onChange={(e) => setFormData({ ...formData, category_template_id: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                disabled={loadingCategories}
-              >
-                {loadingCategories ? (
-                  <option value="0">กำลังโหลด...</option>
-                ) : categories.length === 0 ? (
-                  <option value="0">ไม่มีหมวดหมู่</option>
-                ) : (
-                  <>
-                    <option value="0" disabled>เลือกหมวดหมู่</option>
-                    {categories.map((category) => (
-                      <option key={category.ID} value={category.ID}>
-                        {category.category_name}
-                      </option>
-                    ))}
-                  </>
+              <div className="relative">
+                <select
+                  id="category_template_id"
+                  required
+                  value={formData.category_template_id}
+                  onChange={(e) => {
+                    setFormData({ ...formData, category_template_id: parseInt(e.target.value) });
+                    if (errors.category_template_id) {
+                      setErrors({ ...errors, category_template_id: '' });
+                    }
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 transition-all duration-200 bg-gray-50 focus:bg-white appearance-none cursor-pointer ${
+                    errors.category_template_id
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                      : 'border-gray-200 focus:border-purple-500 focus:ring-purple-500 hover:border-gray-300'
+                  }`}
+                  disabled={loadingCategories}
+                >
+                  {loadingCategories ? (
+                    <option value="0">กำลังโหลด...</option>
+                  ) : categories.length === 0 ? (
+                    <option value="0">ไม่มีหมวดหมู่</option>
+                  ) : (
+                    <>
+                      <option value="0" disabled>เลือกหมวดหมู่</option>
+                      {categories.map((category) => (
+                        <option key={category.ID} value={category.ID}>
+                          {category.category_name}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                {errors.category_template_id && (
+                  <div className="flex items-center gap-1 mt-2 text-red-600 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>{errors.category_template_id}</span>
+                  </div>
                 )}
-              </select>
+              </div>
             </div>
 
             {/* Description */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                คำอธิบาย
+            <div className="group">
+              <label htmlFor="description" className="flex items-center gap-2 text-sm font-semibold text-gray-800 mb-2">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+                คำอธิบาย <span className="text-gray-400 text-xs font-normal">(ไม่บังคับ)</span>
               </label>
               <textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-gray-300 bg-gray-50 focus:bg-white resize-none"
                 placeholder="อธิบายเกี่ยวกับเทมเพลตนี้..."
                 rows={4}
                 maxLength={100}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.description.length}/100 ตัวอักษร
-              </p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  ข้อมูลเพิ่มเติมเกี่ยวกับเทมเพลต
+                </p>
+                <span className={`text-xs font-medium ${
+                  formData.description.length > 80 ? 'text-orange-600' : 
+                  formData.description.length > 0 ? 'text-green-600' : 'text-gray-400'
+                }`}>
+                  {formData.description.length}/100
+                </span>
+              </div>
             </div>
 
-            {/* Thumbnail Upload */}
+            {/* Thumbnail Upload - Commented out temporarily */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                รูปภาพตัวอย่าง <span className="text-red-500">*</span>
+                รูปภาพตัวอย่าง (ไม่บังคับ)
               </label>
               
               <input
                 type="file"
                 id="thumbnail_file"
-                accept="image/*"
-                required
+                accept=".jpg,.jpeg,.png,.gif,.webp,.bmp"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
 
-                  // แสดง preview ทันที
+                  console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
+
+                  // ตรวจสอบ file extension (รองรับทุก browser รวม Edge)
+                  const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+                  const fileName = file.name.toLowerCase();
+                  const isValidFile = validExtensions.some(ext => fileName.endsWith(ext));
+                  
+                  if (!isValidFile) {
+                    alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP, BMP)');
+                    e.target.value = '';
+                    return;
+                  }
+
+                  // แสดง preview ทันที (ใช้ได้ทุก browser)
                   const reader = new FileReader();
                   reader.onloadend = () => {
-                    setFormData({ ...formData, thumbnail: reader.result as string });
+                    setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
+                  };
+                  reader.onerror = () => {
+                    console.error('Failed to read file');
+                    alert('ไม่สามารถอ่านไฟล์ได้');
                   };
                   reader.readAsDataURL(file);
 
                   // Upload ไฟล์ไปยัง backend
                   try {
+                    console.log('Uploading file to backend...');
                     const url = await uploadImage(file);
-                    setFormData({ ...formData, thumbnail: url });
+                    console.log('Upload success! URL:', url);
+                    setFormData(prev => ({ ...prev, thumbnail: url }));
+                    // alert('อัพโหลดรูปภาพสำเร็จ!');
                   } catch (error) {
                     console.error('Upload error:', error);
-                    alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ');
+                    const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาด';
+                    alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ: ' + errorMessage);
+                    e.target.value = '';
+                    setFormData(prev => ({ ...prev, thumbnail: '' }));
                   }
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               />
 
               <p className="text-xs text-gray-500 mt-2">
-                <span className="text-red-500 font-semibold">บังคับ:</span> อัพโหลดไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP)
+                อัพโหลดไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP)
               </p>
               
-              {/* Preview */}
               {formData.thumbnail && (
                 <div className="mt-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">ตัวอย่าง:</p>
@@ -380,11 +601,21 @@ export default function CreateTemplatePage() {
                   )}
                 </div>
               )}
+              
+              {/* Error message for sections */}
+              {errors.sections && (
+                <div className="flex items-center gap-1 mt-3 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-medium">{errors.sections}</span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-4 mt-8 pt-6 border-t">
+          <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200">
             <button
               type="button"
               onClick={() => router.back()}
