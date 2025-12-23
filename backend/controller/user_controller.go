@@ -17,6 +17,14 @@ import (
 
 const birthdayLayout = "2006-01-02"
 
+type UserController struct {
+	db *gorm.DB
+}
+
+func NewUserController() *UserController {
+	return &UserController{db: config.GetDB()}
+}
+
 type UserPayload struct {
 	FirstNameTH     string `json:"first_name_th"`
 	LastNameTH      string `json:"last_name_th"`
@@ -29,18 +37,8 @@ type UserPayload struct {
 	Phone           string `json:"phone"`
 	Birthday        string `json:"birthday" binding:"required,datetime=2006-01-02"`
 	PDPAConsent     bool   `json:"pdpa_consent"`
-	AccountTypeID   uint   `json:"type_id" binding:"required"`
-	IDDocTypeID     uint   `json:"id_type" binding:"required"`
-}
-
-type UserController struct {
-	db *gorm.DB
-}
-
-func NewUserController() *UserController {
-	return &UserController{
-		db: config.GetDB(),
-	}
+	AccountTypeID   uint   `json:"account_type_id"`
+	IDDocTypeID     uint   `json:"id_doc_type_id"`
 }
 
 func (uc *UserController) RegisterRoutes(router gin.IRoutes) {
@@ -51,7 +49,6 @@ func (uc *UserController) RegisterRoutes(router gin.IRoutes) {
 	router.DELETE("/users/:id", uc.DeleteUser)
 }
 
-// RegisterSelfRoutes are endpoints that operate on the current user (used before onboarding is finished).
 func (uc *UserController) RegisterSelfRoutes(router gin.IRoutes) {
 	router.GET("/me", uc.GetMe)
 	router.PUT("/users/me/onboarding", uc.CompleteOnboarding)
@@ -381,7 +378,7 @@ func getUserIDFromContext(c *gin.Context) (uint, bool) {
 }
 
 // CheckIDDuplicate verifies if a given id_number is already used by other users.
-// Returns 409 if duplicate, 200 if available.
+// Returns 409 if duplicate with specific error message, 200 if available.
 func (uc *UserController) CheckIDDuplicate(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok {
@@ -390,21 +387,50 @@ func (uc *UserController) CheckIDDuplicate(c *gin.Context) {
 	}
 
 	idNumber := c.Query("id_number")
+	idTypeName := c.Query("id_type_name") // รับประเภทเอกสารมาด้วย
+
 	if strings.TrimSpace(idNumber) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id_number is required"})
 		return
 	}
 
+	if strings.TrimSpace(idTypeName) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id_type_name is required"})
+		return
+	}
+
+	// ตรวจสอบว่ามีเลขเอกสารนี้ในระบบแล้วหรือไม่ (ไม่รวม user คนปัจจุบัน)
 	var dup entity.User
 	if err := uc.db.Where("id_number = ? AND id <> ?", idNumber, userID).First(&dup).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "id number already in use"})
+		// พบเอกสารซ้ำ - ส่ง error message ตามประเภทเอกสาร
+		var errorMessage string
+		switch strings.ToLower(idTypeName) {
+		case "citizen_id", "บัตรประชาชน", "id card":
+			errorMessage = "หมายเลขบัตรประชาชนนี้ถูกลงทะเบียนแล้ว"
+		case "g_code", "g-code":
+			errorMessage = "หมายเลข G-Code นี้ถูกลงทะเบียนแล้ว"
+		case "passport", "หนังสือเดินทาง":
+			errorMessage = "หมายเลขหนังสือเดินทางนี้ถูกลงทะเบียนแล้ว"
+		default:
+			errorMessage = "หมายเลขเอกสารนี้ถูกลงทะเบียนแล้ว"
+		}
+
+		c.JSON(http.StatusConflict, gin.H{
+			"error":        errorMessage,
+			"is_duplicate": true,
+			"id_type_name": idTypeName,
+		})
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"unique": true})
+	// ไม่พบเอกสารซ้ำ - available
+	c.JSON(http.StatusOK, gin.H{
+		"unique":       true,
+		"is_duplicate": false,
+	})
 }
 
 func firstNonEmpty(values ...string) string {

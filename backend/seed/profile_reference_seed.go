@@ -43,14 +43,7 @@ func seedEducationLevels(tx *gorm.DB) error {
 		"มัธยมศึกษาตอนปลาย (ม.4-ม.6)",
 		"อาชีวศึกษา (ปวช.)",
 		"อาชีวศึกษา (ปวส.)",
-		"เทียบเท่า ม.ปลาย (กศน.)",
 		"GED",
-		"International High School",
-		"IB Diploma",
-		"A-Level / UK Curriculum",
-		"AP / US Curriculum",
-		"Homeschool",
-		"อื่นๆ",
 	}
 
 	for _, name := range items {

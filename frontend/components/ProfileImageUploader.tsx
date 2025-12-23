@@ -14,6 +14,7 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasImage = Boolean(preview || currentImageUrl);
 
   // Resize และ crop รูปภาพเป็นวงกลม
   const resizeAndCropImage = useCallback((file: File, targetSize: number = 400): Promise<File> => {
@@ -138,8 +139,13 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
   return (
     <div className="flex flex-col items-center">
       <div className="relative group">
-        {/* Profile Image */}
-        <div className="relative h-32 w-32 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-4 border-white/50">
+        <div
+          className={
+            hasImage
+              ? "relative h-32 w-32 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-4 border-white/50"
+              : "relative h-32 w-32 rounded-full overflow-hidden bg-gray-100 border border-gray-300"
+          }
+        >
           {preview ? (
             <img
               src={preview}
@@ -154,7 +160,7 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
             />
           ) : (
             <svg
-              className="h-full w-full text-white p-6"
+              className="h-full w-full text-gray-400 p-6"
               fill="currentColor"
               viewBox="0 0 24 24"
               aria-label="ไอคอนโปรไฟล์เริ่มต้น"
@@ -163,7 +169,6 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
             </svg>
           )}
 
-          {/* Overlay on hover */}
           {!isUploading && (
             <div
               className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -200,7 +205,6 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
             </div>
           )}
 
-          {/* Loading spinner */}
           {isUploading && (
             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
               <svg
@@ -227,7 +231,6 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
           )}
         </div>
 
-        {/* Edit button */}
         <button
           type="button"
           onClick={handleClick}
@@ -253,7 +256,6 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
         </button>
       </div>
 
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -263,8 +265,7 @@ export function ProfileImageUploader({ currentImageUrl, onImageUpdated }: Profil
         aria-label="เลือกไฟล์รูปภาพ"
       />
 
-      {/* Info text */}
-      <p className="mt-3 text-xs text-white/80 text-center">
+      <p className="mt-3 text-xs text-gray-600 text-center">
         คลิกที่รูปเพื่อเปลี่ยนรูปโปรไฟล์
         <br />
         รองรับไฟล์ JPG, PNG (สูงสุด 5MB)

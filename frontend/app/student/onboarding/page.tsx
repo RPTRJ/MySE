@@ -1,61 +1,8 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { UserInterface } from "@/src/interfaces/IUser";
 import { EducationInterface } from "@/src/interfaces/IEducation";
-
-const ALLOWED_LEVELS = [
-  "มัธยมศึกษาตอนปลาย (ม.4-ม.6)",
-  "อาชีวศึกษา (ปวช.)",
-  "อาชีวศึกษา (ปวส.)",
-  "GED",
-];
-
-type Option = { id: number; name: string };
-
-const pickArrayFromResponse = (payload: any): any[] => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.items)) return payload.data.items;
-  return [];
-};
-
-const extractId = (item: any): number | null => {
-  if (item?.id !== undefined && item?.id !== null) {
-    const num = Number(item.id);
-    if (Number.isFinite(num) && num > 0) return num;
-  }
-  if (item?.ID !== undefined && item?.ID !== null) {
-    const num = Number(item.ID);
-    if (Number.isFinite(num) && num > 0) return num;
-  }
-  return null;
-};
-
-const extractName = (item: any): string | null => {
-  if (item?.name !== undefined && item?.name !== null) {
-    return String(item.name).trim();
-  }
-  if (item?.Name !== undefined && item?.Name !== null) {
-    return String(item.Name).trim();
-  }
-  return null;
-};
-
-const normalizeOptions = (items: any[]): Option[] => {
-  if (!Array.isArray(items)) return [];
-
-  return items
-    .map((item) => {
-      const id = extractId(item);
-      const name = extractName(item);
-      if (id === null || name === null || name === "") return null;
-      return { id, name };
-    })
-    .filter((item): item is Option => item !== null);
-};
-
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -90,10 +37,15 @@ export default function OnboardingPage() {
   const [isProjectBasedDisplay, setIsProjectBasedDisplay] = useState<
     boolean | null
   >(null);
+
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string>("");
+  const checkDuplicateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
   const docTypeOptions = [
-    { key: "citizen", label: "บัตรประชาชน", value: "ID Card" },
-    { key: "gcode", label: "G-Code", value: "G-Code" },
-    { key: "passport", label: "หนังสือเดินทาง", value: "Passport" },
+    { key: "citizen", label: "บัตรประชาชน", value: "ID Card", id: 1 },
+    { key: "gcode", label: "G-Code", value: "G-Code", id: 2 },
+    { key: "passport", label: "หนังสือเดินทาง", value: "Passport", id: 3 },
   ];
   const docTypeIdByKey: Record<string, number> = {
     citizen: 1,
@@ -126,6 +78,7 @@ export default function OnboardingPage() {
     },
   };
 
+  // State 1: ข้อมูลส่วนตัว (User)
   const [userForm, setUserForm] = useState<UserInterface>({
     FirstNameTH: "",
     LastNameTH: "",
@@ -137,6 +90,7 @@ export default function OnboardingPage() {
     PDPAConsent: false,
   });
 
+  // State 2: ข้อมูลการศึกษา (Education)
   const [eduForm, setEduForm] = useState<EducationInterface>({
     SchoolName: "",
     SchoolID: undefined,
@@ -151,289 +105,372 @@ export default function OnboardingPage() {
   });
 
   useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const headers: HeadersInit = token
-      ? { Authorization: `Bearer ${token}` }
-      : {};
-
-    const fetchReference = async () => {
-      try {
-        const [levelsRes, schoolTypesRes, curriculumRes] = await Promise.all([
-          fetch(`${API_URL}/reference/education-levels`, { headers }),
-          fetch(`${API_URL}/reference/school-types`, { headers }),
-          fetch(`${API_URL}/reference/curriculum-types`, { headers }),
-        ]);
-
-        const [levelsData, schoolTypesData, curriculumData] = await Promise.all(
-          [levelsRes.json(), schoolTypesRes.json(), curriculumRes.json()]
-        );
-
-        console.log("API Response - Education Levels:", levelsData);
-        console.log("API Response - School Types:", schoolTypesData);
-        console.log("API Response - Curriculum Types:", curriculumData);
-
-        const levels = pickArrayFromResponse(levelsData);
-        const schoolTypesList = pickArrayFromResponse(schoolTypesData);
-        const curriculumList = pickArrayFromResponse(curriculumData);
-
-        const normalizedLevels = normalizeOptions(levels);
-        const normalizedSchoolTypes = normalizeOptions(schoolTypesList);
-        const normalizedCurriculums = normalizeOptions(curriculumList);
-
-        console.log("Normalized Education Levels:", normalizedLevels);
-        console.log("Normalized School Types:", normalizedSchoolTypes);
-        console.log("Normalized Curriculum Types:", normalizedCurriculums);
-
-        if (normalizedLevels.length > 0) {
-          const filtered = normalizedLevels.filter((l) =>
-            ALLOWED_LEVELS.includes(l.name)
-          );
-          console.log("🔍 Filtered Education Levels:", filtered);
-          setEducationLevels(filtered.length > 0 ? filtered : normalizedLevels);
-        }
-
-        if (normalizedSchoolTypes.length > 0) {
-          setSchoolTypes(normalizedSchoolTypes);
-        }
-
-        if (normalizedCurriculums.length > 0) {
-          setCurriculumTypes(normalizedCurriculums);
-        }
-      } catch (e) {
-        console.error("Failed to load reference data:", e);
-      }
-    };
-
-    fetchReference();
-  }, [API_URL]);
+    console.log("📍 Current Step:", step);
+  }, [step]);
 
   useEffect(() => {
-    if (educationLevels.length === 0 || schoolTypes.length === 0) {
+    console.log("📚 Education Levels Count:", educationLevels.length);
+  }, [educationLevels]);
+
+  const checkIDDuplicate = useCallback(
+    async (idNumber: string, idTypeName: string) => {
+      if (!idNumber || !idTypeName) {
+        setDuplicateError("");
+        return;
+      }
+
+      // ตรวจสอบ format
+      const selectedDoc = docTypeOptions.find((d) => d.value === idTypeName);
+      const selectedDocKey = selectedDoc?.key || "";
+
+      if (selectedDocKey === "citizen" && !/^\d{13}$/.test(idNumber)) {
+        return;
+      }
+      if (selectedDocKey === "gcode" && !/^[Gg]\d{7}$/.test(idNumber)) {
+        return;
+      }
+      if (
+        selectedDocKey === "passport" &&
+        !/^[A-Za-z0-9]{6,15}$/.test(idNumber)
+      ) {
+        return;
+      }
+
+      setIsCheckingDuplicate(true);
+
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("token")
+            : null;
+
+        const response = await fetch(
+          `${API_URL}/users/me/check-id?id_number=${encodeURIComponent(
+            idNumber
+          )}&id_type_name=${encodeURIComponent(idTypeName)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.status === 409 || data.is_duplicate) {
+          setDuplicateError(data.error || "หมายเลขเอกสารนี้ถูกลงทะเบียนแล้ว");
+          setErrors((prev) => ({
+            ...prev,
+            IDNumber: data.error || "หมายเลขเอกสารนี้ถูกลงทะเบียนแล้ว",
+          }));
+        } else if (response.ok && data.unique) {
+          setDuplicateError("");
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            if (
+              prev.IDNumber === duplicateError ||
+              prev.IDNumber?.includes("ถูกลงทะเบียนแล้ว")
+            ) {
+              delete newErrors.IDNumber;
+            }
+            return newErrors;
+          });
+        }
+      } catch (error) {
+        console.error("Error checking ID duplicate:", error);
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    },
+    [API_URL, duplicateError]
+  );
+
+  useEffect(() => {
+    if (checkDuplicateTimeoutRef.current) {
+      clearTimeout(checkDuplicateTimeoutRef.current);
+    }
+
+    if (userForm.IDNumber && userForm.IDNumber.trim() !== "") {
+      checkDuplicateTimeoutRef.current = setTimeout(() => {
+        const selectedDoc = docTypeOptions.find(
+          (d) => d.id === userForm.IDDocTypeID
+        );
+        if (selectedDoc && userForm.IDNumber) {
+          checkIDDuplicate(userForm.IDNumber, selectedDoc.value);
+        }
+      }, 800);
+    } else {
+      setDuplicateError("");
+    }
+
+    // Cleanup
+    return () => {
+      if (checkDuplicateTimeoutRef.current) {
+        clearTimeout(checkDuplicateTimeoutRef.current);
+      }
+    };
+  }, [userForm.IDNumber, userForm.IDDocTypeID, checkIDDuplicate]);
+
+  useEffect(() => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      console.log("No token found");
       return;
     }
 
-    const levelName =
-      educationLevels.find((l) => l.id === eduForm.EducationLevelID)?.name ||
-      "";
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
 
-    const matchTypes = (names: string[]) =>
-      schoolTypes.filter((t) =>
-        names.some((n) => t.name.includes(n) || n.includes(t.name))
-      );
-
-    let filtered: { id: number; name: string }[] = [...schoolTypes];
-
-    if (levelName.includes("GED")) {
-      filtered = matchTypes([
-        "โรงเรียนนานาชาติ",
-        "ต่างประเทศ",
-        "Homeschool",
-        "โรงเรียนเอกชน",
-        "อื่นๆ",
-      ]);
-    } else if (
-      levelName.includes("อาชีวศึกษา") ||
-      levelName.includes("ปวช") ||
-      levelName.includes("ปวส")
-    ) {
-      filtered = matchTypes([
-        "อาชีวศึกษา",
-        "วิทยาลัย",
-        "เทคนิค",
-        "โรงเรียนรัฐบาล",
-        "โรงเรียนเอกชน",
-        "อื่นๆ",
-      ]);
-    } else if (levelName.includes("มัธยมศึกษาตอนปลาย")) {
-      filtered = matchTypes([
-        "โรงเรียนรัฐบาล",
-        "โรงเรียนเอกชน",
-        "โรงเรียนสาธิต",
-        "โรงเรียนนานาชาติ",
-        "กศน.",
-        "อื่นๆ",
-      ]);
-    }
-
-    setAllowedSchoolTypes(filtered.length > 0 ? filtered : schoolTypes);
-
-    if (eduForm.EducationLevelID && filtered.length) {
-      if (!filtered.some((t) => t.id === eduForm.SchoolTypeID)) {
-        setEduForm((prev) => ({
-          ...prev,
-          SchoolTypeID: filtered[0].id || undefined,
-        }));
-      }
-    } else if (!eduForm.EducationLevelID) {
-      if (!schoolTypes.some((t) => t.id === eduForm.SchoolTypeID)) {
-        setEduForm((prev) => ({ ...prev, SchoolTypeID: undefined }));
-      }
-    }
-  }, [
-    educationLevels,
-    eduForm.EducationLevelID,
-    eduForm.SchoolTypeID,
-    schoolTypes,
-  ]);
-
-  useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const headers: HeadersInit = token
-      ? { Authorization: `Bearer ${token}` }
-      : {};
-    const controller = new AbortController();
-
-    const fetchSchools = async () => {
+    const fetchAll = async () => {
       try {
-        const params = new URLSearchParams();
-        params.set("limit", "50");
-        if (schoolQuery.trim()) params.set("search", schoolQuery.trim());
-        if (eduForm.SchoolTypeID)
-          params.set("school_type_id", String(eduForm.SchoolTypeID));
+        console.log("🔵 Fetching reference data...");
+        const [levelsRes, schoolTypesRes, curriculumTypesRes, schoolsRes] =
+          await Promise.all([
+            fetch(`${API_URL}/reference/education-levels`, { headers }),
+            fetch(`${API_URL}/reference/school-types`, { headers }),
+            fetch(`${API_URL}/reference/curriculum-types`, { headers }),
+            fetch(`${API_URL}/reference/schools`, { headers }),
+          ]);
 
-        const res = await fetch(
-          `${API_URL}/reference/schools?${params.toString()}`,
-          {
-            headers,
-            signal: controller.signal,
-          }
-        );
-        const data = await res.json();
-        const items = pickArrayFromResponse(data);
+        const levelsData = await levelsRes.json();
+        const schoolTypesData = await schoolTypesRes.json();
+        const curriculumTypesData = await curriculumTypesRes.json();
+        const schoolsData = await schoolsRes.json();
 
-        const validSchools = items
-          .map((s: any) => {
-            const id = extractId(s);
-            const name = extractName(s);
-            if (id === null || name === null) return null;
-            return {
-              id,
-              name,
-              schoolTypeId:
-                s.school_type_id ?? s.SchoolTypeID ?? s.schoolTypeID ?? null,
-              isProjectBased:
-                s.is_project_based ?? s.IsProjectBased ?? null,
-            };
-          })
-          .filter((s: any): s is NonNullable<typeof s> => s !== null);
+        const mapItems = (items: any[]) => items.map(item => ({
+          id: item.ID || item.id,
+          name: item.name,
+          schoolTypeId: item.school_type_id || item.SchoolTypeID,
+          isProjectBased: item.is_project_based || item.IsProjectBased
+        }));
 
-        setSchools(validSchools);
-      } catch (e) {
-        if ((e as any).name === "AbortError") return;
-        console.error("❌ Failed to load schools:", e);
+        const mappedLevels = mapItems(levelsData.items || []).sort((a, b) => a.id - b.id);
+        const mappedSchoolTypes = mapItems(schoolTypesData.items || []).sort((a, b) => a.id - b.id);
+        const mappedCurriculum = mapItems(curriculumTypesData.items || []).sort((a, b) => a.id - b.id);
+        const mappedSchools = mapItems(schoolsData.items || []).sort((a, b) => a.name.localeCompare(b.name));
+
+        console.log("✅ Education Levels:", mappedLevels.length);
+        console.log("✅ School Types:", mappedSchoolTypes.length);
+        console.log("✅ Curriculum Types:", mappedCurriculum.length);
+        console.log("✅ Schools:", mappedSchools.length);
+
+        setEducationLevels(mappedLevels);
+        setSchoolTypes(mappedSchoolTypes);
+        setCurriculumTypes(mappedCurriculum);
+        setSchools(mappedSchools);
+      } catch (error) {
+        console.error("Error fetching reference data:", error);
       }
     };
 
-    fetchSchools();
-    return () => controller.abort();
-  }, [API_URL, schoolQuery, eduForm.SchoolTypeID]);
-
-  const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setUserForm({ ...userForm, [name]: value });
-  };
-
-  const handleEduChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    if (name === "SchoolName") {
-      setSchoolQuery(value);
-      setIsProjectBasedDisplay(null);
-    }
-    setEduForm({
-      ...eduForm,
-      [name]: name === "EducationLevelID" ? Number(value) : value,
-    });
-  };
-
-  const filteredSchools = useMemo(() => {
-    return schools.filter((s) => {
-      const matchesName = schoolQuery
-        ? s.name.toLowerCase().includes(schoolQuery.toLowerCase())
-        : true;
-      const matchesType = eduForm.SchoolTypeID
-        ? s.schoolTypeId === eduForm.SchoolTypeID
-        : true;
-      return matchesName && matchesType;
-    });
-  }, [schoolQuery, schools, eduForm.SchoolTypeID]);
-
-  const filteredCurriculums = useMemo(() => {
-    const query = curriculumQuery.trim().toLowerCase();
-    return curriculumTypes.filter((c) => c.name.toLowerCase().includes(query));
-  }, [curriculumQuery, curriculumTypes]);
+    fetchAll();
+  }, [API_URL]);
 
   useEffect(() => {
-    const selected = curriculumTypes.find(
-      (c) => c.id === eduForm.CurriculumTypeID
-    );
-    if (selected) {
-      setCurriculumQuery(selected.name);
+    if (!educationLevels.length) {
+      setAllowedSchoolTypes(schoolTypes);
+      return;
     }
-  }, [curriculumTypes, eduForm.CurriculumTypeID]);
 
+    const selectedLevel = educationLevels.find((level) => level.id === eduForm.EducationLevelID);
+
+    if (!selectedLevel) {
+      setAllowedSchoolTypes(schoolTypes);
+      return;
+    }
+
+    if (selectedLevel.name === "มัธยมศึกษาตอนปลาย (ม.4-ม.6)") {
+      const filtered = schoolTypes.filter((st) => ["โรงเรียนรัฐบาล", "โรงเรียนเอกชน"].includes(st.name));
+      setAllowedSchoolTypes(filtered.length ? filtered : schoolTypes);
+      return;
+    }
+
+    if (selectedLevel.name === "อาชีวศึกษา (ปวช.)" || selectedLevel.name === "อาชีวศึกษา (ปวส.)") {
+      const filtered = schoolTypes.filter((st) => ["วิทยาลัยเทคนิค", "วิทยาลัยอาชีวศึกษา"].includes(st.name));
+      setAllowedSchoolTypes(filtered.length ? filtered : schoolTypes);
+      return;
+    }
+
+    // GED หรืออื่นๆ แสดงทั้งหมด
+    setAllowedSchoolTypes(schoolTypes);
+  }, [eduForm.EducationLevelID, educationLevels, schoolTypes]);
+
+  // Handle education level change
+  const handleEducationLevelChange = (levelId: number) => {
+    const selectedLevel = educationLevels.find((level) => level.id === levelId);
+
+    setEduForm((prev) => ({
+      ...prev,
+      EducationLevelID: levelId,
+      SchoolID: undefined,
+      SchoolName: "",
+      SchoolTypeID: undefined,
+      CurriculumTypeID: undefined,
+      IsProjectBased: selectedLevel?.name === "GED" ? null : false,
+    }));
+
+    setSchoolQuery("");
+    setCurriculumQuery("");
+    setIsProjectBasedDisplay(null);
+  };
+
+  // Handle school selection
   const handleSelectSchool = (school: {
     id: number;
     name: string;
     schoolTypeId?: number;
     isProjectBased?: boolean;
   }) => {
-    setEduForm({
-      ...eduForm,
-      SchoolID: school.id,
-      SchoolName: school.name,
-      SchoolTypeID: school.schoolTypeId || eduForm.SchoolTypeID,
-      IsProjectBased: school.isProjectBased ?? eduForm.IsProjectBased,
-    });
-    setIsProjectBasedDisplay(
-      school.isProjectBased !== undefined ? !!school.isProjectBased : null
-    );
     setSchoolQuery(school.name);
-    setShowSchoolList(false);
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated.SchoolName;
-      return updated;
-    });
-  };
-
-  const handleCurriculumChange = (value: string) => {
-    setCurriculumQuery(value);
-    const matched = curriculumTypes.find(
-      (c) => c.name.toLowerCase() === value.trim().toLowerCase()
-    );
     setEduForm((prev) => ({
       ...prev,
-      CurriculumTypeID: matched ? matched.id : undefined,
+      SchoolID: school.id,
+      SchoolName: school.name,
+      SchoolTypeID: school.schoolTypeId || prev.SchoolTypeID,
+      IsProjectBased: school.isProjectBased ?? prev.IsProjectBased,
     }));
-    setShowCurriculumList(true);
+    setShowSchoolList(false);
+    
+    // แก้ไข: ใช้ type assertion เพื่อแก้ type error
+    if (school.isProjectBased !== undefined) {
+      setIsProjectBasedDisplay(school.isProjectBased as boolean | null);
+    } else {
+      setIsProjectBasedDisplay(null);
+    }
   };
 
+  // Handle curriculum selection
   const handleSelectCurriculum = (curriculum: { id: number; name: string }) => {
-    setEduForm((prev) => ({ ...prev, CurriculumTypeID: curriculum.id }));
     setCurriculumQuery(curriculum.name);
+    setEduForm((prev) => ({
+      ...prev,
+      CurriculumTypeID: curriculum.id,
+    }));
     setShowCurriculumList(false);
   };
 
-  const selectedDoc =
-    docTypeOptions.find(
-      (opt) => docTypeIdByKey[opt.key] === userForm.IDDocTypeID
-    ) || null;
-  const selectedDocKey = selectedDoc?.key || "default";
+  // Handle school query change
+  const handleSchoolChange = (value: string) => {
+    setSchoolQuery(value);
+    setEduForm((prev) => ({
+      ...prev,
+      SchoolName: value,
+      SchoolID: undefined,
+    }));
+    setIsProjectBasedDisplay(null);
+  };
+
+  // Handle curriculum query change
+  const handleCurriculumChange = (value: string) => {
+    setCurriculumQuery(value);
+    setEduForm((prev) => ({
+      ...prev,
+      CurriculumTypeID: undefined,
+    }));
+  };
+
+  // Filtered schools
+  const allowedSchoolTypeIds = useMemo(() => allowedSchoolTypes.map((t) => t.id), [allowedSchoolTypes]);
+
+  const filteredSchools = useMemo(() => {
+    let list = schools;
+
+    if (allowedSchoolTypeIds.length) {
+      list = list.filter((school) =>
+        allowedSchoolTypeIds.some((id) => String(id) === String(school.schoolTypeId))
+      );
+    }
+
+    if (eduForm.SchoolTypeID) {
+      list = list.filter((school) => String(school.schoolTypeId) === String(eduForm.SchoolTypeID));
+    }
+
+    if (schoolQuery.trim()) {
+      list = list.filter((school) =>
+        school.name.toLowerCase().includes(schoolQuery.toLowerCase())
+      );
+    }
+
+    return list;
+  }, [schools, schoolQuery, allowedSchoolTypeIds, eduForm.SchoolTypeID]);
+
+  // Filtered curriculums
+  const filteredCurriculums = useMemo(() => {
+    if (!curriculumQuery) return curriculumTypes;
+    return curriculumTypes.filter((curriculum) =>
+      curriculum.name.toLowerCase().includes(curriculumQuery.toLowerCase())
+    );
+  }, [curriculumTypes, curriculumQuery]);
+
+  // Get selected doc metadata
+  const selectedDocKey: string =
+    (Object.keys(docTypeIdByKey) as Array<keyof typeof docTypeIdByKey>).find(
+      (key) => docTypeIdByKey[key] === userForm.IDDocTypeID
+    ) ?? "default";
   const docMeta = docFieldMeta[selectedDocKey] || docFieldMeta.default;
 
+  // แก้ไข: เพิ่ม selectedDoc สำหรับใช้ใน component
+  const selectedDoc = docTypeOptions.find(
+    (d) => d.id === userForm.IDDocTypeID
+  );
+  const selectedDocLabel = selectedDoc?.label || docMeta.label;
+  const selectedDocPlaceholder = selectedDoc ? docMeta.placeholder : "กรอกเลขยืนยันตัวตน";
+
+  // Handle user form change
+  const handleUserChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setUserForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Check if IsProjectBased should be shown
   useEffect(() => {
+    const selectedLevel = educationLevels.find(
+      (level) => level.id === eduForm.EducationLevelID
+    );
+
     if (
-      eduForm.IsProjectBased !== undefined &&
-      eduForm.IsProjectBased !== null
+      selectedLevel &&
+      (selectedLevel.name === "อาชีวศึกษา (ปวช.)" ||
+        selectedLevel.name === "อาชีวศึกษา (ปวส.)")
     ) {
-      setIsProjectBasedDisplay(!!eduForm.IsProjectBased);
+      if (isProjectBasedDisplay === null && eduForm.IsProjectBased !== null) {
+        setIsProjectBasedDisplay(eduForm.IsProjectBased as boolean);
+      }
+    } else {
+      setIsProjectBasedDisplay(null);
+    }
+  }, [eduForm.EducationLevelID, educationLevels, eduForm.IsProjectBased]);
+
+  // Reset IsProjectBased when changing away from vocational
+  useEffect(() => {
+    const selectedLevel = educationLevels.find(
+      (level) => level.id === eduForm.EducationLevelID
+    );
+
+    if (
+      selectedLevel &&
+      selectedLevel.name !== "อาชีวศึกษา (ปวช.)" &&
+      selectedLevel.name !== "อาชีวศึกษา (ปวส.)"
+    ) {
+      setEduForm((prev) => ({ ...prev, IsProjectBased: false }));
+    }
+  }, [eduForm.EducationLevelID, educationLevels]);
+
+  // Clear IsProjectBased display
+  useEffect(() => {
+    if (isProjectBasedDisplay !== null && !eduForm.IsProjectBased) {
+      setIsProjectBasedDisplay(null);
     }
   }, [eduForm.IsProjectBased]);
 
+  // Validate Step 1 with duplicate check
   const validateStep1 = () => {
     const newErrors: Record<string, string> = {};
     const first = userForm.FirstNameTH?.trim() || "";
@@ -459,6 +496,11 @@ export default function OnboardingPage() {
       ) {
         newErrors.IDNumber = "เลขพาสปอร์ตต้องเป็นตัวอักษร/ตัวเลข 6-15 ตัว";
       }
+
+      // ตรวจสอบว่ามี duplicate error หรือไม่
+      if (duplicateError) {
+        newErrors.IDNumber = duplicateError;
+      }
     }
     const isThai = (v: string) => /^[\p{Script=Thai}\s'-]+$/u.test(v);
     const isEng = (v: string) => /^[A-Za-z\s'-]+$/.test(v);
@@ -478,6 +520,7 @@ export default function OnboardingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Validate Step 2
   const validateStep2 = () => {
     const newErrors: Record<string, string> = {};
     if (!eduForm.EducationLevelID)
@@ -488,14 +531,35 @@ export default function OnboardingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle Next with duplicate check
   const handleNext = () => {
     if (step === 1) {
-      if (validateStep1()) setStep(2);
+      // ตรวจสอบว่ากำลังเช็ค duplicate อยู่หรือไม่
+      if (isCheckingDuplicate) {
+        alert("กรุณารอสักครู่ ระบบกำลังตรวจสอบข้อมูล...");
+        return;
+      }
+
+      // ตรวจสอบว่ามี duplicate error หรือไม่
+      if (duplicateError) {
+        return; // ไม่ให้ไปหน้าถัดไป
+      }
+
+      if (validateStep1()) {
+        console.log("✅ Moving to Step 2");
+        setStep(2);
+      } else {
+        console.log("❌ Validation failed for Step 1");
+      }
     }
   };
 
-  const handleBack = () => setStep(1);
+  const handleBack = () => {
+    console.log("⬅️ Moving back to Step 1");
+    setStep(1);
+  };
 
+  // Handle Submit
   const handleSubmit = async () => {
     if (!validateStep2()) return;
     if (!userForm.PDPAConsent) {
@@ -512,6 +576,9 @@ export default function OnboardingPage() {
     };
 
     try {
+      const selectedDocType = docTypeOptions.find(d => d.id === userForm.IDDocTypeID);
+      
+      // อัปเดตข้อมูลผู้ใช้/PDPA/ชื่อ และ ID
       await fetch(`${API_URL}/users/me/onboarding`, {
         method: "PUT",
         headers,
@@ -521,21 +588,14 @@ export default function OnboardingPage() {
           first_name_en: useThai ? "" : userForm.FirstNameTH,
           last_name_en: useThai ? "" : userForm.LastNameTH,
           id_number: userForm.IDNumber,
-          id_type_name: selectedDoc?.value ?? docTypeOptions[0].value,
+          id_type_name: selectedDocType?.value || docTypeOptions[0].value,
           phone: userForm.Phone,
           birthday: userForm.Birthday || "",
           pdpa_consent: true,
         }),
       });
 
-      console.log("📤 Submitting education:", {
-        education_level_id: eduForm.EducationLevelID,
-        school_id: eduForm.SchoolID,
-        school_name: eduForm.SchoolID ? undefined : eduForm.SchoolName,
-        school_type_id: eduForm.SchoolTypeID,
-        curriculum_type_id: eduForm.CurriculumTypeID,
-      });
-
+      // อัปเดตข้อมูลการศึกษา
       await fetch(`${API_URL}/users/me/education`, {
         method: "PUT",
         headers,
@@ -551,7 +611,7 @@ export default function OnboardingPage() {
 
       router.replace("/student/home");
     } catch (err) {
-      console.error("❌ Submit onboarding failed:", err);
+      console.error("submit onboarding failed", err);
       alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองอีกครั้ง");
     }
   };
@@ -569,16 +629,20 @@ export default function OnboardingPage() {
           </p>
           <div className="mt-4 flex justify-center items-center space-x-2">
             <div
-              className={`h-2 w-10 rounded-full ${step >= 1 ? "bg-orange-500" : "bg-gray-300"}`}
+              className={`h-2 w-10 rounded-full ${
+                step >= 1 ? "bg-orange-500" : "bg-gray-300"
+              }`}
             ></div>
             <div
-              className={`h-2 w-10 rounded-full ${step >= 2 ? "bg-orange-500" : "bg-gray-300"}`}
+              className={`h-2 w-10 rounded-full ${
+                step >= 2 ? "bg-orange-500" : "bg-gray-300"
+              }`}
             ></div>
           </div>
         </div>
 
         <div className="px-8 py-10 space-y-8">
-          {/* --- STEP 1: ข้อมูลส่วนตัว --- */}
+          {/* STEP 1: ข้อมูลส่วนตัว */}
           {step === 1 && (
             <div className="space-y-6">
               <div>
@@ -591,11 +655,12 @@ export default function OnboardingPage() {
               </div>
 
               <div className="space-y-4">
+                {/* Document Type Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-900">
                     เอกสารยืนยันตัวตน
                   </label>
-                  <div className="inline-flex rounded-full bg-gray-100 p-1 gap-1">
+                  <div className="inline-flex rounded-full bg-gray-100 p-1 gap-1 mt-2">
                     {docTypeOptions.map((opt) => (
                       <button
                         key={opt.key}
@@ -603,11 +668,11 @@ export default function OnboardingPage() {
                         onClick={() =>
                           setUserForm((prev) => ({
                             ...prev,
-                            IDDocTypeID: docTypeIdByKey[opt.key],
+                            IDDocTypeID: opt.id,
                           }))
                         }
                         className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
-                          docTypeIdByKey[opt.key] === userForm.IDDocTypeID
+                          opt.id === userForm.IDDocTypeID
                             ? "bg-white shadow text-orange-600"
                             : "text-gray-700"
                         }`}
@@ -624,32 +689,65 @@ export default function OnboardingPage() {
                       {errors.IDDocTypeID}
                     </p>
                   )}
+
+                  {/* ID Number Input with Loading Indicator */}
                   <div className="mt-3">
                     <label
                       htmlFor="IDNumber"
                       className="block text-sm font-medium text-gray-900"
                     >
-                      {docMeta.label}
+                      {selectedDocLabel}
                     </label>
-                    <input
-                      id="IDNumber"
-                      name="IDNumber"
-                      value={userForm.IDNumber}
-                      onChange={handleUserChange}
-                      className={`mt-1 block w-full border ${errors.IDNumber ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
-                      placeholder={docMeta.placeholder}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {docMeta.helper}
-                    </p>
-                    {errors.IDNumber && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.IDNumber}
+                    <div className="relative mt-1">
+                      <input
+                        id="IDNumber"
+                        name="IDNumber"
+                        value={userForm.IDNumber}
+                        onChange={handleUserChange}
+                        className={`block w-full border ${
+                          errors.IDNumber || duplicateError
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-300"
+                        } rounded-lg shadow-sm py-3 px-4 pr-12 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                        placeholder={selectedDocPlaceholder}
+                      />
+                      {/* Loading Spinner */}
+                      {isCheckingDuplicate && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <svg
+                            className="animate-spin h-5 w-5 text-orange-500"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{docMeta.helper}</p>
+                    {/* Error Message */}
+                    {(errors.IDNumber || duplicateError) && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {errors.IDNumber || duplicateError}
                       </p>
                     )}
                   </div>
                 </div>
 
+                {/* Name Language Selection */}
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm text-gray-800">
                     เลือกภาษาที่กรอกชื่อ:
@@ -686,6 +784,7 @@ export default function OnboardingPage() {
                   </div>
                 </div>
 
+                {/* First Name */}
                 <div>
                   <label
                     htmlFor="FirstNameTH"
@@ -698,13 +797,13 @@ export default function OnboardingPage() {
                     name="FirstNameTH"
                     value={userForm.FirstNameTH}
                     onChange={handleUserChange}
-                    className={`mt-1 block w-full border ${errors.FirstNameTH ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
-                    placeholder="กรุณากรอกชื่อ"
+                    className={`mt-1 block w-full border ${
+                      errors.FirstNameTH ? "border-red-400" : "border-gray-300"
+                    } rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                    placeholder={
+                      nameLanguage === "thai" ? "ชื่อ (ภาษาไทย)" : "First Name"
+                    }
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    ภาษาไทย สำหรับนักเรียนไทย / English for international
-                    students
-                  </p>
                   {errors.FirstNameTH && (
                     <p className="text-xs text-red-500 mt-1">
                       {errors.FirstNameTH}
@@ -712,6 +811,7 @@ export default function OnboardingPage() {
                   )}
                 </div>
 
+                {/* Last Name */}
                 <div>
                   <label
                     htmlFor="LastNameTH"
@@ -724,13 +824,15 @@ export default function OnboardingPage() {
                     name="LastNameTH"
                     value={userForm.LastNameTH}
                     onChange={handleUserChange}
-                    className={`mt-1 block w-full border ${errors.LastNameTH ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
-                    placeholder="กรุณากรอกนามสกุล"
+                    className={`mt-1 block w-full border ${
+                      errors.LastNameTH ? "border-red-400" : "border-gray-300"
+                    } rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                    placeholder={
+                      nameLanguage === "thai"
+                        ? "นามสกุล (ภาษาไทย)"
+                        : "Last Name"
+                    }
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    ภาษาไทย สำหรับนักเรียนไทย / English for international
-                    students
-                  </p>
                   {errors.LastNameTH && (
                     <p className="text-xs text-red-500 mt-1">
                       {errors.LastNameTH}
@@ -738,50 +840,53 @@ export default function OnboardingPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="Birthday"
-                      className="block text-sm font-medium text-gray-900"
-                    >
-                      วันเกิด (Birthday) *
-                    </label>
-                    <input
-                      id="Birthday"
-                      type="date"
-                      name="Birthday"
-                      value={userForm.Birthday}
-                      onChange={handleUserChange}
-                      className={`mt-1 block w-full border ${errors.Birthday ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
-                    />
-                    {errors.Birthday && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.Birthday}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="Phone"
-                      className="block text-sm font-medium text-gray-900"
-                    >
-                      เบอร์โทรศัพท์ (Phone) *
-                    </label>
-                    <input
-                      id="Phone"
-                      type="tel"
-                      name="Phone"
-                      value={userForm.Phone}
-                      onChange={handleUserChange}
-                      className={`mt-1 block w-full border ${errors.Phone ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
-                      placeholder="0XXXXXXXXX"
-                    />
-                    {errors.Phone && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.Phone}
-                      </p>
-                    )}
-                  </div>
+                {/* Birthday */}
+                <div>
+                  <label
+                    htmlFor="Birthday"
+                    className="block text-sm font-medium text-gray-900"
+                  >
+                    วันเกิด (Birthday) *
+                  </label>
+                  <input
+                    id="Birthday"
+                    type="date"
+                    name="Birthday"
+                    value={userForm.Birthday}
+                    onChange={handleUserChange}
+                    className={`mt-1 block w-full border ${
+                      errors.Birthday ? "border-red-400" : "border-gray-300"
+                    } rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                  />
+                  {errors.Birthday && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.Birthday}
+                    </p>
+                  )}
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label
+                    htmlFor="Phone"
+                    className="block text-sm font-medium text-gray-900"
+                  >
+                    เบอร์โทรศัพท์ (Phone) *
+                  </label>
+                  <input
+                    id="Phone"
+                    type="tel"
+                    name="Phone"
+                    value={userForm.Phone}
+                    onChange={handleUserChange}
+                    className={`mt-1 block w-full border ${
+                      errors.Phone ? "border-red-400" : "border-gray-300"
+                    } rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                    placeholder="0XXXXXXXXX"
+                  />
+                  {errors.Phone && (
+                    <p className="text-xs text-red-500 mt-1">{errors.Phone}</p>
+                  )}
                 </div>
               </div>
 
@@ -794,7 +899,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-// STEP 2: ข้อมูลการศึกษา
+          {/* STEP 2: ข้อมูลการศึกษา */}
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -803,18 +908,13 @@ export default function OnboardingPage() {
                     2. ข้อมูลการศึกษา
                   </h3>
                   <p className="text-xs text-gray-600">
-                    จำเป็นต้องมีสำหรับการสมัครเรียน
+                    กรอกข้อมูลการศึกษาปัจจุบันของคุณ
                   </p>
                 </div>
-                <button
-                  onClick={handleBack}
-                  className="text-sm text-orange-500 hover:underline"
-                >
-                  กลับไปแก้ไข
-                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                {/* Education Level */}
                 <div>
                   <label
                     htmlFor="EducationLevelID"
@@ -824,27 +924,19 @@ export default function OnboardingPage() {
                   </label>
                   <select
                     id="EducationLevelID"
-                    name="EducationLevelID"
-                    value={eduForm.EducationLevelID}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || 0;
-                      setEduForm((prev) => ({
-                        ...prev,
-                        EducationLevelID: val,
-                        SchoolID: undefined,
-                        SchoolName: "",
-                        IsProjectBased: false,
-                      }));
-                      setSchoolQuery("");
-                      setIsProjectBasedDisplay(null);
-                    }}
-                    className={`mt-1 block w-full bg-white border ${errors.EducationLevelID ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                    value={eduForm.EducationLevelID || ""}
+                    onChange={(e) =>
+                      handleEducationLevelChange(Number(e.target.value))
+                    }
+                    className={`mt-1 block w-full border ${
+                      errors.EducationLevelID
+                        ? "border-red-400"
+                        : "border-gray-300"
+                    } rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
                   >
-                    <option key="placeholder" value={0}>
-                      -- กรุณาเลือก --
-                    </option>
-                    {educationLevels.map((level, idx) => (
-                      <option key={`level-${level.id}-${idx}`} value={level.id}>
+                    <option value="">เลือกระดับการศึกษา</option>
+                    {educationLevels.map((level) => (
+                      <option key={level.id} value={level.id}>
                         {level.name}
                       </option>
                     ))}
@@ -856,156 +948,176 @@ export default function OnboardingPage() {
                   )}
                 </div>
 
+                {/* School Type Dropdown (แสดงเฉพาะระดับที่กำหนด) */}
                 <div>
                   <label
                     htmlFor="SchoolTypeID"
                     className="block text-sm font-medium text-gray-900"
                   >
-                    ประเภทโรงเรียน
+                    ประเภทโรงเรียน *
                   </label>
                   <select
                     id="SchoolTypeID"
-                    name="SchoolTypeID"
-                    value={eduForm.SchoolTypeID || 0}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || undefined;
-                      setEduForm({
-                        ...eduForm,
-                        SchoolTypeID: val,
+                    value={eduForm.SchoolTypeID || ""}
+                    onChange={(e) =>
+                      setEduForm((prev) => ({
+                        ...prev,
+                        SchoolTypeID: e.target.value ? Number(e.target.value) : undefined,
+                        // เปลี่ยนประเภทโรงเรียนแล้วให้รีเซ็ตโรงเรียนที่เลือก เพื่อความสัมพันธ์ของข้อมูล
                         SchoolID: undefined,
                         SchoolName: "",
-                      });
-                      setSchoolQuery("");
-                      setIsProjectBasedDisplay(null);
-                    }}
-                    className="mt-1 block w-full bg-white border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                      }))
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   >
-                    <option value={0}>-</option>
-                    {(allowedSchoolTypes.length
-                      ? allowedSchoolTypes
-                      : schoolTypes
-                    ).map((type) => (
+                    <option value="">เลือกประเภทโรงเรียน</option>
+                    {allowedSchoolTypes.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.name}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
+                {/* School Search/Select */}
+                <div>
                   <label
                     htmlFor="SchoolName"
                     className="block text-sm font-medium text-gray-900"
                   >
-                    ชื่อสถานศึกษา *
-                  </label>
-                  <input
-                    id="SchoolName"
-                    name="SchoolName"
-                    value={schoolQuery}
-                    onChange={handleEduChange}
-                    onFocus={() => setShowSchoolList(true)}
-                    className={`mt-1 block w-full border ${errors.SchoolName ? "border-red-400" : "border-gray-300"} rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
-                    placeholder="ค้นหาชื่อโรงเรียน..."
-                    autoComplete="off"
-                  />
-                  {showSchoolList && filteredSchools.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                      {filteredSchools.map((school, idx) => (
-                        <button
-                          type="button"
-                          key={`school-${school.id}-${idx}`}
-                          onMouseDown={() => handleSelectSchool(school)}
-                          className="w-full text-left px-4 py-2 hover:bg-orange-50 text-sm text-gray-900"
-                        >
-                          {school.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    ค้นหาแล้วเลือกจากระบบ หรือพิมพ์ชื่อเองได้
-                  </p>
-                  {errors.SchoolName && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.SchoolName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label
-                    htmlFor="CurriculumTypeID"
-                    className="block text-sm font-medium text-gray-900"
-                  >
-                    หลักสูตร
+                    โรงเรียน / สถาบัน *
                   </label>
                   <div className="relative">
                     <input
-                      id="CurriculumTypeID"
-                      name="CurriculumTypeID"
-                      value={curriculumQuery}
-                      onChange={(e) => handleCurriculumChange(e.target.value)}
-                      onFocus={() => setShowCurriculumList(true)}
-                      className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
-                      placeholder="ค้นหาหลักสูตร..."
+                      type="text"
+                      id="SchoolName"
+                      name="SchoolName"
+                      value={schoolQuery}
+                      onChange={(e) => handleSchoolChange(e.target.value)}
+                      onFocus={() => setShowSchoolList(true)}
+                      onBlur={() => {
+                        // ปิด dropdown หลังจาก delay เล็กน้อย (ให้ onMouseDown ทำงานก่อน)
+                        setTimeout(() => setShowSchoolList(false), 200);
+                      }}
+                      className={`mt-1 block w-full border ${
+                        errors.SchoolName ? "border-red-400" : "border-gray-300"
+                      } rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900`}
+                      placeholder="ค้นหาชื่อโรงเรียน..."
                       autoComplete="off"
                     />
-                    {showCurriculumList && filteredCurriculums.length > 0 && (
+                    {showSchoolList && filteredSchools.length > 0 && (
                       <div className="absolute z-10 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                        {filteredCurriculums.map((curriculum) => (
+                        {filteredSchools.map((school, idx) => (
                           <button
                             type="button"
-                            key={curriculum.id}
-                            onMouseDown={() =>
-                              handleSelectCurriculum(curriculum)
-                            }
+                            key={`school-${school.id}-${idx}`}
+                            onMouseDown={() => handleSelectSchool(school)}
                             className="w-full text-left px-4 py-2 hover:bg-orange-50 text-sm text-gray-900"
                           >
-                            {curriculum.name}
+                            {school.name}
                           </button>
                         ))}
                       </div>
                     )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      ค้นหาแล้วเลือกจากระบบ หรือพิมพ์ชื่อเองได้
+                    </p>
+                    {errors.SchoolName && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.SchoolName}
+                      </p>
+                    )}
                   </div>
                 </div>
+
+                {/* Curriculum Type (optional) */}
+                {curriculumTypes.length > 0 && (
+                  <div>
+                    <label
+                      htmlFor="CurriculumTypeID"
+                      className="block text-sm font-medium text-gray-900"
+                    >
+                      หลักสูตร
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="CurriculumTypeID"
+                        name="CurriculumTypeID"
+                        value={curriculumQuery}
+                        onChange={(e) => handleCurriculumChange(e.target.value)}
+                        onFocus={() => setShowCurriculumList(true)}
+                        onBlur={() => {
+                          // ปิด dropdown หลังจาก delay เล็กน้อย
+                          setTimeout(() => setShowCurriculumList(false), 200);
+                        }}
+                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                        placeholder="ค้นหาหลักสูตร..."
+                        autoComplete="off"
+                      />
+                      {showCurriculumList &&
+                        filteredCurriculums.length > 0 && (
+                          <div className="absolute z-10 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                            {filteredCurriculums.map((curriculum) => (
+                              <button
+                                type="button"
+                                key={curriculum.id}
+                                onMouseDown={() =>
+                                  handleSelectCurriculum(curriculum)
+                                }
+                                className="w-full text-left px-4 py-2 hover:bg-orange-50 text-sm text-gray-900"
+                              >
+                                {curriculum.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* PDPA Consent */}
               <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl p-4">
                 <input
                   id="pdpa"
                   type="checkbox"
-                  checked={userForm.PDPAConsent || false}
+                  checked={userForm.PDPAConsent}
                   onChange={(e) =>
-                    setUserForm({ ...userForm, PDPAConsent: e.target.checked })
+                    setUserForm((prev) => ({
+                      ...prev,
+                      PDPAConsent: e.target.checked,
+                    }))
                   }
-                  className="mt-1 h-5 w-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                  className="mt-1 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                 />
-                <label
-                  htmlFor="pdpa"
-                  className="text-sm text-gray-900 leading-6"
-                >
-                  ข้าพเจ้ายินยอมให้จัดเก็บและใช้ข้อมูลส่วนบุคคลตามนโยบาย PDPA
-                  เพื่อการสมัครใช้งานระบบ
+                <label htmlFor="pdpa" className="text-sm text-gray-900">
+                  ฉันยอมรับ{" "}
+                  <a href="#" className="text-orange-600 underline">
+                    นโยบายความเป็นส่วนตัว (PDPA)
+                  </a>{" "}
+                  และยินยอมให้เก็บรวบรวมข้อมูลส่วนบุคคล
                 </label>
               </div>
               {errors.PDPAConsent && (
-                <p className="text-xs text-red-500">{errors.PDPAConsent}</p>
+                <p className="text-xs text-red-500 -mt-2">
+                  {errors.PDPAConsent}
+                </p>
               )}
 
-              <div className="flex gap-3 pt-2">
+              {/* Action Buttons */}
+              <div className="flex gap-3">
                 <button
                   onClick={handleBack}
-                  className="w-1/3 flex justify-center py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
+                  className="flex-1 py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
                 >
                   ย้อนกลับ
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="w-2/3 flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                  className="flex-1 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
                 >
-                  บันทึกข้อมูล
+                  เสร็จสิ้น
                 </button>
               </div>
             </div>

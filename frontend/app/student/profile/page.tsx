@@ -184,27 +184,30 @@ export default function ProfilePage() {
     return byId || "-";
   }, [education, curriculumTypes]);
 
-  const displayNames = useMemo(() => {
-    const thai = [user?.first_name_th, user?.last_name_th].filter(Boolean).join(" ").trim();
-    const eng = [user?.first_name_en, user?.last_name_en].filter(Boolean).join(" ").trim();
-    return {
-      primary: thai || eng || "Student",
-      secondary: thai && eng ? eng : "",
-    };
-  }, [user?.first_name_en, user?.first_name_th, user?.last_name_en, user?.last_name_th]);
-
   const nameLanguage = useMemo(() => {
     if (user?.first_name_th || user?.last_name_th) return "thai";
     if (user?.first_name_en || user?.last_name_en) return "english";
     return "none";
   }, [user]);
 
+  const isGedStudent = useMemo(() => {
+    if (!education) return false;
+    const combined = `${educationLevelName} ${schoolTypeName}`.toLowerCase();
+    return combined.includes("ged");
+  }, [education, educationLevelName, schoolTypeName]);
+
   const missingSections = useMemo(() => {
     const missing: string[] = [];
     if (!education) missing.push("ข้อมูลการศึกษา");
-    if (!academic && !ged) missing.push("ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX");
+    if (education) {
+      if (isGedStudent) {
+        if (!ged) missing.push("ข้อมูลคะแนน GED");
+      } else if (!academic) {
+        missing.push("ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX");
+      }
+    }
     return missing;
-  }, [education, academic, ged]);
+  }, [education, academic, ged, isGedStudent]);
 
   const educationFields = [
     {
@@ -283,109 +286,82 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Header Card - ยุบเข้าด้วยกัน */}
-        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl shadow-xl overflow-hidden">
-          <div className="px-6 py-10 sm:px-10">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
-{/* Profile Image */}
-              <div className="flex-shrink-0">
-                <ProfileImageUploader
-                  currentImageUrl={profileImageUrl}
-                  onImageUpdated={(newUrl) => setProfileImageUrl(newUrl)}
-                />
-              </div>
-
-{/* Personal Info */}
-              <div className="flex-1 space-y-4 w-full">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-3xl font-bold text-white">{displayNames.primary}</h1>
-                  <Link
-                    href="/student/profile/edit/personal"
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur-sm transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    แก้ไข
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-{/* ชื่อ */}
-                  {nameLanguage === "thai" && (
-                    <>
-                      <div>
-                        <div className="text-xs text-orange-100 mb-1">ชื่อ (ไทย)</div>
-                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                          {user.first_name_th || "-"}
-                        </div>
+        <SectionCard
+          title="ข้อมูลส่วนตัว"
+          action={
+            <Link href="/student/profile/edit/personal" className="text-sm text-orange-500 hover:underline">
+              แก้ไข
+            </Link>
+          }
+          noDivider
+        >
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex-shrink-0">
+              <ProfileImageUploader
+                currentImageUrl={profileImageUrl}
+                onImageUpdated={(newUrl) => setProfileImageUrl(newUrl)}
+              />
+            </div>
+            <div className="flex-1 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {nameLanguage === "thai" && (
+                  <>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">ชื่อ (ไทย)</div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                        {user.first_name_th || "-"}
                       </div>
-                      <div>
-                        <div className="text-xs text-orange-100 mb-1">นามสกุล (ไทย)</div>
-                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                          {user.last_name_th || "-"}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {nameLanguage === "english" && (
-                    <>
-                      <div>
-                        <div className="text-xs text-orange-100 mb-1">ชื่อ (อังกฤษ)</div>
-                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                          {user.first_name_en || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-orange-100 mb-1">นามสกุล (อังกฤษ)</div>
-                        <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                          {user.last_name_en || "-"}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-{/* อีเมล */}
-                  <div>
-                    <div className="text-xs text-orange-100 mb-1">อีเมล</div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                      {user.email}
                     </div>
-                  </div>
-
-{/* เบอร์โทรศัพท์ */}
-                  <div>
-                    <div className="text-xs text-orange-100 mb-1">เบอร์โทรศัพท์</div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                      {user.phone || "-"}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">นามสกุล (ไทย)</div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                        {user.last_name_th || "-"}
+                      </div>
                     </div>
-                  </div>
+                  </>
+                )}
 
-{/* วันเกิด */}
-                  <div>
-                    <div className="text-xs text-orange-100 mb-1">วันเกิด</div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2.5 text-white">
-                      {formatDate(user.birthday)}
+                {nameLanguage === "english" && (
+                  <>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">ชื่อ (อังกฤษ)</div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                        {user.first_name_en || "-"}
+                      </div>
                     </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">นามสกุล (อังกฤษ)</div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                        {user.last_name_en || "-"}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">อีเมล</div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                    {user.email}
                   </div>
                 </div>
 
-                <div className="flex items-center">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white backdrop-blur-sm">
-                    <span className="mr-1.5">🎓</span>
-                    {user.type_id === 1 ? "นักศึกษา" : "STUDENT"}
-                  </span>
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">เบอร์โทรศัพท์</div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                    {user.phone || "-"}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">วันเกิด</div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-gray-900">
+                    {formatDate(user.birthday)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
 {/* Education Info */}
         <SectionCard
@@ -413,104 +389,108 @@ export default function ProfilePage() {
         </SectionCard>
 
 {/* Academic Score */}
-        <SectionCard
-          title="ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX"
-          action={
-            <Link href="/student/profile/edit/academic-score" className="text-sm text-orange-500 hover:underline">
-              แก้ไข
-            </Link>
-          }
-        >
-          <div className="px-6 py-5">
-            {academic ? (
-              <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <dt className="text-gray-500">GPAX</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpax)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">เทอม</dt>
-                  <dd className="text-gray-900 font-semibold">{academic.gpax_semesters ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">คณิตศาสตร์</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_math)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">วิทยาศาสตร์</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_science)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">ภาษาไทย</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_thai)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">ภาษาอังกฤษ</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_english)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">สังคมศึกษา</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_social)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">คะแนนรวม</dt>
-                  <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_total_score)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">ไฟล์ Transcript</dt>
-                  <dd className="text-gray-900 font-semibold break-words">
-                    {academic.transcript_file_path || "-"}
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลคะแนนหลักสูตรแกนกลาง</p>
-            )}
-          </div>
-        </SectionCard>
+        {!isGedStudent && (
+          <SectionCard
+            title="ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX"
+            action={
+              <Link href="/student/profile/edit/academic-score" className="text-sm text-orange-500 hover:underline">
+                แก้ไข
+              </Link>
+            }
+          >
+            <div className="px-6 py-5">
+              {academic ? (
+                <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <dt className="text-gray-500">GPAX</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpax)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">เทอม</dt>
+                    <dd className="text-gray-900 font-semibold">{academic.gpax_semesters ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">คณิตศาสตร์</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_math)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">วิทยาศาสตร์</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_science)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">ภาษาไทย</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_thai)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">ภาษาอังกฤษ</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_english)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">สังคมศึกษา</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_social)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">คะแนนรวม</dt>
+                    <dd className="text-gray-900 font-semibold">{formatScore(academic.gpa_total_score)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">ไฟล์ Transcript</dt>
+                    <dd className="text-gray-900 font-semibold break-words">
+                      {academic.transcript_file_path || "-"}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-gray-500">ยังไม่มีข้อมูลคะแนนหลักสูตรแกนกลาง</p>
+              )}
+            </div>
+          </SectionCard>
+        )}
 
 {/* GED Score */}
-        <SectionCard
-          title="ข้อมูลคะแนน GED"
-          action={
-            <Link href="/student/profile/edit/ged-score" className="text-sm text-orange-500 hover:underline">
-              แก้ไข
-            </Link>
-          }
-        >
-          <div className="px-6 py-5">
-            {ged ? (
-              <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <dt className="text-gray-500">รวม</dt>
-                  <dd className="text-gray-900 font-semibold">{ged.total_score ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Reasoning (RLA)</dt>
-                  <dd className="text-gray-900 font-semibold">{ged.rla_score ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Math</dt>
-                  <dd className="text-gray-900 font-semibold">{ged.math_score ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Science</dt>
-                  <dd className="text-gray-900 font-semibold">{ged.science_score ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Social Studies</dt>
-                  <dd className="text-gray-900 font-semibold">{ged.social_score ?? "-"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">ไฟล์ใบรับรอง</dt>
-                  <dd className="text-gray-900 font-semibold break-words">{ged.cert_file_path || "-"}</dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูล GED</p>
-            )}
-          </div>
-        </SectionCard>
+        {isGedStudent && (
+          <SectionCard
+            title="ข้อมูลคะแนน GED"
+            action={
+              <Link href="/student/profile/edit/ged-score" className="text-sm text-orange-500 hover:underline">
+                แก้ไข
+              </Link>
+            }
+          >
+            <div className="px-6 py-5">
+              {ged ? (
+                <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <dt className="text-gray-500">รวม</dt>
+                    <dd className="text-gray-900 font-semibold">{ged.total_score ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Reasoning (RLA)</dt>
+                    <dd className="text-gray-900 font-semibold">{ged.rla_score ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Math</dt>
+                    <dd className="text-gray-900 font-semibold">{ged.math_score ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Science</dt>
+                    <dd className="text-gray-900 font-semibold">{ged.science_score ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Social Studies</dt>
+                    <dd className="text-gray-900 font-semibold">{ged.social_score ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">ไฟล์ใบรับรอง</dt>
+                    <dd className="text-gray-900 font-semibold break-words">{ged.cert_file_path || "-"}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-gray-500">ยังไม่มีข้อมูล GED</p>
+              )}
+            </div>
+          </SectionCard>
+        )}
 {/* Language Scores */}
         <SectionCard
           title="ข้อมูลคะแนนภาษา"
