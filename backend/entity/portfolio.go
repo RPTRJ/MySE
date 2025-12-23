@@ -11,6 +11,7 @@ type Portfolio struct {
 	Decription   	string `json:"description"`
 	Status       	string `json:"status"`
 	PortfolioStyle 	datatypes.JSON `json:"portfolio_style"`
+	CoverImage      string         `json:"cover_image"`
 	
 	// FK
 	TemplateID   *uint   `json:"template_id"`

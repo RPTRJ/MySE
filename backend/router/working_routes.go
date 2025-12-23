@@ -7,11 +7,7 @@ import (
 
 func WorkingRoutes(r gin.IRoutes) {
 	wc := controller.NewWorkingController()
-	uc := controller.NewUploadController()
 
-	r.POST("/upload", uc.UploadFile) // Public upload or protected? Let's make it public for simplicity unless user wants protected. Protected is safer. But main.go passes 'protected' group to WorkingRoutes, so it effectively inherits it! 
-    // Wait, main.go: router.WorkingRoutes(protected). Yes.
-    // So if I add it here, it will be protected.
 	
 	r.POST("/workings", wc.CreateWorking)
 	r.GET("/workings", wc.ListWorkings)

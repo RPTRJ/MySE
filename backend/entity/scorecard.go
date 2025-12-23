@@ -1,22 +1,18 @@
 package entity
 
-import (
-	"gorm.io/gorm"
-)
+import "gorm.io/gorm"
 
 type Scorecard struct {
-	gorm.Model
+	gorm.Model `valid:"-"`
 
-	Total_Score  	float64 `json:"total_score"`
-	Max_Score    	float64 `json:"max_score"`
-	General_Comment string  `json:"general_comment"`
-	Create_at		string  `json:"create_at"`
+	Total_Score     float64 `json:"total_score" valid:"required~Total_Score is required"`  // FIXED: removed range for float
+	Max_Score       float64 `json:"max_score" valid:"required~Max_Score is required"`  // FIXED: removed range for float
+	General_Comment string  `json:"general_comment" valid:"-"`
+	Create_at       string  `json:"create_at" valid:"required~Create_at is required"`
 
-	// FK
-	PortfolioSubmissionID uint                `json:"portfolio_submission_id"`
-	PortfolioSubmission   PortfolioSubmission `gorm:"foreignKey:PortfolioSubmissionID" json:"portfolio_submission"`
+	PortfolioSubmissionID uint                 `json:"portfolio_submission_id" valid:"required~PortfolioSubmissionID is required"`
+	PortfolioSubmission   *PortfolioSubmission `gorm:"foreignKey:PortfolioSubmissionID" json:"portfolio_submission" valid:"-"`
 
-	UserID uint `json:"user_id"`
-	User   User `gorm:"foreignKey:UserID" json:"user"`
-
+	UserID uint  `json:"user_id" valid:"required~UserID is required"`
+	User   *User `gorm:"foreignKey:UserID" json:"user" valid:"-"`
 }

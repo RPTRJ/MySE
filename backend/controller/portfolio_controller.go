@@ -273,7 +273,8 @@ func CreatePortfolioSection(c *gin.Context) {
 // UpdatePortfolioSection updates a portfolio section
 func UpdatePortfolioSection(c *gin.Context) {
 	id := c.Param("id")
-	var input entity.PortfolioSection
+	var input map[string]interface{}
+	
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -285,10 +286,49 @@ func UpdatePortfolioSection(c *gin.Context) {
 		return
 	}
 
-	// Update fields
-	config.GetDB().Model(&section).Updates(input)
+	// Filter and validate fields to update
+	updates := make(map[string]interface{})
+	allowedFields := []string{"section_title", "is_enabled", "section_order", "section_style"}
+	
+	for _, field := range allowedFields {
+		if val, exists := input[field]; exists {
+			updates[field] = val
+		}
+	}
 
+	// ✅ Update only fields present in the request
+	if len(updates) > 0 {
+		if err := config.GetDB().Model(&section).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	// ✅ Reload data
+	config.GetDB().First(&section, id)
+
+	fmt.Println("✅ Section updated:", section.ID, "Updates:", updates)
 	c.JSON(http.StatusOK, gin.H{"data": section})
+}
+
+// ✅ DeletePortfolioSection - ลบ Section
+func DeletePortfolioSection(c *gin.Context) {
+	id := c.Param("id")
+
+	// Check if exists
+	var section entity.PortfolioSection
+	if err := config.GetDB().First(&section, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Section not found"})
+		return
+	}
+
+	// Delete (Unscoped to remove permanently if needed, or Soft Delete if using gorm.Model)
+	if err := config.GetDB().Delete(&section).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Section deleted successfully"})
 }
 
 // ✅ CreatePortfolioBlock - สร้าง Block ใหม่
@@ -365,4 +405,29 @@ func DeletePortfolioBlock(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Block deleted successfully"})
+}
+
+
+// ✅ UpdatePortfolio - อัปเดตข้อมูล Portfolio (เช่น CoverImage, Name, Description)
+func UpdatePortfolio(c *gin.Context) {
+	id := c.Param("id")
+	var payload map[string]interface{}
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var portfolio entity.Portfolio
+	if err := config.GetDB().First(&portfolio, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Portfolio not found"})
+		return
+	}
+
+	if err := config.GetDB().Model(&portfolio).Updates(payload).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": portfolio})
 }

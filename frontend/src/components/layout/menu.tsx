@@ -107,13 +107,13 @@ export const menuItems: MenuItem[] = [
   },
   {
     name: "ประชาสัมพันธ์ข่าวสาร",
-    href: "/admin/announcement",
+    href: "/admin/announcements",
     icon: ShieldAlert,
     roles: ["admin"],
   },
   {
     name: "ประชาสัมพันธ์ข่าวสาร",
-    href: "/teacher/announcement",
+    href: "/teacher/announcements",
     icon: ShieldAlert,
     roles: ["teacher"],
   },

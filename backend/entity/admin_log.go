@@ -9,13 +9,13 @@ import(
 type Admin_Log struct {
 	gorm.Model
 	
-	Action_Type   string    `json:"action_type"`
-	Action_At     time.Time `json:"action_at"`
+	Action_Type   string    `json:"action_type" valid:"required~Action_Type is required"`
+	Action_At     time.Time `json:"action_at" valid:"required~Action_At is required"`
 
 	//FK
-	UserID *uint `json:"user_id"`//admin who perform action
-	User   User  `json:"user"`
+	UserID uint `json:"user_id" valid:"required~UserID is required"`//admin who perform action
+	User   *User  `gorm:"foreignKey:UserID" json:"user"`
 
-	AnnouncementID *uint        `json:"announcement_id"`
-	Announcement   Announcement `json:"announcement"`
+	AnnouncementID uint        `json:"announcement_id" valid:"required~AnnouncementID is required"`
+	Announcement   *Announcement `gorm:"foreignKey:AnnouncementID" json:"announcement"`
 }

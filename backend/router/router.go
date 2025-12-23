@@ -64,6 +64,10 @@ func SetupRoutes() *gin.Engine {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	// Upload Route (Public)
+	uploadController := controller.NewUploadController()
+	r.POST("/upload", uploadController.UploadFile)
+
 	// --- Protected Routes (ต้อง Login) ---
 	protected := r.Group("")
 	protected.Use(middlewares.Authorization())
@@ -140,6 +144,12 @@ func SetupRoutes() *gin.Engine {
 	{
 		adminProtected.GET("/users/:id/profile", profileController.GetUserProfile)
 	}
+
+	//ของประกาศ
+	AnnouncementRouter(r)
+	CetagoryRouter(r)
+	AttachmentRouter(r)
+	AdminLogRouter(r)
 
 	return r
 }
