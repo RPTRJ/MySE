@@ -1,103 +1,58 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ApiAcademicScore,
-  ApiEducation,
-  ApiGEDScore,
-  ApiLanguageScore,
-  ApiUser,
-  ProfileResponse,
+  fetchAllUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserTypeName,
+  getIDTypeName,
+  formatDate,
+  UserDTO,
+  CreateUserPayload,
+  UpdateUserPayload,
   HttpError,
-  fetchUserProfileByAdmin,
-  fetchUsers,
-} from "@/services/profile";
+} from "@/services/user";
+import "./admin-users.css";
 
-const roleMap: Record<number, string> = {
-  1: "Student",
-  2: "Teacher",
-  3: "Admin",
-};
-
-const formatDate = (dateString?: string) => {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("th-TH");
-};
-
-const formatScore = (value?: number | null) => {
-  if (value === undefined || value === null || Number.isNaN(value)) return "-";
-  return Number(value).toFixed(2);
-};
-
-const getDisplayName = (user?: ApiUser | null) => {
-  if (!user) return "ไม่ระบุชื่อ";
-  const thai = [user.first_name_th, user.last_name_th].filter(Boolean).join(" ").trim();
-  const eng = [user.first_name_en, user.last_name_en].filter(Boolean).join(" ").trim();
-  return thai || eng || "ไม่ระบุชื่อ";
-};
-
-const getRoleLabel = (user?: ApiUser | null) => {
-  if (!user) return "-";
-  return (
-    user.user_type?.name ||
-    user.user_type?.type_name ||
-    roleMap[user.type_id ?? 0] ||
-    "Unknown"
-  );
-};
-
-type SectionCardProps = {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-};
-
-function SectionCard({ title, subtitle, children }: SectionCardProps) {
-  return (
-    <div className="rounded-2xl border border-orange-100 bg-white shadow-sm">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-orange-50">
-        <div>
-          <div className="text-base font-semibold text-gray-900">{title}</div>
-          {subtitle ? <div className="text-xs text-gray-500">{subtitle}</div> : null}
-        </div>
-      </div>
-      <div className="px-5 py-4">{children}</div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
-      <div className="text-sm font-medium text-gray-900 break-words">{value || "-"}</div>
-    </div>
-  );
-}
-
-export default function AdminUserProfilesPage() {
+export default function AdminUsersPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [users, setUsers] = useState<UserDTO[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserDTO[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [users, setUsers] = useState<ApiUser[]>([]);
-  const [listLoading, setListLoading] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [nameLanguage, setNameLanguage] = useState<"thai" | "english">("thai");
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+  const [selectedUser, setSelectedUser] = useState<UserDTO | null>(null);
 
-  const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
-  const [profile, setProfile] = useState<ProfileResponse | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    first_name_th: "",
+    last_name_th: "",
+    first_name_en: "",
+    last_name_en: "",
+    email: "",
+    password: "",
+    id_number: "",
+    phone: "",
+    birthday: "",
+    pdpa_consent: true,
+    type_id: 1,
+    id_type: 1,
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submitLoading, setSubmitLoading] = useState(false);
 
   useEffect(() => {
-    const tk = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
     const userStr = localStorage.getItem("user");
 
-    if (!tk || !userStr) {
+    if (!token || !userStr) {
       router.push("/login");
       return;
     }
@@ -105,377 +60,681 @@ export default function AdminUserProfilesPage() {
     try {
       const user = JSON.parse(userStr);
       if (user.type_id !== 3) {
-        alert("No permission");
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        router.push("/login");
+        alert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+        router.push("/");
         return;
       }
-      setToken(tk);
       setIsAuthorized(true);
-    } catch (err) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+    } catch {
       router.push("/login");
     }
   }, [router]);
 
   useEffect(() => {
-    if (!isAuthorized || !token) return;
-
-    const loadUsers = async () => {
-      setListLoading(true);
-      setListError(null);
-      try {
-        const data = await fetchUsers(token);
-        setUsers(data);
-        if (data.length) {
-          setSelectedUser((prev) => prev ?? data[0]);
-        }
-      } catch (err) {
-        if (err instanceof HttpError && err.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          router.push("/login");
-          return;
-        }
-        setListError(err instanceof Error ? err.message : "ไม่สามารถโหลดรายชื่อผู้ใช้ได้");
-      } finally {
-        setListLoading(false);
-      }
-    };
-
+    if (!isAuthorized) return;
     loadUsers();
-  }, [isAuthorized, token, router]);
+  }, [isAuthorized]);
 
   useEffect(() => {
-    if (!selectedUser || !token) return;
+    if (!searchQuery.trim()) {
+      setFilteredUsers(users);
+      return;
+    }
+    const query = searchQuery.toLowerCase();
+    const filtered = users.filter(
+      (user) =>
+        user.first_name_th?.toLowerCase().includes(query) ||
+        user.last_name_th?.toLowerCase().includes(query) ||
+        user.first_name_en?.toLowerCase().includes(query) ||
+        user.last_name_en?.toLowerCase().includes(query) ||
+        user.email?.toLowerCase().includes(query) ||
+        user.phone?.includes(query)
+    );
+    setFilteredUsers(filtered);
+  }, [searchQuery, users]);
 
-    let canceled = false;
-    const numericId = Number(selectedUser.id ?? (selectedUser as any)?.ID ?? 0);
-    const targetId = Number.isFinite(numericId) && numericId > 0 ? numericId : selectedUser.id;
-    const loadProfile = async () => {
-      setProfileLoading(true);
-      setProfileError(null);
-      try {
-        const data = await fetchUserProfileByAdmin(token, targetId);
-        if (!canceled) {
-          setProfile(data);
-        }
-      } catch (err) {
-        if (err instanceof HttpError && err.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          router.push("/login");
-          return;
-        }
-        if (!canceled) {
-          setProfile(null);
-          setProfileError(err instanceof Error ? err.message : "ไม่สามารถโหลดโปรไฟล์ได้");
-        }
-      } finally {
-        if (!canceled) setProfileLoading(false);
+  const loadUsers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAllUsers();
+      setUsers(data);
+      setFilteredUsers(data);
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 401) {
+        localStorage.clear();
+        router.push("/login");
+        return;
       }
-    };
+      setError(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลได้");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadProfile();
-    return () => {
-      canceled = true;
-    };
-  }, [selectedUser, token, router]);
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
 
-  const filteredUsers = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return users;
-    return users.filter((u) => {
-      const name = getDisplayName(u).toLowerCase();
-      return (
-        name.includes(term) ||
-        (u.email || "").toLowerCase().includes(term) ||
-        (u.id_number || "").toLowerCase().includes(term)
-      );
-    });
-  }, [search, users]);
+    // ต้องกรอกเฉพาะภาษาที่เลือก
+    if (nameLanguage === "thai") {
+      if (!formData.first_name_th.trim()) errors.first_name_th = "กรุณากรอกชื่อ (ไทย)";
+      if (!formData.last_name_th.trim()) errors.last_name_th = "กรุณากรอกนามสกุล (ไทย)";
+    } else {
+      if (!formData.first_name_en.trim()) errors.first_name_en = "กรุณากรอกชื่อ (อังกฤษ)";
+      if (!formData.last_name_en.trim()) errors.last_name_en = "กรุณากรอกนามสกุล (อังกฤษ)";
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = "กรุณากรอกอีเมล";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "รูปแบบอีเมลไม่ถูกต้อง";
+    }
+
+    if (modalMode === "create" && !formData.password) {
+      errors.password = "กรุณากรอกรหัสผ่าน";
+    }
+    if (formData.password && formData.password.length < 6) {
+      errors.password = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
+    }
+
+    if (!formData.id_number.trim()) errors.id_number = "กรุณากรอกเลขที่เอกสาร";
+    if (!formData.phone.trim()) {
+      errors.phone = "กรุณากรอกเบอร์โทรศัพท์";
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      errors.phone = "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก";
+    }
+    if (!formData.birthday) errors.birthday = "กรุณาเลือกวันเกิด";
+
+    // ตรวจสอบ type_id และ id_type
+    if (!formData.type_id) errors.type_id = "กรุณาเลือกประเภทผู้ใช้";
+    if (!formData.id_type) errors.id_type = "กรุณาเลือกประเภทเอกสาร";
+
+    console.log("Validation errors:", errors);
+    console.log("Current formData:", formData);
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const openModal = (mode: "create" | "edit" | "view", user?: UserDTO) => {
+    setModalMode(mode);
+    setSelectedUser(user || null);
+    setFormErrors({});
+    setNameLanguage("thai");
+
+    if (mode === "create") {
+      setFormData({
+        first_name_th: "",
+        last_name_th: "",
+        first_name_en: "",
+        last_name_en: "",
+        email: "",
+        password: "",
+        id_number: "",
+        phone: "",
+        birthday: "",
+        pdpa_consent: true,
+        type_id: 1,
+        id_type: 1,
+      });
+    } else if (mode === "edit" && user) {
+      const formatDateForInput = (dateString: string): string => {
+        if (!dateString) return "";
+        try {
+          const date = new Date(dateString);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        } catch {
+          return "";
+        }
+      };
+
+      setFormData({
+        first_name_th: user.first_name_th || "",
+        last_name_th: user.last_name_th || "",
+        first_name_en: user.first_name_en || "",
+        last_name_en: user.last_name_en || "",
+        email: user.email || "",
+        password: "",
+        id_number: user.id_number || "",
+        phone: user.phone || "",
+        birthday: formatDateForInput(user.birthday),
+        pdpa_consent: user.pdpa_consent ?? true,
+        type_id: user.type_id || 1,
+        id_type: user.id_type || 1,
+      });
+      const hasThaiName = !!(user.first_name_th || user.last_name_th);
+      setNameLanguage(hasThaiName ? "thai" : "english");
+    }
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedUser(null);
+    setFormErrors({});
+    setNameLanguage("thai");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    console.log("=== FORM SUBMIT DEBUG ===");
+    console.log("Current formData:", formData);
+    console.log("type_id:", formData.type_id, "type:", typeof formData.type_id);
+    console.log("id_type:", formData.id_type, "type:", typeof formData.id_type);
+    
+    if (!validateForm()) {
+      console.log("Validation failed!");
+      return;
+    }
+
+    setSubmitLoading(true);
+    try {
+      if (modalMode === "create") {
+        // สร้าง payload และตรวจสอบให้แน่ใจว่ามีค่าครบ
+        const payload = {
+          ...formData,
+          type_id: Number(formData.type_id), // แปลงเป็น number
+          id_type: Number(formData.id_type),  // แปลงเป็น number
+        };
+        
+        console.log("Creating user with payload:", payload);
+        console.log("Payload JSON:", JSON.stringify(payload, null, 2));
+        
+        await createUser(payload as CreateUserPayload);
+        alert("เพิ่มผู้ใช้สำเร็จ");
+      } else if (modalMode === "edit" && selectedUser) {
+        const userId = selectedUser.id || selectedUser.ID;
+        if (!userId) throw new Error("ไม่พบ ID ของผู้ใช้");
+        
+        const updatePayload: UpdateUserPayload = { 
+          ...formData,
+          type_id: Number(formData.type_id),
+          id_type: Number(formData.id_type),
+        };
+        
+        if (!formData.password) {
+          delete updatePayload.password;
+        }
+        
+        console.log("Updating user with payload:", updatePayload);
+        
+        await updateUser(userId, updatePayload);
+        alert("แก้ไขข้อมูลสำเร็จ");
+      }
+      closeModal();
+      loadUsers();
+    } catch (err) {
+      console.error("=== SUBMIT ERROR ===");
+      console.error("Error:", err);
+      if (err instanceof Error) {
+        console.error("Error message:", err.message);
+      }
+      alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleDelete = async (user: UserDTO) => {
+    const userId = user.id || user.ID;
+    if (!userId) {
+      alert("ไม่พบ ID ของผู้ใช้");
+      return;
+    }
+    const confirmMsg = `คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ "${user.first_name_th} ${user.last_name_th}"?`;
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await deleteUser(userId);
+      alert("ลบผู้ใช้สำเร็จ");
+      loadUsers();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "ไม่สามารถลบผู้ใช้ได้");
+    }
+  };
 
   if (!isAuthorized) return null;
 
-  const profileUser = profile?.user || selectedUser;
-  const education: ApiEducation | undefined = profile?.education;
-  const academic: ApiAcademicScore | undefined = profile?.academic_score;
-  const ged: ApiGEDScore | undefined = profile?.ged_score;
-  const languageScores: ApiLanguageScore[] = profile?.language_scores || [];
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-amber-50 p-6">
-      <div className="flex flex-col gap-2 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">ข้อมูลโปรไฟล์ผู้ใช้</h1>
-            <p className="text-sm text-gray-600">
-              สำหรับผู้ดูแลระบบ: ดูสถานะโปรไฟล์ การศึกษา และคะแนนของผู้ใช้ทุกคน
-            </p>
-          </div>
-          <div className="hidden md:flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border border-orange-100 shadow-sm">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            {users.length} ผู้ใช้ทั้งหมด
-          </div>
-        </div>
-        {listError ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {listError}
-          </div>
-        ) : null}
+    <div className="admin-users-container">
+      <h1 className="admin-users-title">จัดการผู้ใช้</h1>
+      <p className="admin-users-subtitle">จัดการข้อมูลผู้ใช้ทั้งหมดในระบบ</p>
+
+      <div className="search-bar-container">
+        <input
+          type="text"
+          placeholder="ค้นหาชื่อ, อีเมล, เบอร์โทร..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="search-input"
+          aria-label="ค้นหาผู้ใช้"
+        />
+        <button onClick={() => openModal("create")} className="btn-add-user">
+          + เพิ่มผู้ใช้
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Users list */}
-        <div className="rounded-2xl border border-orange-100 bg-white shadow-sm p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">รายชื่อผู้ใช้</h2>
-              <p className="text-xs text-gray-500">คลิกเพื่อดูรายละเอียดโปรไฟล์</p>
+      {error && <div className="error-message">{error}</div>}
+
+      {loading ? (
+        <div className="loading-container">
+          <div className="loading-text">กำลังโหลดข้อมูล...</div>
+        </div>
+      ) : (
+        <>
+          <div className="table-container">
+            <table className="users-table">
+              <thead>
+                <tr>
+                  <th>ชื่อ-นามสกุล</th>
+                  <th>อีเมล</th>
+                  <th>เบอร์โทร</th>
+                  <th>ประเภท</th>
+                  <th>สร้างเมื่อ</th>
+                  <th className="text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="empty-message">
+                      {searchQuery ? "ไม่พบผู้ใช้ที่ตรงกับการค้นหา" : "ยังไม่มีผู้ใช้ในระบบ"}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user) => {
+                    const userId = user.id || user.ID;
+                    const badgeClass = 
+                      user.type_id === 3 ? "user-type-admin" :
+                      user.type_id === 2 ? "user-type-teacher" : "user-type-student";
+
+                    return (
+                      <tr key={userId}>
+                        <td>
+                          <div className="user-name-primary">
+                            {user.first_name_th} {user.last_name_th}
+                          </div>
+                          <div className="user-name-secondary">
+                            {user.first_name_en} {user.last_name_en}
+                          </div>
+                        </td>
+                        <td>{user.email}</td>
+                        <td>{user.phone}</td>
+                        <td>
+                          <span className={`user-type-badge ${badgeClass}`}>
+                            {getUserTypeName(user.type_id)}
+                          </span>
+                        </td>
+                        <td>{user.CreatedAt ? formatDate(user.CreatedAt) : "-"}</td>
+                        <td className="action-buttons">
+                          <button
+                            onClick={() => openModal("view", user)}
+                            className="btn-view"
+                            title="ดูรายละเอียด"
+                          >
+                            ดู
+                          </button>
+                          <button
+                            onClick={() => openModal("edit", user)}
+                            className="btn-edit"
+                            title="แก้ไข"
+                          >
+                            แก้ไข
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user)}
+                            className="btn-delete"
+                            title="ลบ"
+                          >
+                            ลบ
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="result-count">
+            แสดง {filteredUsers.length} จาก {users.length} ผู้ใช้
+          </div>
+        </>
+      )}
+
+      {showModal && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                {modalMode === "create" && "เพิ่มผู้ใช้ใหม่"}
+                {modalMode === "edit" && "แก้ไขข้อมูลผู้ใช้"}
+                {modalMode === "view" && "รายละเอียดผู้ใช้"}
+              </h2>
+              <button onClick={closeModal} className="btn-close-modal" title="ปิด">
+                ×
+              </button>
             </div>
-            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-md border border-orange-100">
-              {filteredUsers.length} รายการ
-            </span>
-          </div>
 
-          <div className="relative">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาด้วยชื่อ อีเมล หรือเลขบัตรประชาชน"
-              className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-200"
-            />
-            <svg
-              className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-orange-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-
-          <div className="space-y-2 max-h-[70vh] overflow-auto pr-1">
-            {listLoading ? (
-              <div className="text-sm text-gray-500 px-2 py-4 text-center">กำลังโหลด...</div>
-            ) : null}
-            {!listLoading && filteredUsers.length === 0 ? (
-              <div className="text-sm text-gray-500 px-2 py-4 text-center">ไม่พบผู้ใช้</div>
-            ) : null}
-
-            {filteredUsers.map((user, idx) => {
-              const normalizedId = Number(user.id ?? (user as any)?.ID ?? 0);
-              const isActive =
-                selectedUser?.id === user.id ||
-                selectedUser?.id === normalizedId ||
-                normalizedId === Number((selectedUser as any)?.ID ?? 0);
-              const key = String(user.id ?? (user as any)?.ID ?? user.email ?? idx);
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedUser(user)}
-                  className={`w-full text-left rounded-xl border px-3 py-3 transition-all ${
-                    isActive
-                      ? "border-orange-300 bg-orange-50 shadow-inner"
-                      : "border-gray-100 bg-gray-50 hover:border-orange-200 hover:bg-orange-50/70"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-900">{getDisplayName(user)}</div>
-                      <div className="text-xs text-gray-500">{user.email}</div>
-                      <div className="text-xs text-gray-400">เลขบัตร: {user.id_number || "-"}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
-                        {getRoleLabel(user)}
-                      </span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          user.profile_completed
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {user.profile_completed ? "โปรไฟล์ครบ" : "ยังไม่ครบ"}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Profile detail */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-2xl border border-orange-100 bg-white shadow-sm p-5">
-            {profileLoading ? (
-              <div className="flex items-center justify-center py-10 text-sm text-gray-600">
-                <svg className="animate-spin h-5 w-5 mr-2 text-orange-500" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                กำลังโหลดข้อมูลโปรไฟล์...
-              </div>
-            ) : null}
-
-            {!profileLoading && profileError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {profileError}
-              </div>
-            ) : null}
-
-            {!profileLoading && !profileError && !profileUser ? (
-              <div className="text-center text-sm text-gray-500 py-10">เลือกผู้ใช้เพื่อดูรายละเอียด</div>
-            ) : null}
-
-            {!profileLoading && !profileError && profileUser ? (
-              <div className="space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="modal-body">
+              {modalMode === "view" && selectedUser ? (
+                <div className="view-grid">
                   <div>
-                    <div className="text-xs uppercase text-gray-500">ผู้ใช้</div>
-                    <div className="text-2xl font-bold text-gray-900">{getDisplayName(profileUser)}</div>
-                    <div className="text-sm text-gray-600">{profileUser.email}</div>
+                    <div className="view-field-label">ชื่อ (ไทย)</div>
+                    <div className="view-field-value">{selectedUser.first_name_th}</div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                      {getRoleLabel(profileUser)}
-                    </span>
-                    <span
-                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                        profileUser.profile_completed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {profileUser.profile_completed ? "โปรไฟล์ครบถ้วน" : "ยังไม่กรอกครบ"}
-                    </span>
-                    {profileUser.pdpa_consent ? (
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                        PDPA ยินยอมแล้ว
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                        ยังไม่ให้ PDPA
-                      </span>
-                    )}
+                  <div>
+                    <div className="view-field-label">นามสกุล (ไทย)</div>
+                    <div className="view-field-value">{selectedUser.last_name_th}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">ชื่อ (อังกฤษ)</div>
+                    <div className="view-field-value">{selectedUser.first_name_en}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">นามสกุล (อังกฤษ)</div>
+                    <div className="view-field-value">{selectedUser.last_name_en}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">อีเมล</div>
+                    <div className="view-field-value">{selectedUser.email}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">เบอร์โทรศัพท์</div>
+                    <div className="view-field-value">{selectedUser.phone}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">เลขที่เอกสาร</div>
+                    <div className="view-field-value">{selectedUser.id_number}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">ประเภทเอกสาร</div>
+                    <div className="view-field-value">{getIDTypeName(selectedUser.id_type)}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">วันเกิด</div>
+                    <div className="view-field-value">{formatDate(selectedUser.birthday)}</div>
+                  </div>
+                  <div>
+                    <div className="view-field-label">ประเภทผู้ใช้</div>
+                    <div className="view-field-value">{getUserTypeName(selectedUser.type_id)}</div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <InfoRow label="เบอร์โทร" value={profileUser.phone || "-"} />
-                  <InfoRow label="วันเกิด" value={formatDate(profileUser.birthday)} />
-                  <InfoRow label="ประเภทเอกสาร" value={profileUser.user_id_type?.id_name || "-"} />
-                  <InfoRow label="เลขบัตร" value={profileUser.id_number || "-"} />
-                  <InfoRow label="ประเภทผู้ใช้" value={getRoleLabel(profileUser)} />
-                  <InfoRow
-                    label="PDPA"
-                    value={
-                      profileUser.pdpa_consent
-                        ? `ยินยอมแล้ว (${formatDate(profileUser.pdpa_consent_at || undefined)})`
-                        : "ยังไม่ได้ยินยอม"
-                    }
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <SectionCard title="ข้อมูลการศึกษา" subtitle="ระดับการศึกษาและสถานศึกษา">
-            {education ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <InfoRow label="ระดับการศึกษา" value={education.education_level?.name || "-"} />
-                <InfoRow label="ประเภทโรงเรียน" value={education.school_type?.name || "-"} />
-                <InfoRow label="ชื่อสถานศึกษา" value={education.school?.name || education.school_name || "-"} />
-                <InfoRow label="หลักสูตร" value={education.curriculum_type?.name || "-"} />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลการศึกษา</p>
-            )}
-          </SectionCard>
-
-          <SectionCard title="ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX" subtitle="คะแนนรวมและรายวิชา">
-            {academic ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <InfoRow label="GPAX" value={formatScore(academic.gpax)} />
-                <InfoRow label="เทอม" value={academic.gpax_semesters ?? "-"} />
-                <InfoRow label="คณิตศาสตร์" value={formatScore(academic.gpa_math)} />
-                <InfoRow label="วิทยาศาสตร์" value={formatScore(academic.gpa_science)} />
-                <InfoRow label="ภาษาไทย" value={formatScore(academic.gpa_thai)} />
-                <InfoRow label="ภาษาอังกฤษ" value={formatScore(academic.gpa_english)} />
-                <InfoRow label="สังคมศึกษา" value={formatScore(academic.gpa_social)} />
-                <InfoRow label="คะแนนรวม" value={formatScore(academic.gpa_total_score)} />
-                <InfoRow label="ไฟล์ Transcript" value={academic.transcript_file_path || "-"} />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลคะแนนหลักสูตรแกนกลาง</p>
-            )}
-          </SectionCard>
-
-          <SectionCard title="ข้อมูลคะแนน GED">
-            {ged ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <InfoRow label="รวม" value={ged.total_score ?? "-"} />
-                <InfoRow label="Reasoning (RLA)" value={ged.rla_score ?? "-"} />
-                <InfoRow label="Math" value={ged.math_score ?? "-"} />
-                <InfoRow label="Science" value={ged.science_score ?? "-"} />
-                <InfoRow label="Social Studies" value={ged.social_score ?? "-"} />
-                <InfoRow label="ไฟล์ใบรับรอง" value={ged.cert_file_path || "-"} />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูล GED</p>
-            )}
-          </SectionCard>
-
-          <SectionCard title="ข้อมูลคะแนนภาษา">
-            {languageScores.length ? (
-              <div className="space-y-3">
-                {languageScores.map((score, idx) => (
-                  <div
-                    key={score.id || `${score.test_type}-${idx}`}
-                    className="rounded-xl border border-orange-100 bg-orange-50/40 px-4 py-3 text-sm"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-semibold text-gray-900">{score.test_type}</div>
-                      <div className="text-xs text-gray-500">{score.test_date ? formatDate(score.test_date) : "-"}</div>
+              ) : (
+                <form onSubmit={handleSubmit}>
+                  {/* Debug info - แสดงเฉพาะ dev mode */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div style={{ padding: '10px', backgroundColor: '#f0f0f0', marginBottom: '10px', fontSize: '12px' }}>
+                      <strong>Debug:</strong> type_id={formData.type_id}, id_type={formData.id_type}
                     </div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      ระดับ {score.test_level || "-"} | คะแนน {score.score || "-"}
-                      {score.sat_math !== undefined && score.sat_math !== null ? ` | SAT Math ${score.sat_math}` : ""}
-                    </div>
-                    {score.cert_file_path ? (
-                      <a
-                        href={score.cert_file_path}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-orange-600 hover:underline mt-1"
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">เลือกภาษาในการกรอกชื่อ *</label>
+                    <div className="language-selector">
+                      <button
+                        type="button"
+                        className={`btn-language ${nameLanguage === "thai" ? "active" : ""}`}
+                        onClick={() => {
+                          setNameLanguage("thai");
+                          setFormErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.first_name_en;
+                            delete next.last_name_en;
+                            return next;
+                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            first_name_en: "",
+                            last_name_en: "",
+                          }));
+                        }}
                       >
-                        <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        ดูไฟล์
-                      </a>
-                    ) : null}
+                        ภาษาไทย
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn-language ${nameLanguage === "english" ? "active" : ""}`}
+                        onClick={() => {
+                          setNameLanguage("english");
+                          setFormErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.first_name_th;
+                            delete next.last_name_th;
+                            return next;
+                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            first_name_th: "",
+                            last_name_th: "",
+                          }));
+                        }}
+                      >
+                        English
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">ยังไม่มีข้อมูลคะแนนภาษา</p>
-            )}
-          </SectionCard>
+
+                  {nameLanguage === "thai" ? (
+                    <div className="form-group">
+                      <label className="form-label">ชื่อ-นามสกุล (ไทย) *</label>
+                      <div className="form-grid-2">
+                        <div>
+                          <input
+                            id="first_name_th"
+                            type="text"
+                            placeholder="ชื่อ"
+                            value={formData.first_name_th}
+                            onChange={(e) => setFormData({ ...formData, first_name_th: e.target.value })}
+                            className={`form-input ${formErrors.first_name_th ? "error" : ""}`}
+                          />
+                          {formErrors.first_name_th && (
+                            <div className="error-text">{formErrors.first_name_th}</div>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            id="last_name_th"
+                            type="text"
+                            placeholder="นามสกุล"
+                            value={formData.last_name_th}
+                            onChange={(e) => setFormData({ ...formData, last_name_th: e.target.value })}
+                            className={`form-input ${formErrors.last_name_th ? "error" : ""}`}
+                          />
+                          {formErrors.last_name_th && (
+                            <div className="error-text">{formErrors.last_name_th}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label">ชื่อ-นามสกุล (อังกฤษ) *</label>
+                      <div className="form-grid-2">
+                        <div>
+                          <input
+                            id="first_name_en"
+                            type="text"
+                            placeholder="First Name"
+                            value={formData.first_name_en}
+                            onChange={(e) => setFormData({ ...formData, first_name_en: e.target.value })}
+                            className={`form-input ${formErrors.first_name_en ? "error" : ""}`}
+                          />
+                          {formErrors.first_name_en && (
+                            <div className="error-text">{formErrors.first_name_en}</div>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            id="last_name_en"
+                            type="text"
+                            placeholder="Last Name"
+                            value={formData.last_name_en}
+                            onChange={(e) => setFormData({ ...formData, last_name_en: e.target.value })}
+                            className={`form-input ${formErrors.last_name_en ? "error" : ""}`}
+                          />
+                          {formErrors.last_name_en && (
+                            <div className="error-text">{formErrors.last_name_en}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* อีเมล */}
+                  <div className="form-group">
+                    <label htmlFor="email" className="form-label">อีเมล *</label>
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="example@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className={`form-input ${formErrors.email ? "error" : ""}`}
+                    />
+                    {formErrors.email && <div className="error-text">{formErrors.email}</div>}
+                  </div>
+
+                  {/* รหัสผ่าน */}
+                  <div className="form-group">
+                    <label htmlFor="password" className="form-label">
+                      รหัสผ่าน {modalMode === "create" && "*"}
+                      {modalMode === "edit" && (
+                        <span className="form-label-secondary"> (เว้นว่างถ้าไม่ต้องการเปลี่ยน)</span>
+                      )}
+                    </label>
+                    <input
+                      id="password"
+                      type="password"
+                      placeholder="ระบุรหัสผ่าน"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className={`form-input ${formErrors.password ? "error" : ""}`}
+                    />
+                    {formErrors.password && <div className="error-text">{formErrors.password}</div>}
+                  </div>
+
+                  {/* เบอร์โทรศัพท์ */}
+                  <div className="form-group">
+                    <label htmlFor="phone" className="form-label">เบอร์โทรศัพท์ *</label>
+                    <input
+                      id="phone"
+                      type="text"
+                      placeholder="0812345678"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      maxLength={10}
+                      className={`form-input ${formErrors.phone ? "error" : ""}`}
+                    />
+                    {formErrors.phone && <div className="error-text">{formErrors.phone}</div>}
+                  </div>
+
+                  {/* วันเกิด */}
+                  <div className="form-group">
+                    <label htmlFor="birthday" className="form-label">วันเกิด *</label>
+                    <input
+                      id="birthday"
+                      type="date"
+                      value={formData.birthday}
+                      onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+                      className={`form-input ${formErrors.birthday ? "error" : ""}`}
+                    />
+                    {formErrors.birthday && <div className="error-text">{formErrors.birthday}</div>}
+                  </div>
+
+                  {/* ประเภทเอกสารยืนยันตัวตน */}
+                  <div className="form-group">
+                    <label className="form-label">ประเภทเอกสารยืนยันตัวตน *</label>
+                    <div className="form-grid-2">
+                      <div>
+                        <label htmlFor="id_type" className="form-label">ประเภทเอกสาร</label>
+                        <select
+                          id="id_type"
+                          value={formData.id_type}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            console.log("id_type changed to:", value);
+                            setFormData({ ...formData, id_type: value });
+                          }}
+                          className={`form-select ${formErrors.id_type ? "error" : ""}`}
+                          aria-label="เลือกประเภทเอกสารยืนยันตัวตน"
+                        >
+                          <option value={1}>บัตรประชาชน</option>
+                          <option value={2}>G-Code</option>
+                          <option value={3}>Passport</option>
+                        </select>
+                        {formErrors.id_type && <div className="error-text">{formErrors.id_type}</div>}
+                      </div>
+                      <div>
+                        <label htmlFor="id_number" className="form-label">เลขเอกสาร</label>
+                        <input
+                          id="id_number"
+                          type="text"
+                          placeholder={
+                            formData.id_type === 1
+                              ? "เลขบัตรประชาชน 13 หลัก"
+                              : formData.id_type === 2
+                              ? "G-Code"
+                              : "Passport Number"
+                          }
+                          value={formData.id_number}
+                          onChange={(e) => setFormData({ ...formData, id_number: e.target.value })}
+                          className={`form-input ${formErrors.id_number ? "error" : ""}`}
+                        />
+                        {formErrors.id_number && <div className="error-text">{formErrors.id_number}</div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ประเภทผู้ใช้ */}
+                  <div className="form-group">
+                    <label htmlFor="type_id" className="form-label">ประเภทผู้ใช้ *</label>
+                    <select
+                      id="type_id"
+                      value={formData.type_id}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        console.log("type_id changed to:", value);
+                        setFormData({ ...formData, type_id: value });
+                      }}
+                      className={`form-select ${formErrors.type_id ? "error" : ""}`}
+                      aria-label="เลือกประเภทผู้ใช้"
+                    >
+                      <option value={1}>นักเรียน</option>
+                      <option value={2}>ครู</option>
+                      <option value={3}>แอดมิน</option>
+                    </select>
+                    {formErrors.type_id && <div className="error-text">{formErrors.type_id}</div>}
+                  </div>
+
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      disabled={submitLoading}
+                      className="btn-cancel"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button type="submit" disabled={submitLoading} className="btn-submit">
+                      {submitLoading
+                        ? "กำลังบันทึก..."
+                        : modalMode === "create"
+                        ? "เพิ่มผู้ใช้"
+                        : "บันทึกการเปลี่ยนแปลง"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
