@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   fetchAllUsers,
   createUser,
@@ -47,6 +48,8 @@ export default function AdminUsersPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserDTO | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -60,7 +63,7 @@ export default function AdminUsersPage() {
     try {
       const user = JSON.parse(userStr);
       if (user.type_id !== 3) {
-        alert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+        toast.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
         router.push("/");
         return;
       }
@@ -106,7 +109,9 @@ export default function AdminUsersPage() {
         router.push("/login");
         return;
       }
-      setError(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลได้");
+      const message = err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลได้";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -114,6 +119,8 @@ export default function AdminUsersPage() {
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    const currentUserId = selectedUser?.id || selectedUser?.ID;
 
     // ต้องกรอกเฉพาะภาษาที่เลือก
     if (nameLanguage === "thai") {
@@ -128,6 +135,12 @@ export default function AdminUsersPage() {
       errors.email = "กรุณากรอกอีเมล";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = "รูปแบบอีเมลไม่ถูกต้อง";
+    } else {
+      const emailDup = users.some((u) => {
+        const uid = u.id || u.ID;
+        return u.email?.toLowerCase() === normalizedEmail && uid !== currentUserId;
+      });
+      if (emailDup) errors.email = "อีเมลนี้ถูกใช้แล้ว";
     }
 
     if (modalMode === "create" && !formData.password) {
@@ -138,6 +151,36 @@ export default function AdminUsersPage() {
     }
 
     if (!formData.id_number.trim()) errors.id_number = "กรุณากรอกเลขที่เอกสาร";
+    else {
+      const idNum = formData.id_number.trim();
+      if (formData.id_type === 1 && !/^\d{13}$/.test(idNum)) {
+        errors.id_number = "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";
+      }
+      if (formData.id_type === 2 && !/^[Gg]\d{7}$/.test(idNum)) {
+        errors.id_number = "G-Code ต้องขึ้นต้นด้วย G ตามด้วยตัวเลข 7 หลัก";
+      }
+      if (formData.id_type === 3 && !/^[A-Za-z0-9]{6,15}$/.test(idNum)) {
+        errors.id_number = "เลขพาสปอร์ตต้องเป็นตัวอักษร/ตัวเลข 6-15 ตัว";
+      }
+
+      const idDup = users.some((u) => {
+        const uid = u.id || u.ID;
+        return (
+          u.id_number?.trim() === idNum &&
+          u.id_type === formData.id_type &&
+          uid !== currentUserId
+        );
+      });
+      if (idDup) {
+        const idTypeMsg =
+          formData.id_type === 1
+            ? "หมายเลขบัตรประชาชนนี้ถูกลงทะเบียนแล้ว"
+            : formData.id_type === 2
+            ? "หมายเลข G-Code นี้ถูกลงทะเบียนแล้ว"
+            : "หมายเลขหนังสือเดินทางนี้ถูกลงทะเบียนแล้ว";
+        errors.id_number = idTypeMsg;
+      }
+    }
     if (!formData.phone.trim()) {
       errors.phone = "กรุณากรอกเบอร์โทรศัพท์";
     } else if (!/^\d{10}$/.test(formData.phone)) {
@@ -245,7 +288,7 @@ export default function AdminUsersPage() {
         console.log("Payload JSON:", JSON.stringify(payload, null, 2));
         
         await createUser(payload as CreateUserPayload);
-        alert("เพิ่มผู้ใช้สำเร็จ");
+        toast.success("เพิ่มผู้ใช้สำเร็จ");
       } else if (modalMode === "edit" && selectedUser) {
         const userId = selectedUser.id || selectedUser.ID;
         if (!userId) throw new Error("ไม่พบ ID ของผู้ใช้");
@@ -263,7 +306,7 @@ export default function AdminUsersPage() {
         console.log("Updating user with payload:", updatePayload);
         
         await updateUser(userId, updatePayload);
-        alert("แก้ไขข้อมูลสำเร็จ");
+        toast.success("บันทึกการแก้ไขสำเร็จ");
       }
       closeModal();
       loadUsers();
@@ -273,28 +316,41 @@ export default function AdminUsersPage() {
       if (err instanceof Error) {
         console.error("Error message:", err.message);
       }
-      alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setSubmitLoading(false);
     }
   };
 
-  const handleDelete = async (user: UserDTO) => {
-    const userId = user.id || user.ID;
+  const handleDelete = (user: UserDTO) => {
+    setDeleteTarget(user);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const userId = deleteTarget.id || deleteTarget.ID;
     if (!userId) {
-      alert("ไม่พบ ID ของผู้ใช้");
+      toast.error("ไม่พบ ID ของผู้ใช้");
+      setShowDeleteConfirm(false);
       return;
     }
-    const confirmMsg = `คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ "${user.first_name_th} ${user.last_name_th}"?`;
-    if (!confirm(confirmMsg)) return;
 
     try {
       await deleteUser(userId);
-      alert("ลบผู้ใช้สำเร็จ");
+      toast.success("ลบผู้ใช้สำเร็จ");
       loadUsers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "ไม่สามารถลบผู้ใช้ได้");
+      toast.error(err instanceof Error ? err.message : "ไม่สามารถลบผู้ใช้ได้");
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDeleteTarget(null);
   };
 
   if (!isAuthorized) return null;
@@ -467,13 +523,6 @@ export default function AdminUsersPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit}>
-                  {/* Debug info - แสดงเฉพาะ dev mode */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div style={{ padding: '10px', backgroundColor: '#f0f0f0', marginBottom: '10px', fontSize: '12px' }}>
-                      <strong>Debug:</strong> type_id={formData.type_id}, id_type={formData.id_type}
-                    </div>
-                  )}
-
                   <div className="form-group">
                     <label className="form-label">เลือกภาษาในการกรอกชื่อ *</label>
                     <div className="language-selector">
@@ -731,6 +780,32 @@ export default function AdminUsersPage() {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && deleteTarget && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">ยืนยันการลบผู้ใช้</h2>
+              <button onClick={cancelDelete} className="btn-close-modal" title="ปิด">
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="confirm-text">
+                ต้องการลบผู้ใช้ "{deleteTarget.first_name_th} {deleteTarget.last_name_th}" จริงหรือไม่?
+              </p>
+              <div className="form-actions">
+                <button type="button" onClick={cancelDelete} className="btn-cancel">
+                  ยกเลิก
+                </button>
+                <button type="button" onClick={confirmDelete} className="btn-delete-confirm">
+                  ตกลง
+                </button>
+              </div>
             </div>
           </div>
         </div>
