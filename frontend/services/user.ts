@@ -1,250 +1,210 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-export interface UserDTO {
+export class HttpError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export type UserDTO = {
   id?: number;
   ID?: number;
-  first_name_th: string;
-  last_name_th: string;
-  first_name_en: string;
-  last_name_en: string;
-  email: string;
-  password?: string; // Optional for updates
-  profile_image_url?: string;
-  id_number: string;
-  phone: string;
-  birthday: string; // Format: "YYYY-MM-DD"
-  pdpa_consent: boolean;
-  pdpa_consent_at?: string;
-  profile_completed?: boolean;
-  type_id: number; // 1=Student, 2=Teacher, 3=Admin
-  id_type: number;
-  user_type?: {
-    id: number;
-    type_name: string;
-  };
-  user_id_type?: {
-    id: number;
-    type_name: string;
-  };
+  first_name_th?: string;
+  last_name_th?: string;
+  first_name_en?: string;
+  last_name_en?: string;
+  email?: string;
+  id_number?: string;
+  phone?: string;
+  birthday?: string;
+  pdpa_consent?: boolean;
+  type_id?: number;
+  id_type?: number;
   CreatedAt?: string;
-  UpdatedAt?: string;
-  DeletedAt?: string | null;
-}
+  user_type?: { type_name?: string; id?: number; ID?: number };
+  user_id_type?: { id_name?: string; id?: number; ID?: number };
+};
 
-export interface CreateUserPayload {
-  first_name_th: string;
-  last_name_th: string;
-  first_name_en: string;
-  last_name_en: string;
+type BaseUserPayload = {
+  first_name_th?: string;
+  last_name_th?: string;
+  first_name_en?: string;
+  last_name_en?: string;
   email: string;
-  password: string;
-  profile_image_url?: string;
-  id_number: string;
-  phone: string;
-  birthday: string; // Format: "YYYY-MM-DD"
-  pdpa_consent: boolean;
-  type_id: number;
-  id_type: number;
-}
-
-export interface UpdateUserPayload {
-  first_name_th: string;
-  last_name_th: string;
-  first_name_en: string;
-  last_name_en: string;
-  email: string;
-  password?: string; // Optional - only if changing password
-  profile_image_url?: string;
+  password?: string;
   id_number: string;
   phone: string;
   birthday: string;
   pdpa_consent: boolean;
   type_id: number;
   id_type: number;
-}
+  profile_image_url?: string;
+};
 
-// Map UI-friendly payload (type_id/id_type) to API contract (account_type_id/id_doc_type_id)
-function buildUserApiPayload<T extends { type_id: number; id_type: number }>(
-  payload: T,
-) {
-  const { type_id, id_type, ...rest } = payload;
-  return {
-    ...rest,
-    account_type_id: type_id,
-    id_doc_type_id: id_type,
-  };
-}
+export type CreateUserPayload = BaseUserPayload;
+export type UpdateUserPayload = BaseUserPayload;
 
-class HttpError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "HttpError";
+const USER_TYPE_LABEL: Record<number, string> = {
+  1: "นักเรียน",
+  2: "ครู",
+  3: "แอดมิน",
+};
+
+const ID_TYPE_LABEL: Record<number, string> = {
+  1: "บัตรประชาชน",
+  2: "G-Code",
+  3: "Passport",
+};
+
+function requireToken(): string {
+  if (typeof window === "undefined") {
+    throw new HttpError(401, "กรุณาเข้าสู่ระบบใหม่");
   }
+
+  const token = localStorage.getItem("token");
+  if (!token) {
+    throw new HttpError(401, "กรุณาเข้าสู่ระบบใหม่");
+  }
+  return token;
 }
 
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem("token");
+function getAuthHeaders() {
+  const token = requireToken();
   return {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    Authorization: `Bearer ${token}`,
   };
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-    
+async function handleResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
+  const text = await res.text();
+  let data: any = {};
+
+  if (text) {
     try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorJson.message || errorMessage;
+      data = JSON.parse(text);
     } catch {
-      if (errorText) errorMessage = errorText;
+      data = text;
     }
-    
-    throw new HttpError(response.status, errorMessage);
   }
 
-  const data = await response.json();
-  return data.data || data;
+  if (!res.ok) {
+    const message =
+      (data && (data.error || data.message)) ||
+      fallbackMessage ||
+      `request failed with status ${res.status}`;
+    throw new HttpError(res.status, message);
+  }
+
+  return data as T;
 }
 
-// =============== CRUD Functions ===============
+function toApiPayload(payload: CreateUserPayload | UpdateUserPayload) {
+  const base: Record<string, any> = {
+    first_name_th: payload.first_name_th || "",
+    last_name_th: payload.last_name_th || "",
+    first_name_en: payload.first_name_en || "",
+    last_name_en: payload.last_name_en || "",
+    email: payload.email,
+    id_number: payload.id_number,
+    phone: payload.phone,
+    birthday: payload.birthday,
+    pdpa_consent: payload.pdpa_consent ?? true,
+    account_type_id: payload.type_id,
+    id_doc_type_id: payload.id_type,
+    profile_image_url: payload.profile_image_url || "",
+  };
 
-/**
- * Fetch all users (Admin only)
- */
+  if (payload.password !== undefined && payload.password !== "") {
+    base.password = payload.password;
+  }
+
+  return base;
+}
+
+function normalizeUser(raw: any): UserDTO {
+  const id = Number(raw?.id ?? raw?.ID ?? raw?.user_id ?? 0);
+  const typeId =
+    Number(raw?.type_id ?? raw?.account_type_id ?? raw?.AccountTypeID ?? raw?.user_type?.id ?? raw?.user_type?.ID ?? 0);
+  const idType =
+    Number(raw?.id_type ?? raw?.id_doc_type_id ?? raw?.IDDocTypeID ?? raw?.user_id_type?.id ?? raw?.user_id_type?.ID ?? 0);
+
+  return {
+    ...raw,
+    id: Number.isFinite(id) && id > 0 ? id : raw?.id,
+    ID: Number.isFinite(id) && id > 0 ? id : raw?.ID,
+    type_id: Number.isFinite(typeId) && typeId > 0 ? typeId : raw?.type_id,
+    id_type: Number.isFinite(idType) && idType > 0 ? idType : raw?.id_type,
+    CreatedAt: raw?.CreatedAt || raw?.created_at || raw?.createdAt,
+  };
+}
+
+export function getUserTypeName(typeId?: number) {
+  if (!typeId) return "ไม่ทราบประเภท";
+  return USER_TYPE_LABEL[typeId] || "ไม่ทราบประเภท";
+}
+
+export function getIDTypeName(idType?: number) {
+  if (!idType) return "ไม่ทราบประเภทเอกสาร";
+  return ID_TYPE_LABEL[idType] || "ไม่ทราบประเภทเอกสาร";
+}
+
+export function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export async function fetchAllUsers(): Promise<UserDTO[]> {
-  const response = await fetch(`${API_URL}/users`, {
-    method: "GET",
+  const res = await fetch(`${API_URL}/users`, {
     headers: getAuthHeaders(),
   });
 
-  return handleResponse<UserDTO[]>(response);
+  const data = await handleResponse<{ data?: any[] }>(res, "ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
+  const list = Array.isArray(data?.data) ? data.data : [];
+  return list.map(normalizeUser);
 }
 
-/**
- * Fetch a single user by ID (Admin only)
- */
-export async function fetchUserById(userId: number): Promise<UserDTO> {
-  const response = await fetch(`${API_URL}/users/${userId}`, {
-    method: "GET",
-    headers: getAuthHeaders(),
-  });
-
-  return handleResponse<UserDTO>(response);
-}
-
-/**
- * Create a new user (Admin only)
- */
 export async function createUser(payload: CreateUserPayload): Promise<UserDTO> {
-  const response = await fetch(`${API_URL}/users`, {
+  if (!payload.password) {
+    throw new HttpError(400, "กรุณาระบุรหัสผ่าน");
+  }
+
+  const res = await fetch(`${API_URL}/users`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify(buildUserApiPayload(payload)),
+    body: JSON.stringify(toApiPayload(payload)),
   });
 
-  return handleResponse<UserDTO>(response);
+  const data = await handleResponse<{ data?: any }>(res, "ไม่สามารถสร้างผู้ใช้ได้");
+  return normalizeUser(data?.data || data);
 }
 
-/**
- * Update an existing user (Admin only)
- */
-export async function updateUser(userId: number, payload: UpdateUserPayload): Promise<UserDTO> {
-  const response = await fetch(`${API_URL}/users/${userId}`, {
+export async function updateUser(userId: number | string, payload: UpdateUserPayload): Promise<UserDTO> {
+  const res = await fetch(`${API_URL}/users/${userId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
-    body: JSON.stringify(buildUserApiPayload(payload)),
+    body: JSON.stringify(toApiPayload(payload)),
   });
 
-  return handleResponse<UserDTO>(response);
+  const data = await handleResponse<{ data?: any }>(res, "ไม่สามารถอัปเดตผู้ใช้ได้");
+  return normalizeUser(data?.data || data);
 }
 
-/**
- * Delete a user (Admin only)
- */
-export async function deleteUser(userId: number): Promise<void> {
-  const response = await fetch(`${API_URL}/users/${userId}`, {
+export async function deleteUser(userId: number | string): Promise<boolean> {
+  const res = await fetch(`${API_URL}/users/${userId}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = `Failed to delete user: ${response.statusText}`;
-    
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorJson.message || errorMessage;
-    } catch {
-      if (errorText) errorMessage = errorText;
-    }
-    
-    throw new HttpError(response.status, errorMessage);
-  }
+  await handleResponse(res, "ไม่สามารถลบผู้ใช้ได้");
+  return true;
 }
-
-// =============== Helper Functions ===============
-
-/**
- * Get user type name from ID
- */
-export function getUserTypeName(typeId: number): string {
-  const types: Record<number, string> = {
-    1: "นักเรียน",
-    2: "ครู",
-    3: "แอดมิน",
-  };
-  return types[typeId] || "ไม่ทราบ";
-}
-
-/**
- * Get ID document type name
- */
-export function getIDTypeName(idType: number): string {
-  const types: Record<number, string> = {
-    1: "บัตรประชาชน",
-    2: "G-Code",
-    3: "Passport",
-  };
-  return types[idType] || "ไม่ทราบ";
-}
-
-/**
- * Format date for display
- */
-export function formatDate(dateString: string): string {
-  if (!dateString) return "-";
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("th-TH", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-/**
- * Format date for input field (YYYY-MM-DD)
- */
-export function formatDateForInput(dateString: string): string {
-  if (!dateString) return "";
-  try {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  } catch {
-    return "";
-  }
-}
-
-export { HttpError };

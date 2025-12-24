@@ -17,17 +17,59 @@ type PortfolioSubmissionController struct {
 // ===================== CRUD พื้นฐาน =====================
 
 func (c *PortfolioSubmissionController) Create(ctx *gin.Context) {
-	var submission entity.PortfolioSubmission
-	if err := ctx.ShouldBindJSON(&submission); err != nil {
+	// 1️⃣ รับเฉพาะ field ที่ frontend ส่งมา
+	var body struct {
+		PortfolioID uint `json:"portfolio_id"`
+	}
+
+	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 2️⃣ ดึง user_id จาก middleware (JWT)
+	userIDAny, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+	userID := userIDAny.(uint)
+
+	// 3️⃣ หา version ล่าสุด
+	var last entity.PortfolioSubmission
+	version := 1
+	err := c.DB.
+		Where("portfolio_id = ? AND user_id = ?", body.PortfolioID, userID).
+		Order("version desc").
+		First(&last).Error
+
+	if err == nil {
+		version = last.Version + 1
+
+		// ปิด current version ตัวเก่า
+		c.DB.Model(&entity.PortfolioSubmission{}).
+			Where("portfolio_id = ? AND user_id = ? AND is_current_version = ?", body.PortfolioID, userID, true).
+			Update("is_current_version", false)
+	}
+
+	// 4️⃣ สร้าง submission ใหม่
+	submission := entity.PortfolioSubmission{
+		PortfolioID:     body.PortfolioID,
+		UserID:          userID,
+		Status:          "awaiting",
+		Version:         version,
+		Is_current_version:true,
+		Submission_at:    time.Now(),
+	}
+
 	if err := c.DB.Create(&submission).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	ctx.JSON(http.StatusCreated, submission)
 }
+
 
 func (c *PortfolioSubmissionController) GetAll(ctx *gin.Context) {
 	var submissions []entity.PortfolioSubmission

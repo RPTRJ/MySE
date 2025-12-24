@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
+import SubmissionService from '@/services/submission';
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -300,7 +301,7 @@ export default function MyPortfoliosPage() {
                                     </div>
 
                                     {/* Content */}
-                                    <div className="p-5">
+                                    <div className="p-6">
                                         <div className="flex items-start justify-between mb-3">
                                             <h3 className="text-xl font-bold text-gray-900 flex-1 truncate pr-2">
                                                 {portfolio.portfolio_name || portfolio.PortfolioName || 'ไม่มีชื่อ'}
@@ -335,7 +336,7 @@ export default function MyPortfoliosPage() {
                                         </div>
 
                                         {/* Action Buttons */}
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 ">
                                             <button
                                                 onClick={() => router.push(`/student/portfolio/section?portfolio_id=${portfolio.ID}`)}
                                                 className="flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -352,6 +353,25 @@ export default function MyPortfoliosPage() {
                                                 style={{ borderColor: theme.primary, color: theme.primary }}
                                             >
                                                 👁️ ดูรายละเอียด
+                                            </button>
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try{
+                                                        await SubmissionService.createSubmission({
+                                                            portfolio_id:portfolio.ID,
+                                                        });
+                                                        alert("ส่งตรวจทานเรียบร้อย")
+                                                    }
+                                                    catch (error){
+                                                        console.log(error);
+                                                        alert("ไม่สามารถส่งตรวจทานได้")
+                                                    }
+                                                }}
+                                                className="px-2 py-2 border-2 rounded-lg text-sm font-medium transition"
+                                                style={{ borderColor: theme.primary, color: theme.primary }}
+                                            >
+                                                ส่งตรวจทาน
                                             </button>
                                         </div>
                                     </div>

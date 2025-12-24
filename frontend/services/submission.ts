@@ -68,7 +68,30 @@ export interface Scorecard {
   criteria?: ScoreCriteria[];
 }
 
+
+export interface Evaluation {
+  ID: number;
+  criteria_name: string;
+  max_score: number;
+  total_score: number;
+  evaluetion_at: string;
+  portfolio_submission_id: number;
+  user_id: number;
+  scorecard_id: number;
+}
+
+
+export interface CriteriaScore {
+  ID: number;
+  score: number;
+  comment: string;
+  score_criteria_id: number;
+}
+
 class SubmissionService {
+  ID(ID: any): void {
+    throw new Error("Method not implemented.");
+  }
   private getAuthHeaders() {
     const token = localStorage.getItem('token');
     return {
@@ -78,6 +101,23 @@ class SubmissionService {
   }
 
   // ===================== Portfolio Submissions =====================
+
+
+    async createSubmission(data: {
+      portfolio_id: number;
+      }): Promise<PortfolioSubmission> {
+      const response = await fetch(`${API_URL}/submissions`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create submission');
+      }
+
+      return response.json();
+    }
 
   async fetchAllSubmissions(): Promise<PortfolioSubmission[]> {
     const response = await fetch(`${API_URL}/submissions`, {
@@ -201,6 +241,46 @@ class SubmissionService {
   }
 
   // ===================== Scorecard =====================
+
+  async createEvaluation(data: {
+    criteria_name: string;
+    max_score: number;
+    total_score: number;
+    evaluetion_at: string;
+    portfolio_submission_id: number;
+    user_id: number;
+    scorecard_id: number;
+  }): Promise<Evaluation> {
+    const response = await fetch(`${API_URL}/evaluations`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create evaluation');
+    }
+
+    return response.json();
+  }
+
+  async createCriteriaScore(data: {
+    score: number;
+    comment: string;
+    score_criteria_id: number;
+  }): Promise<CriteriaScore> {
+    const response = await fetch(`${API_URL}/criteria-scores`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create criteria score');
+    }
+
+    return response.json();
+  }
 
   async createScorecard(scorecard: {
     portfolio_submission_id: number;

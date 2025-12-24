@@ -16,6 +16,10 @@ func SetupRoutes() *gin.Engine {
 
 	r := gin.Default()
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
 	// --- CORS Config ---
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOriginFunc = func(origin string) bool {
@@ -57,6 +61,7 @@ func SetupRoutes() *gin.Engine {
 	selectionController := controller.NewSelectionController()
 	profileController := controller.NewProfileController(db)
 	referenceController := controller.NewReferenceController(db)
+	educationAdminController := controller.NewEducationAdminController(db)
 
 	// --- Public Routes ---
 	authController.RegisterRoutes(r)
@@ -92,6 +97,12 @@ func SetupRoutes() *gin.Engine {
 	// --- Onboarded Routes (ต้องผ่านการ Onboard) ---
 	protectedOnboarded := protected.Group("")
 	protectedOnboarded.Use(middlewares.RequireOnboarding())
+
+	// --- Teacher Protected Routes ---เฟื่องเพิ่มตรงนี้
+	teacher := protectedOnboarded.Group("/teacher")
+	{
+		teacher.GET("/users/:id/profile", profileController.GetUserProfile)
+	}
 
 	userController.RegisterRoutes(protectedOnboarded)
 
@@ -144,6 +155,9 @@ func SetupRoutes() *gin.Engine {
 	{
 		adminProtected.GET("/users/:id/profile", profileController.GetUserProfile)
 	}
+
+	// Education reference management (admin)
+	educationAdminController.RegisterRoutes(protectedOnboarded)
 
 	//ของประกาศ
 	AnnouncementRouter(r)

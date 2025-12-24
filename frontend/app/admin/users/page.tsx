@@ -281,42 +281,41 @@ export default function AdminUsersPage() {
         const payload = {
           ...formData,
           type_id: Number(formData.type_id), // แปลงเป็น number
-          id_type: Number(formData.id_type),  // แปลงเป็น number
+          id_type: Number(formData.id_type), // แปลงเป็น number
         };
-        
+
         console.log("Creating user with payload:", payload);
         console.log("Payload JSON:", JSON.stringify(payload, null, 2));
-        
+
         await createUser(payload as CreateUserPayload);
         toast.success("เพิ่มผู้ใช้สำเร็จ");
       } else if (modalMode === "edit" && selectedUser) {
         const userId = selectedUser.id || selectedUser.ID;
         if (!userId) throw new Error("ไม่พบ ID ของผู้ใช้");
-        
-        const updatePayload: UpdateUserPayload = { 
+
+        const updatePayload: UpdateUserPayload = {
           ...formData,
           type_id: Number(formData.type_id),
           id_type: Number(formData.id_type),
         };
-        
+
         if (!formData.password) {
           delete updatePayload.password;
         }
-        
+
         console.log("Updating user with payload:", updatePayload);
-        
+
         await updateUser(userId, updatePayload);
         toast.success("บันทึกการแก้ไขสำเร็จ");
       }
       closeModal();
       loadUsers();
     } catch (err) {
-      console.error("=== SUBMIT ERROR ===");
-      console.error("Error:", err);
-      if (err instanceof Error) {
-        console.error("Error message:", err.message);
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("Submit error:", err);
       }
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
+      toast.error(message);
     } finally {
       setSubmitLoading(false);
     }

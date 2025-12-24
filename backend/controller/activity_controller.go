@@ -200,3 +200,23 @@ func (ac *ActivityController) ListRewards(c *gin.Context) {
     }
     c.JSON(http.StatusOK, rewards)
 }
+
+//fueng add list เพื่อดึงข้อมูล
+func (ac *ActivityController) ListActivitiesByUser(c *gin.Context) {
+	userId := c.Param("userId")
+
+	db := config.GetDB()
+
+	var activities []entity.Activity
+	db.
+		Preload("ActivityDetail").
+		Preload("ActivityDetail.TypeActivity").
+		Preload("ActivityDetail.LevelActivity").
+		Preload("ActivityDetail.Images").
+		Preload("Reward").
+		Where("user_id = ?", userId).
+		Find(&activities)
+
+	c.JSON(200, activities)
+}
+

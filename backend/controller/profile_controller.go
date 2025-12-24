@@ -67,9 +67,9 @@ func (pc *ProfileController) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 
-	//admin
-	if requester.AccountTypeID != 3 {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "admin_only"})
+	//admin เฟื่องเพิ่มอนุญาตให้ครูด้วย
+	if requester.AccountTypeID != 3 && requester.AccountTypeID != 2 {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "admin and teacher"})
 		return
 	}
 
@@ -313,10 +313,11 @@ func (pc *ProfileController) GetOnboardingStatus(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, status)
 }
 
-// Helper
+// Helper fueng add playload
 func (pc *ProfileController) getUser(userID uint) (*entity.User, error) {
 	var user entity.User
-	err := pc.DB.First(&user, userID).Error
+	err := pc.DB.
+        First(&user, userID).Error
 	return &user, err
 }
 

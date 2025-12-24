@@ -226,6 +226,19 @@ export async function fetchUserProfileByAdmin(
   );
 }
 
+//fueng add fetch for teacher
+export async function fetchUserProfileByTeacher(
+  token: string,
+  userId: number | string
+): Promise<ProfileResponse> {
+  return authorizedFetch<ProfileResponse>(
+    `/teacher/users/${userId}/profile`,
+    token,
+    "ไม่สามารถโหลดโปรไฟล์นักเรียนได้",
+  );
+}
+
+
 export async function updatePersonalInfo(token: string, payload: UpdatePersonalPayload): Promise<ApiUser> {
   const data = await authorizedFetch<{ data?: ApiUser; user?: ApiUser }>(
     "/users/me/onboarding",

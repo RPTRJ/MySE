@@ -270,14 +270,14 @@ const CreateAnnouncementForm: React.FC = () => {
       {/* Header */}
       <div className="bg-white px-6 py-4 sticky top-0 z-10 shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-orange-600">Create New Announcement</h1>
+          <h1 className="text-2xl font-bold text-orange-600">สร้างประชาสัมพัธ์ข่าวสาร</h1>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={() => window.history.back()}
               className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
             >
-              Cancel
+             ยกเลิก
             </button>
             <button
               type="button"
@@ -285,7 +285,7 @@ const CreateAnnouncementForm: React.FC = () => {
               onClick={handleDraft}
               className="px-4 py-2 text-orange-600 border border-orange-600 rounded-md hover:bg-orange-50"
             >
-              Save as draft
+              บันทึกแบบร่าง
             </button>
             <button
               type="button"
@@ -293,7 +293,7 @@ const CreateAnnouncementForm: React.FC = () => {
               onClick={handleSubmit}
               className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50"
             >
-              {loading ? "Publishing..." : "Publish"}
+              {loading ? "กำลังเผยแพร่..." : "เผยแพร่"}
             </button>
           </div>
         </div>
@@ -307,14 +307,14 @@ const CreateAnnouncementForm: React.FC = () => {
             {/* Announcement Title */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Announcement Title
+                หัวข้อประกาศ
               </label>
               <input
                 type="text"
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                placeholder="Enter announcement title here"
+                placeholder="พิมพ์หัวข้อของประชาสัมพันธ์นี้"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 required
               />
@@ -323,13 +323,13 @@ const CreateAnnouncementForm: React.FC = () => {
             {/* Content */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Content
+                เนื้อหา
               </label>
               <textarea
                 name="content"
                 value={formData.content}
                 onChange={handleInputChange}
-                placeholder="Start writing your announcement content here. Use the toolbar to format text, add lists, and insert links."
+                placeholder="พิมพ์เนื้อหาข่าวสารที่นี่"
                 rows={10}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
                 required
@@ -339,7 +339,7 @@ const CreateAnnouncementForm: React.FC = () => {
             {/* Featured Image */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <label className="block text-sm font-medium text-gray-700 mb-4">
-                Featured Image
+                แนบรูปภาพ
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                 <input
@@ -359,9 +359,7 @@ const CreateAnnouncementForm: React.FC = () => {
                     <span className="text-orange-600 hover:text-orange-700">Upload a file</span>
                     <span className="text-gray-600"> or drag and drop</span>
                   </label>
-                  <p className="text-sm text-gray-500 mt-2">
-                    PNG, JPG, GIF up to 10MB. Recommended size 1920x1080px
-                  </p>
+          
                   {featuredImage && (
                     <div className="mt-4 text-sm text-gray-700">
                       Selected: {featuredImage.name}
@@ -394,9 +392,7 @@ const CreateAnnouncementForm: React.FC = () => {
                     <span className="text-orange-600 hover:text-orange-700">Upload files</span>
                     <span className="text-gray-600"> or drag and drop</span>
                   </label>
-                  <p className="text-sm text-gray-500 mt-2">
-                    PDF, DOCX, XLSX up to 25MB each
-                  </p>
+                  
                 </div>
               </div>
 
@@ -438,12 +434,12 @@ const CreateAnnouncementForm: React.FC = () => {
           {/* Right Column - Publishing Options Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-25 space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Publishing Options</h3>
+              <h3 className="text-lg font-semibold text-gray-900">ตั้งค่ารายละเอียด</h3>
 
               {/* Category */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
+                  หมวดหมู่
                 </label>
                 <select
                   name="cetagory_id"
@@ -512,7 +508,7 @@ const CreateAnnouncementForm: React.FC = () => {
               {/* Publish Date & Time */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Publish Date & Time
+                  วัน/เวลา ที่ต้องการเผยแพร่
                 </label>
                 <input
                   type="datetime-local"
@@ -527,7 +523,7 @@ const CreateAnnouncementForm: React.FC = () => {
               {/* Expires At */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Expires At
+                  เวลาที่หมดการเผยแพร่
                 </label>
                 <input
                   type="datetime-local"
@@ -541,7 +537,7 @@ const CreateAnnouncementForm: React.FC = () => {
               {/* Pin to Top */}
               <div className="flex items-center justify-between py-3 border-t border-gray-200">
                 <label htmlFor="pin-to-top" className="text-sm font-medium text-gray-700">
-                  Pin to Top
+                  ปักหมุดประกาศ
                 </label>
                 <input
                   type="checkbox"
@@ -556,7 +552,7 @@ const CreateAnnouncementForm: React.FC = () => {
               {/* Send Notification */}
               <div className="flex items-center justify-between py-3 border-t border-gray-200">
                 <label htmlFor="send-notification" className="text-sm font-medium text-gray-700">
-                  Send Notification
+                  ส่งแจ้งเตือน
                 </label>
                 <input
                   type="checkbox"

@@ -187,3 +187,23 @@ export const getRewards = async (): Promise<Reward[]> => {
     if (!res.ok) return [];
     return res.json();
 };
+
+//fueng add
+export const getActivitiesByUser = async (userId: number): Promise<Activity[]> => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_URL}/activities/user/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch activities");
+  }
+
+  const data = await res.json();
+  return data; // ✅ เพราะ backend ส่ง array ตรง ๆ
+};
+
+

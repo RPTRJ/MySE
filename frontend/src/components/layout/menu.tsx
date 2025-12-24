@@ -8,6 +8,7 @@ import {
   ShieldAlert,
   Calendar,
   Search,
+  GraduationCap,
   // ไม่ต้องใช้ LogOut ที่นี่ เพราะ LogOut มักจะเป็นปุ่มแยกต่างหาก
 } from "lucide-react";
 import React from 'react';
@@ -38,6 +39,12 @@ export const menuItems: MenuItem[] = [
     roles: ["teacher"],
   },
   {
+    name: "ข้อมูลนักเรียน",
+    href: "/teacher/students",
+    icon: Users,
+    roles: ["teacher"],
+  },
+  {
     name: "หน้าหลัก (Admin)",
     href: "/admin", // ชี้ไปที่ app/admin/page.tsx
     icon: LayoutDashboard,
@@ -60,6 +67,12 @@ export const menuItems: MenuItem[] = [
     name: "จัดการหลักสูตร",
     href: "/admin/curricula",   // CRUD: list/create/edit/delete
     icon: Search,
+    roles: ["admin"],
+  },
+  {
+    name: "ข้อมูลการศึกษา",
+    href: "/admin/education",
+    icon: GraduationCap,
     roles: ["admin"],
   },
   // ------------------------- คลังผลงาน (Activitys) -------------------------

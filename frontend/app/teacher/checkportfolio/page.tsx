@@ -2,12 +2,17 @@
 import { useEffect, useState } from "react";
 import { Search, User } from 'lucide-react';
 import SubmissionService, { PortfolioSubmission } from "@/services/submission";
+import { useRouter } from "next/navigation";
+
+
 
 export default function CheckPortfolioPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [loading, setLoading] = useState(false);
   const [portfolioSubmissions, setPortfolioSubmissions] = useState<PortfolioSubmission[]>([]);
+
 
   // โหลดข้อมูลจาก backend เฉพาะ status = awaiting
   useEffect(() => {
@@ -33,15 +38,19 @@ export default function CheckPortfolioPage() {
   );
 
   const categories = [
-  'ทั้งหมด',
-  ...Array.from(
-    new Set(
-      pendingSubmissions
-        .map(item => item.portfolio?.portfolio_name ?? "")
-        .filter(name => name !== "")
+    'ทั้งหมด',
+    ...Array.from(
+      new Set(
+        pendingSubmissions
+          .map(item => item.portfolio?.portfolio_name ?? "")
+          .filter(name => name !== "")
+      )
     )
-  )
-];
+  ];
+
+  const handleStartReview = (id: number): void => {
+    router.push(`/teacher/scorecard/${id}`);
+  };
 
 
   const filteredItems = pendingSubmissions.filter(item => {
@@ -66,6 +75,8 @@ export default function CheckPortfolioPage() {
       minute: '2-digit'
     }).format(date);
   };
+
+
 
   return (
     <div style={{ padding: '50px' }}>
@@ -108,6 +119,7 @@ export default function CheckPortfolioPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {filteredItems.map((item) => (
                 <div
+                  onClick={() => handleStartReview(item.ID)}
                   key={item.ID}
                   className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden shadow-2xl"
                 >

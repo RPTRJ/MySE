@@ -17,4 +17,7 @@ func ActivityRoutes(r gin.IRoutes) {
 	r.GET("/type_activities", ac.ListTypeActivities)
 	r.GET("/level_activities", ac.ListLevelActivities)
 	r.GET("/rewards", ac.ListRewards) // Note: "rewards" plural as common convention
+
+	r.GET("/activities/user/:userId", ac.ListActivitiesByUser)
+
 }
