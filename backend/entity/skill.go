@@ -4,8 +4,11 @@ import "gorm.io/gorm"
 
 type Skill struct {
 	gorm.Model
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	SkillNameTH string `json:"skill_name_th"`
+	SkillNameEN string `json:"skill_name_en"`
+	Category    int    `json:"category"`
+	Description string `json:"description" gorm:"type:text"`
 
 	CurriculumSkills []CurriculumSkill `json:"curriculum_skills"`
+	AdviceSkills     []AdviceSkill     `json:"advice_skills"`
 }

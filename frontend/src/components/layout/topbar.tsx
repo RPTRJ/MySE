@@ -41,8 +41,8 @@ export default function Topbar({ userRole, userName }: TopbarProps) {
   };
 
   return (
-    <header className="flex h-20 items-center justify-between bg-orange-100/80 px-4 backdrop-blur-sm">
-      <div className="flex h-16 w-full items-center justify-between bg-white px-6 shadow-md rounded-3xl mt-2 border border-orange-200">
+    <header className="flex h-20 items-center justify-between px-4 backdrop-blur-sm">
+      <div className="flex h-16 w-full items-center justify-between bg-white px-6 shadow-md rounded-3xl mt-2 ">
         <div className="text-lg font-semibold text-orange-700">Application</div>
 
         <div className="flex items-center gap-3">
@@ -55,7 +55,7 @@ export default function Topbar({ userRole, userName }: TopbarProps) {
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              className="flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-orange-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-white"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-200">
                 <User className="h-5 w-5" />

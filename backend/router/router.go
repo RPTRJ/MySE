@@ -62,6 +62,7 @@ func SetupRoutes() *gin.Engine {
 	profileController := controller.NewProfileController(db)
 	referenceController := controller.NewReferenceController(db)
 	educationAdminController := controller.NewEducationAdminController(db)
+	adviceController := controller.NewAdviceController()
 
 	// --- Public Routes ---
 	authController.RegisterRoutes(r)
@@ -102,6 +103,7 @@ func SetupRoutes() *gin.Engine {
 	teacher := protectedOnboarded.Group("/teacher")
 	{
 		teacher.GET("/users/:id/profile", profileController.GetUserProfile)
+		adviceController.RegisterRoutes(teacher)
 	}
 
 	userController.RegisterRoutes(protectedOnboarded)
@@ -141,6 +143,7 @@ func SetupRoutes() *gin.Engine {
 
 	WorkingRoutes(protected)
 	ActivityRoutes(protected)
+	FontRoutes(r)
 
 	//ของScorecard
 	RegisterCriteriaScoreRoutes(r, db)

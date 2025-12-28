@@ -40,8 +40,23 @@ func (u *UploadController) UploadFile(c *gin.Context) {
 		return
 	}
 
-	// Return relative URL (assuming static file serving is set up at /uploads)
-	// Using generic localhost for now, ideally configured from env
-	fileURL := fmt.Sprintf("http://localhost:8080/uploads/%s", fileName)
+	// Get the request origin or use environment variable
+	host := os.Getenv("API_URL")
+	if host == "" {
+		// Use the request's host
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		host = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	}
+
+	// Remove trailing slash from host if exists
+	if len(host) > 0 && host[len(host)-1] == '/' {
+		host = host[:len(host)-1]
+	}
+
+	// Return full URL
+	fileURL := fmt.Sprintf("%s/uploads/%s", host, fileName)
 	c.JSON(http.StatusOK, gin.H{"url": fileURL})
 }

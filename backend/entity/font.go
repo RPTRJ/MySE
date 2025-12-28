@@ -6,7 +6,7 @@ import (
 
 type Font struct {
 	gorm.Model
-	FontFamily   string `json:"font_family"`
+	FontFamily   string `json:"font_family"` //ค่า css
 	FontName     string `json:"font_name"`
 	FontCategory string `json:"font_category"`
 	FontVariant  string `json:"font_variant"`

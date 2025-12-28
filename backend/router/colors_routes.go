@@ -6,9 +6,5 @@ import (
 )
 
 func ColorsRoutes(r *gin.Engine) {
-	// colorsGroup := r.Group("/colors")
-	// {
-	// 	colorsGroup.GET("/", controller.GetAllColors)
-	// }
 	r.GET("/colors", controller.GetAllColors)
 }

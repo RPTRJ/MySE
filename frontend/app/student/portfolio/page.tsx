@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import SubmissionService from '@/services/submission';
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// Color Theme
-const theme = {
+// Helper functions for color manipulation
+function lightenColor(hex: string, percent: number): string {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const r = Math.min(255, Math.floor((num >> 16) + (255 - (num >> 16)) * (percent / 100)));
+    const g = Math.min(255, Math.floor(((num >> 8) & 0x00FF) + (255 - ((num >> 8) & 0x00FF)) * (percent / 100)));
+    const b = Math.min(255, Math.floor((num & 0x0000FF) + (255 - (num & 0x0000FF)) * (percent / 100)));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+function darkenColor(hex: string, percent: number): string {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const r = Math.max(0, Math.floor((num >> 16) * (1 - percent / 100)));
+    const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - percent / 100)));
+    const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - percent / 100)));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+// Default Color Theme (fallback)
+const defaultTheme = {
     primary: '#FF6B35',
     primaryLight: '#FFE5DC',
     primaryDark: '#E85A2A',
@@ -60,7 +77,34 @@ export default function MyPortfoliosPage() {
     const [selectedPortfolio, setSelectedPortfolio] = useState<any>(null);
     const [itemImageIndices, setItemImageIndices] = useState<{ [key: number]: number }>({});
     const [lightboxState, setLightboxState] = useState<{ isOpen: boolean; images: any[]; photoIndex: number }>({ isOpen: false, images: [], photoIndex: 0 });
+    const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+    const [availableColors, setAvailableColors] = useState<any[]>([]);
+    const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
+    const [portfolioToChangeColor, setPortfolioToChangeColor] = useState<any>(null);
     const router = useRouter();
+
+    // Get theme for a specific portfolio or use default
+    const getPortfolioTheme = (portfolio: any) => {
+        if (portfolio?.colors) {
+            const colors = portfolio.colors;
+            return {
+                primary: colors.primary_color || defaultTheme.primary,
+                primaryLight: lightenColor(colors.primary_color || defaultTheme.primary, 40),
+                primaryDark: darkenColor(colors.primary_color || defaultTheme.primary, 10),
+                secondary: colors.secondary_color || defaultTheme.secondary,
+                accent: colors.primary_color || defaultTheme.accent,
+            };
+        }
+        return defaultTheme;
+    };
+
+    // Default theme for header (use first portfolio's color or default)
+    const theme = useMemo(() => {
+        if (portfolios.length > 0) {
+            return getPortfolioTheme(portfolios[0]);
+        }
+        return defaultTheme;
+    }, [portfolios]);
 
     const loadPortfolios = async () => {
         try {
@@ -121,6 +165,39 @@ export default function MyPortfoliosPage() {
         return totalBlocks;
     };
 
+    const loadColors = async () => {
+        try {
+            const response = await fetch(`${API}/colors`);
+            const result = await response.json();
+            setAvailableColors(result.data || []);
+        } catch (err) {
+            console.error("Error loading colors:", err);
+        }
+    };
+
+    const handleSaveTheme = async () => {
+        if (!selectedColorId || !portfolioToChangeColor) {
+            alert("กรุณาเลือกสีธีม");
+            return;
+        }
+
+        try {
+            // Update only the selected portfolio
+            await updatePortfolio(portfolioToChangeColor.ID, { colors_id: selectedColorId });
+            
+            alert("บันทึกสีธีมสำเร็จ!");
+            setIsThemeModalOpen(false);
+            setPortfolioToChangeColor(null);
+            setSelectedColorId(null);
+            
+            // Reload portfolios to get updated colors
+            await loadPortfolios();
+        } catch (err) {
+            console.error(err);
+            alert("เกิดข้อผิดพลาดในการบันทึก");
+        }
+    };
+
     const parseBlockContent = (content: any): any => {
         if (!content) return null;
         if (typeof content === 'string') {
@@ -150,11 +227,12 @@ export default function MyPortfoliosPage() {
 
     useEffect(() => {
         loadPortfolios();
+        loadColors();
     }, []);
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+            <div className="flex items-center justify-center min-h-screen bg-white">
                 <div className="text-center">
                     <div className="text-5xl mb-4">📚</div>
                     <div className="text-lg text-gray-600">กำลังโหลดแฟ้มสะสมผลงาน...</div>
@@ -164,23 +242,13 @@ export default function MyPortfoliosPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <div className="sticky top-0 bg-white shadow-md z-40">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center gap-6">
-                            <h1 className="text-xl font-bold text-gray-900">แฟ้มสะสมผลงานของฉัน</h1>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <div className="min-h-screen bg-white">
+           
             {/* Main Content */}
             <div className="max-w-7xl mx-auto p-6">
                 <div className="flex items-center justify-between mb-8 mt-4">
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900">แฟ้มทั้งหมด</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">แฟ้มสะสมผลงานทั้งหมด</h2>
                         <p className="text-gray-600 mt-2">
                             จัดการและแสดงผลแฟ้มสะสมผลงานของคุณ
                         </p>
@@ -189,14 +257,14 @@ export default function MyPortfoliosPage() {
                         onClick={() => setIsCreateModalOpen(true)}
                         className="rounded-lg px-6 py-3 text-sm font-medium text-white transition shadow-md hover:shadow-lg"
                         style={{ backgroundColor: theme.primary }}
-                    >
-                        <span className="flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            สร้างแฟ้มใหม่
-                        </span>
-                    </button>
+                        >
+                            <span className="flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                สร้างแฟ้มใหม่
+                            </span>
+                        </button>
                 </div>
 
                 {/* Portfolios Grid */}
@@ -206,12 +274,13 @@ export default function MyPortfoliosPage() {
                             const sectionsCount = getSectionsCount(portfolio);
                             const blocksCount = getBlocksCount(portfolio);
                             const status = portfolio.status || 'draft';
+                            const portfolioTheme = getPortfolioTheme(portfolio);
 
                             return (
                                 <div
                                     key={portfolio.ID}
                                     className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border-2 hover:border-opacity-100"
-                                    style={{ borderColor: theme.primaryLight }}
+                                    style={{ borderColor: portfolioTheme.primaryLight }}
                                 >
                                     {/* Header Image/Preview */}
                                     {/* Header Image/Preview */}
@@ -245,17 +314,34 @@ export default function MyPortfoliosPage() {
                                             ) : (
                                                 <div
                                                     className="absolute inset-0 flex items-center justify-center p-4 content-placeholder"
-                                                    style={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)` }}
+                                                    style={{ background: `linear-gradient(135deg, ${portfolioTheme.primary} 0%, ${portfolioTheme.secondary} 100%)` }}
                                                 >
                                                     <div className="text-white text-center">
                                                         <div className="text-6xl font-bold opacity-30 mb-2">📚</div>
-                                                        <div className="text-sm font-bold bg-white rounded-full px-3 py-1 inline-block shadow-sm" style={{ color: theme.primary }}>
+                                                        <div className="text-sm font-bold bg-white rounded-full px-3 py-1 inline-block shadow-sm" style={{ color: portfolioTheme.primary }}>
                                                             {sectionsCount} Sections • {blocksCount} Items
                                                         </div>
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Color Change Button */}
+                                        <button
+                                            className="absolute top-2 left-2 p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-all duration-200 z-10 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPortfolioToChangeColor(portfolio);
+                                                setSelectedColorId(portfolio.colors_id || null);
+                                                setIsThemeModalOpen(true);
+                                            }}
+                                            title="เปลี่ยนสีธีม"
+                                            style={{ color: portfolioTheme.primary }}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                            </svg>
+                                        </button>
 
                                         {/* Upload Button at Corner */}
                                         <button
@@ -340,7 +426,7 @@ export default function MyPortfoliosPage() {
                                             <button
                                                 onClick={() => router.push(`/student/portfolio/section?portfolio_id=${portfolio.ID}`)}
                                                 className="flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-                                                style={{ backgroundColor: theme.primary }}
+                                                style={{ backgroundColor: portfolioTheme.primary }}
                                             >
                                                 📝 จัดการเนื้อหา
                                             </button>
@@ -350,7 +436,7 @@ export default function MyPortfoliosPage() {
                                                     setSelectedPortfolio(portfolio);
                                                 }}
                                                 className="px-4 py-2 border-2 rounded-lg text-sm font-medium transition"
-                                                style={{ borderColor: theme.primary, color: theme.primary }}
+                                                style={{ borderColor: portfolioTheme.primary, color: portfolioTheme.primary }}
                                             >
                                                 👁️ ดูรายละเอียด
                                             </button>
@@ -369,7 +455,7 @@ export default function MyPortfoliosPage() {
                                                     }
                                                 }}
                                                 className="px-2 py-2 border-2 rounded-lg text-sm font-medium transition"
-                                                style={{ borderColor: theme.primary, color: theme.primary }}
+                                                style={{ borderColor: portfolioTheme.primary, color: portfolioTheme.primary }}
                                             >
                                                 ส่งตรวจทาน
                                             </button>
@@ -377,7 +463,7 @@ export default function MyPortfoliosPage() {
                                     </div>
 
                                     {/* Footer Info */}
-                                    <div className="px-5 py-3 border-t text-xs text-gray-500" style={{ backgroundColor: theme.primaryLight }}>
+                                    <div className="px-5 py-3 border-t text-xs text-gray-500" style={{ backgroundColor: portfolioTheme.primaryLight }}>
                                         <div className="flex items-center justify-between">
                                             <span>ID: {portfolio.ID}</span>
                                             <span>อัปเดต: {new Date(portfolio.updated_at || portfolio.UpdatedAt).toLocaleDateString('th-TH')}</span>
@@ -405,6 +491,99 @@ export default function MyPortfoliosPage() {
                     </div>
                 )}
             </div>
+
+            {/* Theme Color Modal */}
+            {isThemeModalOpen && portfolioToChangeColor && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">เลือกสีธีม</h2>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Portfolio: {portfolioToChangeColor.portfolio_name || portfolioToChangeColor.PortfolioName}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setIsThemeModalOpen(false);
+                                    setPortfolioToChangeColor(null);
+                                    setSelectedColorId(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                            {availableColors.map((color) => (
+                                <div
+                                    key={color.ID}
+                                    onClick={() => setSelectedColorId(color.ID)}
+                                    className={`border-2 rounded-xl p-4 cursor-pointer transition hover:shadow-lg ${
+                                        selectedColorId === color.ID ? 'ring-4 ring-offset-2' : ''
+                                    }`}
+                                    style={{
+                                        borderColor: selectedColorId === color.ID ? color.primary_color : '#e5e7eb',
+                                        ...(selectedColorId === color.ID && {
+                                            ['--tw-ring-color' as any]: color.primary_color
+                                        })
+                                    }}
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div
+                                            className="w-12 h-12 rounded-lg shadow-sm"
+                                            style={{ backgroundColor: color.primary_color }}
+                                        />
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-gray-900">{color.colors_name}</h3>
+                                            <p className="text-xs text-gray-500">{color.primary_color}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="text-center">
+                                            <div
+                                                className="w-full h-8 rounded mb-1"
+                                                style={{ backgroundColor: color.secondary_color }}
+                                            />
+                                            <p className="text-[10px] text-gray-500">Secondary</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <div
+                                                className="w-full h-8 rounded mb-1"
+                                                style={{ backgroundColor: color.background_color }}
+                                            />
+                                            <p className="text-[10px] text-gray-500">Background</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setIsThemeModalOpen(false);
+                                    setPortfolioToChangeColor(null);
+                                    setSelectedColorId(null);
+                                }}
+                                className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button
+                                onClick={handleSaveTheme}
+                                disabled={!selectedColorId}
+                                className="px-6 py-2.5 rounded-lg text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ backgroundColor: theme.primary }}
+                            >
+                                บันทึกสีธีม
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Create Modal */}
             {isCreateModalOpen && (

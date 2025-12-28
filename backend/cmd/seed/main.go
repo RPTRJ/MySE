@@ -15,6 +15,7 @@ func main() {
 	seed.SeedProfileReference()
 	seed.SeedUsers()
 	seed.CurriculumSeed()
+	seed.SeedAdvice()
 	seed.SeedTemplateBlocks()
 	seed.SeedTemplatesSections()
 	seed.SeedTemplates()
@@ -23,6 +24,7 @@ func main() {
 	seed.SeedColors()
 	seed.SeedCategoryTemplates()
 	seed.SeedPortfolioSubmissions()
+	seed.FontSeed()
 	log.Println("Seed completed successfully")
 }
 

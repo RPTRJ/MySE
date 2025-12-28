@@ -503,7 +503,7 @@ export default function SectionsPage() {
                 <Link href="/admin/template" className="text-gray-600 hover:text-gray-900 transition pb-1">
                   Templates
                 </Link>
-                <Link href="/admin/template/section" className="text-orange-600 font-medium hover:text-orange-500 transition border-b-2 border-orange-500 pb-1">
+                <Link href="/admin/template/section" className="text-orange-500 font-medium hover:text-orange-600 transition border-b-2 border-orange-500 pb-1">
                   Sections
                 </Link>
               </div>
@@ -558,7 +558,7 @@ export default function SectionsPage() {
                     )}
                   </div>
                 </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
                   <button className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-4 py-2 rounded-lg font-medium transition-all transform scale-90 group-hover:scale-100">
                     ดูรายละเอียด
                   </button>

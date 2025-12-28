@@ -10,27 +10,36 @@ import { useState } from "react";
 
 interface SidebarProps {
   userRole: string;
+  isOpen: boolean;
+  setIsOpen: (value: boolean) => void;
 }
 
-export default function Sidebar({ userRole }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(true);
+export default function Sidebar({ userRole, isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
   const currentRole = userRole as UserRole;
 
   return (
     <aside 
     // className="flex h-screen w-64 flex-col  bg-white text-gray-900 shadow-md rounded-r-3xl"
-    className={`flex h-screen flex-col bg-white text-gray-900 shadow-md  transition-all duration-200 ${
+    className={`flex h-screen flex-col bg-white text-gray-900 shadow-md  transition-all duration-200 ease-in-out ${
       isOpen ? "w-64" : "w-16"
-    }  rounded-r-3xl`}
+    }  rounded-r-3xl overflow-hidden`}
     >
 
     {/* Header */}
-      <div className="flex h-16 items-center justify-startx px-5 border-orange-100 border-b bg-orange-50">
-        {isOpen && <h1 className="text-xl font-bold text-orange-500 ">MyPortfolio</h1>}
+      <div className={`flex h-16 items-center px-5 transition-all duration-200 ${
+        isOpen ? "justify-between px-5" : "justify-center px-4"
+      }`}>
+        <h1
+          className={`text-xl font-bold text-orange-500 transition-all duration-200 ${
+            isOpen ? "opacity-100 w-auto translate-x-0" : "opacity-0 w-0 -translate-x-5 overflow-hidden"
+          }white-space-nowrap`}> 
+            MyPortfolio
+        </h1>
+        {/* {isOpen && <h1 className="text-xl font-bold text-orange-500 ">MyPortfolio</h1>} */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="ml-auto rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-200"
+          className="rounded-md hover:bg-white focus:outline-none focus:ring-2 focus:ring-white transition-colors p-1 z-10"
         >
           <Menu className="h-6 w-6 text-gray-400" />
         </button>
@@ -54,18 +63,23 @@ export default function Sidebar({ userRole }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center rounded-md px-3 py-3 text-lg font-medium transition-colors ${
+              className={`group flex items-center rounded-md px-3 py-3 text-lg font-medium transition-colors whitespace-nowrap ${
                 isActive
                   ? "bg-orange-500 text-white"
                   : "text-gray-500 hover:bg-orange-100 hover:text-orange-600"
               }`}
             >
               <item.icon
-                className={`mr-3 h-5 w-5 flex-shrink-0 ${
+                className={`mr-3 h-5 w-5 flex-shrink-0 transition-all duration-200 ${
                   isActive ? "text-white" : "text-gray-400 group-hover:text-orange-600"
                 }`}
               />
-              {isOpen && <span className="ml-3">{item.name}</span>}
+              <span className={`ml-3 transition-all duration-200 ${
+                isOpen 
+                  ? "opacity-100 w-auto" 
+                  : "opacity-0 w-0 overflow-hidden"}`}>
+                    {item.name}
+              </span>
             </Link>
           );
         })}

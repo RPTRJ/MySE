@@ -9,6 +9,7 @@ import {
   Calendar,
   Search,
   GraduationCap,
+  BookOpenCheck,
   // ไม่ต้องใช้ LogOut ที่นี่ เพราะ LogOut มักจะเป็นปุ่มแยกต่างหาก
 } from "lucide-react";
 import React from 'react';
@@ -101,6 +102,12 @@ export const menuItems: MenuItem[] = [
     href: "/teacher/checkportfolio",
     icon: FileText,
     roles: ["teacher"], 
+  },
+  {
+    name: "คำแนะนำรายวิชา",
+    href: "/teacher/advice",
+    icon: BookOpenCheck,
+    roles: ["teacher"],
   },
   
   // ------------------------- Template -------------------------

@@ -1,27 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { fetchSections } from "@/services/sections";
-import { createTemplate } from "@/services/templates";
+import { fetchTemplateById, updateTemplate } from "@/services/templates";
 import { fetchCategoryTemplates } from "@/services/categoryTemplates";
 import { uploadImage } from "@/services/upload";
+import html2canvas from "html2canvas";
 
-export default function CreateTemplatePage() {
+export default function EditTemplatePage() {
   const router = useRouter();
+  const params = useParams();
+  const templateId = parseInt(params.id as string);
+  const previewRef = useRef<HTMLDivElement>(null);
+  
   const [formData, setFormData] = useState({
     template_name: "",
-    category_template_id: 0, // ยังไม่เลือก
+    category_template_id: 0,
     description: "",
     thumbnail: "",
   });
   const [loading, setLoading] = useState(false);
+  const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [sections, setSections] = useState<any[]>([]);
   const [selectedSections, setSelectedSections] = useState<{id: number, order: number}[]>([]);
   const [loadingSections, setLoadingSections] = useState(true);
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [generatingThumbnail, setGeneratingThumbnail] = useState(false);
   
   // Validation errors
   const [errors, setErrors] = useState<{[key: string]: string}>({
@@ -30,7 +37,7 @@ export default function CreateTemplatePage() {
     sections: ''
   });
   
-  // Modal state (for success/error from API only)
+  // Modal state
   const [modal, setModal] = useState<{show: boolean; title: string; message: string; type: 'success' | 'error' | 'warning'}>({
     show: false,
     title: '',
@@ -49,31 +56,135 @@ export default function CreateTemplatePage() {
     setModal({ show: false, title: '', message: '', type: 'success' });
   };
 
+  // Generate thumbnail from preview
+  const generateThumbnail = async () => {
+    if (!previewRef.current || selectedSections.length === 0) {
+      showModal("ไม่สามารถสร้างภาพ", "กรุณาเลือก Sections อย่างน้อย 1 รายการ", 'warning', false);
+      return;
+    }
+
+    setGeneratingThumbnail(true);
+    try {
+      // Wait a bit for rendering
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const canvas = await html2canvas(previewRef.current, {
+        backgroundColor: '#f0f0f0',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: false,
+        ignoreElements: (element) => {
+          return element.tagName === 'SCRIPT' || element.tagName === 'NOSCRIPT';
+        },
+        onclone: (clonedDoc, clonedElement) => {
+          // Get all elements from original and cloned
+          const originalElements = previewRef.current?.querySelectorAll('*');
+          const clonedElements = clonedElement.querySelectorAll('*');
+          
+          // Copy computed styles to inline styles
+          originalElements?.forEach((original, index) => {
+            const cloned = clonedElements[index] as HTMLElement;
+            if (cloned && original instanceof HTMLElement) {
+              const computed = window.getComputedStyle(original);
+              
+              // Copy essential styles
+              cloned.style.backgroundColor = computed.backgroundColor;
+              cloned.style.color = computed.color;
+              cloned.style.border = computed.border;
+              cloned.style.borderRadius = computed.borderRadius;
+              cloned.style.padding = computed.padding;
+              cloned.style.margin = computed.margin;
+              cloned.style.width = computed.width;
+              cloned.style.height = computed.height;
+              cloned.style.display = computed.display;
+              cloned.style.fontSize = computed.fontSize;
+              cloned.style.fontWeight = computed.fontWeight;
+            }
+          });
+        },
+      });
+
+      // Convert canvas to blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          showModal("ผิดพลาด", "ไม่สามารถสร้างภาพได้", 'error', false);
+          setGeneratingThumbnail(false);
+          return;
+        }
+
+        // Convert blob to File object
+        const file = new File([blob], 'thumbnail.png', { type: 'image/png' });
+
+        try {
+          const imageUrl = await uploadImage(file);
+          setFormData(prev => ({ ...prev, thumbnail: imageUrl }));
+          showModal("สำเร็จ!", "สร้างภาพหน้าปกแล้ว", 'success');
+        } catch (error) {
+          console.error("Error uploading thumbnail:", error);
+          showModal("ผิดพลาด", "ไม่สามารถอัปโหลดภาพได้", 'error', false);
+        } finally {
+          setGeneratingThumbnail(false);
+        }
+      }, 'image/png');
+    } catch (error) {
+      console.error("Error generating thumbnail:", error);
+      showModal("ผิดพลาด", "เกิดข้อผิดพลาดในการสร้างภาพ", 'error', false);
+      setGeneratingThumbnail(false);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        // โหลด sections และ categories พร้อมกัน
-        const [sectionsData, categoriesData] = await Promise.all([
+        // โหลดข้อมูลทั้งหมด
+        const [templateData, sectionsData, categoriesData] = await Promise.all([
+          fetchTemplateById(templateId),
           fetchSections(),
           fetchCategoryTemplates()
         ]);
+        
+        // Set template data
+        setFormData({
+          template_name: templateData.template_name || "",
+          category_template_id: templateData.category_template_id || 0,
+          description: templateData.description || "",
+          thumbnail: templateData.thumbnail || "",
+        });
+        
+        // Set selected sections from template_section_links
+        if (templateData.template_section_links && templateData.template_section_links.length > 0) {
+          const sortedLinks = templateData.template_section_links.sort((a: any, b: any) => a.order_index - b.order_index);
+          const selectedSecs = sortedLinks.map((link: any, index: number) => ({
+            id: link.templates_section_id,
+            order: index
+          }));
+          setSelectedSections(selectedSecs);
+        }
+        
         setSections(sectionsData);
         setCategories(categoriesData);
       } catch (error) {
         console.error("Error loading data:", error);
+        showModal("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลเทมเพลตได้", 'error', false);
       } finally {
+        setLoadingTemplate(false);
         setLoadingSections(false);
         setLoadingCategories(false);
       }
     };
-    loadData();
-  }, []);
+    
+    if (templateId) {
+      loadData();
+    }
+  }, [templateId]);
 
   const toggleSection = (sectionId: number) => {
     setSelectedSections(prev => {
       const exists = prev.find(s => s.id === sectionId);
       if (exists) {
-        return prev.filter(s => s.id !== sectionId);
+        return prev.filter(s => s.id !== sectionId).map((item, idx) => ({ ...item, order: idx }));
       } else {
         return [...prev, { id: sectionId, order: prev.length }];
       }
@@ -118,7 +229,7 @@ export default function CreateTemplatePage() {
 
     // Validate category
     if (!formData.category_template_id || formData.category_template_id === 0) {
-      newErrors.category_template_id = 'กรุณาเลือกหมวดหมู่';
+      newErrors.category_template_id = 'กรูณาเลือกหมวดหมู่';
       hasError = true;
     }
 
@@ -145,21 +256,32 @@ export default function CreateTemplatePage() {
         section_ids: selectedSections.map(s => s.id),
       };
       
-      console.log("Creating template:", templateData);
+      console.log("Updating template:", templateData);
       
-      // เรียก API สร้าง template
-      const result = await createTemplate(templateData);
-      console.log("Template created:", result);
+      // เรียก API อัพเดท template
+      const result = await updateTemplate(templateId, templateData);
+      console.log("Template updated:", result);
       
-      showModal("สำเร็จ!", "สร้างเทมเพลตเรียบร้อยแล้ว", 'success');
+      showModal("สำเร็จ!", "อัพเดทเทมเพลตเรียบร้อยแล้ว", 'success');
       setTimeout(() => router.push("/admin/template"), 2000);
     } catch (error) {
-      console.error("Error creating template:", error);
-      showModal("เกิดข้อผิดพลาด", "ไม่สามารถสร้างเทมเพลตได้ กรุณาลองใหม่อีกครั้ง", 'error', false);
+      console.error("Error updating template:", error);
+      showModal("เกิดข้อผิดพลาด", "ไม่สามารถอัพเดทเทมเพลตได้ กรุณาลองใหม่อีกครั้ง", 'error', false);
     } finally {
       setLoading(false);
     }
   };
+
+  if (loadingTemplate) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-orange-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-lg text-gray-600">กำลังโหลดข้อมูล...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-orange-50 relative">
@@ -245,7 +367,7 @@ export default function CreateTemplatePage() {
             <div className="flex items-center gap-6">
               <Link 
                 href="/admin/template" 
-                className="relative text-orange-600 hover:text-orange-400 transition pb-1"
+                className="relative text-orange-600 hover:text-orange-700 transition pb-1"
               >
                 Templates
                 <span className="absolute bottom-0 left-0 w-full h-0.5 bg-orange-400"></span>
@@ -254,7 +376,6 @@ export default function CreateTemplatePage() {
                 Sections
               </Link>
             </div>
-
           </div>
         </div>
       </div>
@@ -262,14 +383,14 @@ export default function CreateTemplatePage() {
       {/* Main Content */}
       <div className="p-6 max-w-5xl mx-auto">
         {/* Header Card with Gradient */}
-        <div className="mt-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg p-8 mb-6 text-white">
+        <div className="mt-4 bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl shadow-lg p-8 mb-6 text-white">
           <div className="flex items-center gap-3 mb-2">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <h1 className="text-3xl font-bold">สร้างเทมเพลตใหม่</h1>
+            <h1 className="text-3xl font-bold">แก้ไขเทมเพลต</h1>
           </div>
-          <p className="text-blue-100 text-lg">กรอกข้อมูลเพื่อสร้างเทมเพลตพอร์ตโฟลิโอแบบมืออาชีพ</p>
+          <p className="text-orange-100 text-lg">แก้ไขข้อมูลเทมเพลตพอร์ตโฟลิโอ</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -415,64 +536,85 @@ export default function CreateTemplatePage() {
               </div>
             </div>
 
-            {/* Thumbnail Upload - Commented out temporarily */}
+            {/* Thumbnail Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                รูปภาพตัวอย่าง (ไม่บังคับ)
+                รูปภาพหน้าปก <span className="text-gray-400 text-xs">(ไม่บังคับ)</span>
               </label>
-              
-              <input
-                type="file"
-                id="thumbnail_file"
-                accept=".jpg,.jpeg,.png,.gif,.webp,.bmp"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
 
-                  console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={generateThumbnail}
+                  disabled={selectedSections.length === 0 || generatingThumbnail}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generatingThumbnail ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      กำลังสร้าง...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      สร้างภาพอัตโนมัติ
+                    </>
+                  )}
+                </button>
 
-                  // ตรวจสอบ file extension (รองรับทุก browser รวม Edge)
-                  const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-                  const fileName = file.name.toLowerCase();
-                  const isValidFile = validExtensions.some(ext => fileName.endsWith(ext));
-                  
-                  if (!isValidFile) {
-                    alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP, BMP)');
-                    e.target.value = '';
-                    return;
-                  }
+                <label className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition cursor-pointer">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  อัปโหลดรูป
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.bmp"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
 
-                  // แสดง preview ทันที (ใช้ได้ทุก browser)
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
-                  };
-                  reader.onerror = () => {
-                    console.error('Failed to read file');
-                    alert('ไม่สามารถอ่านไฟล์ได้');
-                  };
-                  reader.readAsDataURL(file);
+                      const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+                      const fileName = file.name.toLowerCase();
+                      const isValidFile = validExtensions.some(ext => fileName.endsWith(ext));
+                      
+                      if (!isValidFile) {
+                        alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP, BMP)');
+                        e.target.value = '';
+                        return;
+                      }
 
-                  // Upload ไฟล์ไปยัง backend
-                  try {
-                    console.log('Uploading file to backend...');
-                    const url = await uploadImage(file);
-                    console.log('Upload success! URL:', url);
-                    setFormData(prev => ({ ...prev, thumbnail: url }));
-                    // alert('อัพโหลดรูปภาพสำเร็จ!');
-                  } catch (error) {
-                    console.error('Upload error:', error);
-                    const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาด';
-                    alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ: ' + errorMessage);
-                    e.target.value = '';
-                    setFormData(prev => ({ ...prev, thumbnail: '' }));
-                  }
-                }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
+                      };
+                      reader.onerror = () => {
+                        alert('ไม่สามารถอ่านไฟล์ได้');
+                      };
+                      reader.readAsDataURL(file);
+
+                      try {
+                        const url = await uploadImage(file);
+                        setFormData(prev => ({ ...prev, thumbnail: url }));
+                      } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาด';
+                        alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ: ' + errorMessage);
+                        e.target.value = '';
+                        setFormData(prev => ({ ...prev, thumbnail: '' }));
+                      }
+                    }}
+                  />
+                </label>
+              </div>
 
               <p className="text-xs text-gray-500 mt-2">
-                อัพโหลดไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP)
+                💡 คลิก "สร้างภาพอัตโนมัติ" เพื่อใช้ภาพจากเทมเพลต หรืออัปโหลดรูปเอง
               </p>
               
               {formData.thumbnail && (
@@ -507,9 +649,9 @@ export default function CreateTemplatePage() {
               ) : (
                 <div className="space-y-4">
                   {/* Available Sections */}
-                  <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto no-arrow">
+                  <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Sections ที่มีทั้งหมด</h4>
-                    <div className="space-y-2 ">
+                    <div className="space-y-2">
                       {sections.map((section) => {
                         const isSelected = selectedSections.some(s => s.id === section.ID);
                         return (
@@ -618,11 +760,90 @@ export default function CreateTemplatePage() {
             </div>
           </div>
 
+          {/* Hidden Preview for Screenshot */}
+          <div style={{ position: 'fixed', left: '-9999px', top: '0' }}>
+            <div
+              ref={previewRef}
+              style={{ 
+                width: '800px', 
+                backgroundColor: '#ffffff', 
+                padding: '32px',
+                fontFamily: 'Arial, sans-serif'
+              }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '30px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
+                  {formData.template_name || "Template"}
+                </h2>
+                {formData.description && (
+                  <p style={{ color: '#4b5563' }}>{formData.description}</p>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {selectedSections.map((selected, index) => {
+                  const section = sections.find(s => s.ID === selected.id);
+                  if (!section) return null;
+                  
+                  return (
+                    <div
+                      key={`preview-${index}`}
+                      style={{
+                        border: '2px solid #d1d5db',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        background: 'linear-gradient(to right, #eff6ff, #faf5ff)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{
+                          backgroundColor: '#2563eb',
+                          color: '#ffffff',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          padding: '4px 12px',
+                          borderRadius: '9999px'
+                        }}>
+                          {index + 1}
+                        </span>
+                        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
+                          {section.section_name}
+                        </h3>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {section.section_blocks && section.section_blocks.slice(0, 3).map((block: any, idx: number) => (
+                          <div
+                            key={idx}
+                            style={{
+                              flex: '1 1 0%',
+                              minWidth: '100px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '4px',
+                              padding: '12px',
+                              textAlign: 'center'
+                            }}
+                          >
+                            <div style={{ color: '#9ca3af', marginBottom: '4px' }}>
+                              {block.templates_block?.block_type === 'image' ? '🖼️' : '📝'}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#4b5563' }}>
+                              {block.templates_block?.block_name}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {/* Actions */}
           <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push("/admin/template")}
               className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
               disabled={loading}
             >
@@ -630,7 +851,7 @@ export default function CreateTemplatePage() {
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? (
@@ -639,27 +860,27 @@ export default function CreateTemplatePage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  กำลังสร้าง...
+                  กำลังบันทึก...
                 </span>
               ) : (
-                "สร้างเทมเพลต"
+                "บันทึกการแก้ไข"
               )}
             </button>
           </div>
         </form>
 
         {/* Info Card */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-6">
           <div className="flex gap-3">
-            <div className="text-blue-600 flex-shrink-0">
+            <div className="text-orange-600 flex-shrink-0">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-blue-900 mb-1">ข้อมูลเพิ่มเติม</h3>
-              <p className="text-sm text-blue-800">
-                หลังจากสร้างเทมเพลตแล้ว คุณสามารถเพิ่ม Sections และ Blocks เข้าไปในเทมเพลตได้ในภายหลัง
+              <h3 className="font-semibold text-orange-900 mb-1">ข้อมูลเพิ่มเติม</h3>
+              <p className="text-sm text-orange-800">
+                การแก้ไขเทมเพลตจะมีผลกับการแสดงผลพอร์ตโฟลิโอทั้งหมดที่ใช้เทมเพลตนี้
               </p>
             </div>
           </div>

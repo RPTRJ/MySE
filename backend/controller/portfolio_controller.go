@@ -244,6 +244,7 @@ func GetMyPortfolio(c *gin.Context) {
 	var portfolios []entity.Portfolio
 	if err := config.GetDB().
 		Preload("PortfolioSections.PortfolioBlocks").
+		Preload("Colors").
 		Where("user_id = ?", userID).
 		Order("updated_at desc").
 		Find(&portfolios).Error; err != nil {
