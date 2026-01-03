@@ -24,10 +24,10 @@ func SeedColors() {
 		},
 		{
 			ColorsName:      "Sunset Orange",
-			PrimaryColor:    "#FF4500",
-			SecondaryColor:  "#FF6347",
-			BackgroundColor: "#FFF5E1",
-			HexValue:        "#8B0000",
+			PrimaryColor:    "#FF6B35",
+			SecondaryColor:  "#E85A2A",
+			BackgroundColor: "#FFE5DC",
+			HexValue:        "#FF8C5A",
 		},
 		{
 			ColorsName:      "Forest Green",
@@ -49,6 +49,41 @@ func SeedColors() {
 			SecondaryColor:  "#FFFF00",
 			BackgroundColor: "#FFFFF0",
 			HexValue:        "#B8860B",
+		},
+		{
+			ColorsName:      "Candy Pink",
+			PrimaryColor:    "#FF69B4",
+			SecondaryColor:  "#FFB6C1",
+			BackgroundColor: "#FFF0F5",
+			HexValue:        "#FF1493",
+		},
+		{
+			ColorsName:      "Midnight Black",
+			PrimaryColor:    "#000000",
+			SecondaryColor:  "#2F4F4F",
+			BackgroundColor: "#1C1C1C",
+			HexValue:        "#000000",
+		},
+		{
+			ColorsName:      "Snow White",
+			PrimaryColor:    "#FFFFFF",
+			SecondaryColor:  "#F5F5F5",
+			BackgroundColor: "#FAFAFA",
+			HexValue:        "#DCDCDC",
+		},
+		{
+			ColorsName:      "Sky Blue",
+			PrimaryColor:    "#87CEEB",
+			SecondaryColor:  "#ADD8E6",
+			BackgroundColor: "#E0FFFF",
+			HexValue:        "#4682B4",
+		},
+		{
+			ColorsName:      "Lavender Purple",
+			PrimaryColor:    "#E6E6FA",
+			SecondaryColor:  "#D8BFD8",
+			BackgroundColor: "#F5F5FF",
+			HexValue:        "#B0C4DE",
 		},
 	}
 

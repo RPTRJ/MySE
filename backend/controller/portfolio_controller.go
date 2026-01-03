@@ -432,3 +432,36 @@ func UpdatePortfolio(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": portfolio})
 }
+
+// DeletePortfolio - ลบ Portfolio พร้อม Sections และ Blocks ของมัน
+func DeletePortfolio(c *gin.Context) {
+	id := c.Param("id")
+
+	db := config.GetDB()
+
+	// Check if portfolio exists
+	var portfolio entity.Portfolio
+	if err := db.First(&portfolio, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Portfolio not found"})
+		return
+	}
+
+	// Find sections
+	var sections []entity.PortfolioSection
+	if err := db.Where("portfolio_id = ?", portfolio.ID).Find(&sections).Error; err == nil {
+		for _, s := range sections {
+			// Delete blocks under section
+			db.Where("portfolio_section_id = ?", s.ID).Delete(&entity.PortfolioBlock{})
+		}
+		// Delete sections
+		db.Where("portfolio_id = ?", portfolio.ID).Delete(&entity.PortfolioSection{})
+	}
+
+	// Delete portfolio (this will remove the portfolio record)
+	if err := db.Delete(&entity.Portfolio{}, portfolio.ID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Portfolio deleted successfully"})
+}

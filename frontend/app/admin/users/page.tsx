@@ -192,9 +192,6 @@ export default function AdminUsersPage() {
     if (!formData.type_id) errors.type_id = "กรุณาเลือกประเภทผู้ใช้";
     if (!formData.id_type) errors.id_type = "กรุณาเลือกประเภทเอกสาร";
 
-    console.log("Validation errors:", errors);
-    console.log("Current formData:", formData);
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -221,7 +218,8 @@ export default function AdminUsersPage() {
         id_type: 1,
       });
     } else if (mode === "edit" && user) {
-      const formatDateForInput = (dateString: string): string => {
+      // แก้ไข: เปลี่ยน parameter type เป็น string | undefined เพื่อรองรับค่า undefined
+      const formatDateForInput = (dateString?: string): string => {
         if (!dateString) return "";
         try {
           const date = new Date(dateString);
@@ -250,6 +248,35 @@ export default function AdminUsersPage() {
       });
       const hasThaiName = !!(user.first_name_th || user.last_name_th);
       setNameLanguage(hasThaiName ? "thai" : "english");
+    } else if (mode === "view" && user) {
+      // สำหรับ view mode ใช้ formatDateForInput เหมือนกัน
+      const formatDateForInput = (dateString?: string): string => {
+        if (!dateString) return "";
+        try {
+          const date = new Date(dateString);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        } catch {
+          return "";
+        }
+      };
+
+      setFormData({
+        first_name_th: user.first_name_th || "",
+        last_name_th: user.last_name_th || "",
+        first_name_en: user.first_name_en || "",
+        last_name_en: user.last_name_en || "",
+        email: user.email || "",
+        password: "",
+        id_number: user.id_number || "",
+        phone: user.phone || "",
+        birthday: formatDateForInput(user.birthday),
+        pdpa_consent: user.pdpa_consent ?? true,
+        type_id: user.type_id || 1,
+        id_type: user.id_type || 1,
+      });
     }
     setShowModal(true);
   };
@@ -263,29 +290,19 @@ export default function AdminUsersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log("=== FORM SUBMIT DEBUG ===");
-    console.log("Current formData:", formData);
-    console.log("type_id:", formData.type_id, "type:", typeof formData.type_id);
-    console.log("id_type:", formData.id_type, "type:", typeof formData.id_type);
-    
+
     if (!validateForm()) {
-      console.log("Validation failed!");
       return;
     }
 
     setSubmitLoading(true);
     try {
       if (modalMode === "create") {
-        // สร้าง payload และตรวจสอบให้แน่ใจว่ามีค่าครบ
         const payload = {
           ...formData,
-          type_id: Number(formData.type_id), // แปลงเป็น number
-          id_type: Number(formData.id_type), // แปลงเป็น number
+          type_id: Number(formData.type_id),
+          id_type: Number(formData.id_type),
         };
-
-        console.log("Creating user with payload:", payload);
-        console.log("Payload JSON:", JSON.stringify(payload, null, 2));
 
         await createUser(payload as CreateUserPayload);
         toast.success("เพิ่มผู้ใช้สำเร็จ");
@@ -303,17 +320,12 @@ export default function AdminUsersPage() {
           delete updatePayload.password;
         }
 
-        console.log("Updating user with payload:", updatePayload);
-
         await updateUser(userId, updatePayload);
         toast.success("บันทึกการแก้ไขสำเร็จ");
       }
       closeModal();
       loadUsers();
     } catch (err) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("Submit error:", err);
-      }
       const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
       toast.error(message);
     } finally {
@@ -403,7 +415,7 @@ export default function AdminUsersPage() {
                 ) : (
                   filteredUsers.map((user) => {
                     const userId = user.id || user.ID;
-                    const badgeClass = 
+                    const badgeClass =
                       user.type_id === 3 ? "user-type-admin" :
                       user.type_id === 2 ? "user-type-teacher" : "user-type-student";
 
@@ -478,53 +490,54 @@ export default function AdminUsersPage() {
 
             <div className="modal-body">
               {modalMode === "view" && selectedUser ? (
-                <div className="view-grid">
-                  <div>
-                    <div className="view-field-label">ชื่อ (ไทย)</div>
-                    <div className="view-field-value">{selectedUser.first_name_th}</div>
+                <div className="view-details">
+                  <div className="detail-row">
+                    <span className="detail-label">ชื่อ (ไทย):</span>
+                    <span className="detail-value">{selectedUser.first_name_th} {selectedUser.last_name_th}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">นามสกุล (ไทย)</div>
-                    <div className="view-field-value">{selectedUser.last_name_th}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">ชื่อ (อังกฤษ):</span>
+                    <span className="detail-value">{selectedUser.first_name_en} {selectedUser.last_name_en}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">ชื่อ (อังกฤษ)</div>
-                    <div className="view-field-value">{selectedUser.first_name_en}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">อีเมล:</span>
+                    <span className="detail-value">{selectedUser.email}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">นามสกุล (อังกฤษ)</div>
-                    <div className="view-field-value">{selectedUser.last_name_en}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">เบอร์โทร:</span>
+                    <span className="detail-value">{selectedUser.phone}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">อีเมล</div>
-                    <div className="view-field-value">{selectedUser.email}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">วันเกิด:</span>
+                    <span className="detail-value">{selectedUser.birthday ? formatDate(selectedUser.birthday) : "-"}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">เบอร์โทรศัพท์</div>
-                    <div className="view-field-value">{selectedUser.phone}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">ประเภทเอกสาร:</span>
+                    <span className="detail-value">{getIDTypeName(selectedUser.id_type)}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">เลขที่เอกสาร</div>
-                    <div className="view-field-value">{selectedUser.id_number}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">เลขเอกสาร:</span>
+                    <span className="detail-value">{selectedUser.id_number}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">ประเภทเอกสาร</div>
-                    <div className="view-field-value">{getIDTypeName(selectedUser.id_type)}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">ประเภทผู้ใช้:</span>
+                    <span className="detail-value">{getUserTypeName(selectedUser.type_id)}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">วันเกิด</div>
-                    <div className="view-field-value">{formatDate(selectedUser.birthday)}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">PDPA:</span>
+                    <span className="detail-value">{selectedUser.pdpa_consent ? "ยินยอม" : "ไม่ยินยอม"}</span>
                   </div>
-                  <div>
-                    <div className="view-field-label">ประเภทผู้ใช้</div>
-                    <div className="view-field-value">{getUserTypeName(selectedUser.type_id)}</div>
+                  <div className="detail-row">
+                    <span className="detail-label">สร้างเมื่อ:</span>
+                    <span className="detail-value">{selectedUser.CreatedAt ? formatDate(selectedUser.CreatedAt) : "-"}</span>
                   </div>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit}>
+                  {/* ตัวเลือกภาษาชื่อ */}
                   <div className="form-group">
-                    <label className="form-label">เลือกภาษาในการกรอกชื่อ *</label>
-                    <div className="language-selector">
+                    <label className="form-label">เลือกภาษาชื่อ</label>
+                    <div className="language-toggle">
                       <button
                         type="button"
                         className={`btn-language ${nameLanguage === "thai" ? "active" : ""}`}
@@ -706,7 +719,6 @@ export default function AdminUsersPage() {
                           value={formData.id_type}
                           onChange={(e) => {
                             const value = parseInt(e.target.value);
-                            console.log("id_type changed to:", value);
                             setFormData({ ...formData, id_type: value });
                           }}
                           className={`form-select ${formErrors.id_type ? "error" : ""}`}
@@ -747,7 +759,6 @@ export default function AdminUsersPage() {
                       value={formData.type_id}
                       onChange={(e) => {
                         const value = parseInt(e.target.value);
-                        console.log("type_id changed to:", value);
                         setFormData({ ...formData, type_id: value });
                       }}
                       className={`form-select ${formErrors.type_id ? "error" : ""}`}
@@ -795,7 +806,7 @@ export default function AdminUsersPage() {
             </div>
             <div className="modal-body">
               <p className="confirm-text">
-                ต้องการลบผู้ใช้ "{deleteTarget.first_name_th} {deleteTarget.last_name_th}" จริงหรือไม่?
+                ต้องการลบผู้ใช้ &quot;{deleteTarget.first_name_th} {deleteTarget.last_name_th}&quot; จริงหรือไม่?
               </p>
               <div className="form-actions">
                 <button type="button" onClick={cancelDelete} className="btn-cancel">

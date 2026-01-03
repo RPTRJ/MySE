@@ -10,6 +10,7 @@ func PortfolioRoutes(r *gin.Engine) {
 	{
 		// Portfolio
 		group.POST("", controller.CreatePortfolio)
+		group.DELETE("/:id", controller.DeletePortfolio)
 		group.PATCH("/:id", controller.UpdatePortfolio) // ✅ NEW: Update Portfolio (Cover)
 		group.GET("/my", controller.GetMyPortfolio)
 		

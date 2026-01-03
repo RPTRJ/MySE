@@ -24,6 +24,10 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# ✅ เพิ่มบรรทัดนี้ - ตั้งค่า API URL ตอน build
+ARG NEXT_PUBLIC_API_URL=http://sutportfolio.online/api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
 # ==============================================================================

@@ -3,8 +3,20 @@
 import { useEffect, useState, Suspense, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import SubmissionService from '@/services/submission';
+import { fetchTemplates, fetchTemplateById } from '@/services/templates';
+import { API,
+        fetchMyPortfolios,
+        createPortfolio,
+        uploadImage,
+        updatePortfolio,
+        deletePortfolio,
+        createPortfolioFromTemplate,
+        
+ } from "@/services/portfolio";
+import { pre } from "framer-motion/client";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+// const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
 
 // Helper functions for color manipulation
 function lightenColor(hex: string, percent: number): string {
@@ -32,47 +44,12 @@ const defaultTheme = {
     accent: '#FF8C5A',
 };
 
-async function fetchMyPortfolios() {
-    const response = await fetch(`${API}/portfolio/my`);
-    if (!response.ok) throw new Error("Failed to fetch portfolios");
-    return response.json();
-}
-
-async function createPortfolio(data: { portfolio_name: string }) {
-    const response = await fetch(`${API}/portfolio`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create portfolio");
-    return response.json();
-}
-
-async function uploadImage(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-    const response = await fetch(`${API}/upload`, {
-        method: "POST",
-        body: formData,
-    });
-    if (!response.ok) throw new Error("Failed to upload image");
-    return response.json();
-}
-
-async function updatePortfolio(id: number, data: any) {
-    const response = await fetch(`${API}/portfolio/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update portfolio");
-    return response.json();
-}
 
 export default function MyPortfoliosPage() {
     const [portfolios, setPortfolios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [createStep, setCreateStep] = useState<'template'|'name'>('template');
     const [newPortfolioName, setNewPortfolioName] = useState("");
     const [selectedPortfolio, setSelectedPortfolio] = useState<any>(null);
     const [itemImageIndices, setItemImageIndices] = useState<{ [key: number]: number }>({});
@@ -81,6 +58,10 @@ export default function MyPortfoliosPage() {
     const [availableColors, setAvailableColors] = useState<any[]>([]);
     const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
     const [portfolioToChangeColor, setPortfolioToChangeColor] = useState<any>(null);
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [selectedTemplateForCreate, setSelectedTemplateForCreate] = useState<any | null>(null);
+    const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
+    const [loadingPreview, setLoadingPreview] = useState(false);
     const router = useRouter();
 
     // Get theme for a specific portfolio or use default
@@ -106,18 +87,46 @@ export default function MyPortfoliosPage() {
         return defaultTheme;
     }, [portfolios]);
 
+    // Theme for the currently selected portfolio in the detail modal
+    const selectedTheme = useMemo(() => {
+        return selectedPortfolio ? getPortfolioTheme(selectedPortfolio) : defaultTheme;
+    }, [selectedPortfolio]);
+
+    // Compute badge styles for statuses so they follow the current portfolio theme
+    const getStatusBadgeStyle = (status: string | undefined, themeObj: any) => {
+        const s = (status || '').toString().toUpperCase();
+        if (s === 'COMPLETED' || s === 'DONE' || s === 'FINISHED') {
+            return {
+                backgroundColor: lightenColor(themeObj.primary || defaultTheme.primary, 60),
+                color: darkenColor(themeObj.primary || defaultTheme.primary, 30),
+                borderColor: lightenColor(themeObj.primary || defaultTheme.primary, 40),
+            };
+        }
+        if (s === 'INPROGRESS' || s === 'WORKING' || s === 'PENDING') {
+            const base = themeObj.accent || themeObj.primary || defaultTheme.primary;
+            return {
+                backgroundColor: lightenColor(base, 55),
+                color: darkenColor(base, 30),
+                borderColor: lightenColor(base, 40),
+            };
+        }
+        // default neutral
+        return {
+            backgroundColor: '#f8fafc',
+            color: '#374151',
+            borderColor: '#e5e7eb',
+        };
+    };
+//ข้อมูลPortfolio
     const loadPortfolios = async () => {
         try {
             setLoading(true);
             const data = await fetchMyPortfolios();
 
-            const customPortfolios = (data.data || []).filter((p: any) => {
-                const hasTemplate = p.template_id || p.TemplateID;
-                return !hasTemplate;
-            });
-
-            console.log("📦 Custom Portfolios loaded:", customPortfolios.length);
-            setPortfolios(customPortfolios);
+            // Show all portfolios (including those created from templates)
+            const allPortfolios = data.data || [];
+            console.log("Portfolios loaded:", allPortfolios.length);
+            setPortfolios(allPortfolios);
             setLoading(false);
         } catch (err) {
             console.error("Error loading portfolios:", err);
@@ -132,12 +141,31 @@ export default function MyPortfoliosPage() {
         }
 
         try {
-            const result = await createPortfolio({ portfolio_name: newPortfolioName });
-            const newPortfolio = result.data;
+            let newPortfolio;
+
+            if (selectedTemplateForCreate?.ID) {
+                console.log('Creating portfolio from template ID:', selectedTemplateForCreate.ID);
+                newPortfolio = await createPortfolioFromTemplate(newPortfolioName, selectedTemplateForCreate.ID);
+            }else{
+                console.log('Creating custom portfolio without template');
+                const result = await createPortfolio({ portfolio_name: newPortfolioName });
+                newPortfolio = result.data;
+            }
+
+            console.log('New portfolio created:', newPortfolio);
+            // const payload: any = { portfolio_name: newPortfolioName };
+            // if (selectedTemplateForCreate?.ID) payload.template_id = selectedTemplateForCreate.ID;
+            // console.log('Creating portfolio with payload:', payload);
+
+            // const result = await createPortfolio(payload);
+            // console.log('Create portfolio response:', result);
+            // const newPortfolio = result.data;
 
             alert("สร้างแฟ้มสะสมผลงานสำเร็จ!");
             setIsCreateModalOpen(false);
             setNewPortfolioName("");
+            setSelectedTemplateForCreate(null);
+            setPreviewTemplate(null);
 
             if (newPortfolio?.ID) {
                 router.push(`/student/portfolio/section?portfolio_id=${newPortfolio.ID}`);
@@ -172,6 +200,33 @@ export default function MyPortfoliosPage() {
             setAvailableColors(result.data || []);
         } catch (err) {
             console.error("Error loading colors:", err);
+        }
+    };
+
+    const loadTemplates = async () => {
+        try {
+            const res = await fetchTemplates();
+            // backend returns an array of templates (not wrapped in {data: ...})
+            setTemplates(res || []);
+        } catch (err) {
+            console.error('Error loading templates', err);
+            setTemplates([]);
+        }
+    };
+
+    const handlePreviewTemplateClick = async (templateId: number) => {
+        try {
+            setLoadingPreview(true);
+            const res = await fetchTemplateById(templateId);
+            console.log('Fetched template for preview:', res);
+
+            // ตรวจสอบว่า API ส่งกลับมาเป็น { data: ... } หรือ object เลย
+            setPreviewTemplate(res.data || res); 
+            setLoadingPreview(false);
+        } catch (err) {
+            console.error("Error fetching template details:", err);
+            setLoadingPreview(false);
+            alert("ไม่สามารถโหลดตัวอย่างเทมเพลตได้");
         }
     };
 
@@ -230,6 +285,20 @@ export default function MyPortfoliosPage() {
         loadColors();
     }, []);
 
+    useEffect(() => {
+        if (isCreateModalOpen) {
+            setCreateStep('template');
+            setSelectedTemplateForCreate(null);
+            setPreviewTemplate(null);
+            loadTemplates();
+        } else {
+            setTemplates([]);
+            setSelectedTemplateForCreate(null);
+            setNewPortfolioName('');
+            setPreviewTemplate(null);
+        }
+    }, [isCreateModalOpen]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-white">
@@ -245,7 +314,8 @@ export default function MyPortfoliosPage() {
         <div className="min-h-screen bg-white">
            
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto p-6">
+            <div className="mx-auto" style={{ maxWidth: 1500 }}>
+            <div className="w-full mx-auto p-6">
                 <div className="flex items-center justify-between mb-8 mt-4">
                     <div>
                         <h2 className="text-3xl font-bold text-gray-900">แฟ้มสะสมผลงานทั้งหมด</h2>
@@ -254,7 +324,7 @@ export default function MyPortfoliosPage() {
                         </p>
                     </div>
                     <button
-                        onClick={() => setIsCreateModalOpen(true)}
+                        onClick={() => { setIsCreateModalOpen(true); setCreateStep('template'); setSelectedTemplateForCreate(null); }}
                         className="rounded-lg px-6 py-3 text-sm font-medium text-white transition shadow-md hover:shadow-lg"
                         style={{ backgroundColor: theme.primary }}
                         >
@@ -269,8 +339,9 @@ export default function MyPortfoliosPage() {
 
                 {/* Portfolios Grid */}
                 {portfolios.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {portfolios.map((portfolio) => {
+                    <div className="mx-auto" style={{ maxWidth: 1500 }}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {portfolios.map((portfolio) => {
                             const sectionsCount = getSectionsCount(portfolio);
                             const blocksCount = getBlocksCount(portfolio);
                             const status = portfolio.status || 'draft';
@@ -428,7 +499,7 @@ export default function MyPortfoliosPage() {
                                                 className="flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
                                                 style={{ backgroundColor: portfolioTheme.primary }}
                                             >
-                                                📝 จัดการเนื้อหา
+                                                จัดการเนื้อหา
                                             </button>
                                             <button
                                                 onClick={(e) => {
@@ -438,7 +509,7 @@ export default function MyPortfoliosPage() {
                                                 className="px-4 py-2 border-2 rounded-lg text-sm font-medium transition"
                                                 style={{ borderColor: portfolioTheme.primary, color: portfolioTheme.primary }}
                                             >
-                                                👁️ ดูรายละเอียด
+                                                ดูรายละเอียด
                                             </button>
                                             <button
                                                 onClick={async (e) => {
@@ -459,6 +530,25 @@ export default function MyPortfoliosPage() {
                                             >
                                                 ส่งตรวจทาน
                                             </button>
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (!confirm('คุณต้องการลบแฟ้มนี้ใช่หรือไม่?')) return;
+                                                    try {
+                                                        await deletePortfolio(portfolio.ID);
+                                                        setPortfolios(prev => prev.filter(p => p.ID !== portfolio.ID));
+                                                        if (selectedPortfolio && selectedPortfolio.ID === portfolio.ID) setSelectedPortfolio(null);
+                                                        alert('ลบแฟ้มเรียบร้อย');
+                                                    } catch (err) {
+                                                        console.error('Delete failed', err);
+                                                        alert('ไม่สามารถลบแฟ้มได้');
+                                                    }
+                                                }}
+                                                className="px-3 py-2 border-2 rounded-lg text-sm font-medium transition"
+                                                style={{ borderColor: portfolioTheme.primary, color: portfolioTheme.primary }}
+                                            >
+                                                ลบ
+                                            </button>
                                         </div>
                                     </div>
 
@@ -472,14 +562,16 @@ export default function MyPortfoliosPage() {
                                 </div>
                             );
                         })}
+                        </div>
                     </div>
                 ) : (
-                    <div className="text-center py-16">
+                    <div className="mx-auto" style={{ maxWidth: 1600 }}>
+                        <div className="text-center py-16">
                         <div className="text-gray-400 text-6xl mb-4">📚</div>
                         <p className="text-xl text-gray-600 mb-2">ยังไม่มีแฟ้มสะสมผลงาน</p>
                         <p className="text-gray-500 mb-6">เริ่มต้นสร้างแฟ้มของคุณเพื่อรวบรวมผลงานและกิจกรรม</p>
                         <button
-                            onClick={() => setIsCreateModalOpen(true)}
+                            onClick={() => { setIsCreateModalOpen(true); setCreateStep('template'); setSelectedTemplateForCreate(null); }}
                             className="text-white px-6 py-3 rounded-lg font-medium transition inline-flex items-center gap-2"
                             style={{ backgroundColor: theme.primary }}
                         >
@@ -488,13 +580,15 @@ export default function MyPortfoliosPage() {
                             </svg>
                             สร้างแฟ้มแรก
                         </button>
+                        </div>
                     </div>
                 )}
             </div>
+        </div>
 
             {/* Theme Color Modal */}
             {isThemeModalOpen && portfolioToChangeColor && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <div>
@@ -585,70 +679,277 @@ export default function MyPortfoliosPage() {
                 </div>
             )}
 
-            {/* Create Modal */}
+            {/* Create Modal (template selection -> naming) */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6">สร้างแฟ้มสะสมผลงานใหม่</h2>
+                <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className={`bg-white rounded-2xl shadow-2xl max-w-5xl w-full p-6 animate-in fade-in zoom-in duration-200 ${ previewTemplate ? 'max-w-6xl h-[90vh]' : 'max-w-5xl'}`}>
+                    {previewTemplate ? (
+                <div className="flex flex-col h-full">
+                    {/* Header ของหน้า Preview */}
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900">{previewTemplate.template_name || previewTemplate.TemplateName}
+                                <span className="text-xs font-normal text-gray-500 bg-gray-200 rounded-full ml-2 px-2 py-0.5">Preview Mode</span>
+                            </h2>
+                            <p className="text-sm text-gray-500">{previewTemplate.description || previewTemplate.Description}</p>
+                        </div>
+                        <button onClick={() => setPreviewTemplate(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                    </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    ชื่อแฟ้ม <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none transition"
-                                    style={{
-                                        borderColor: 'rgb(209, 213, 219)'
-                                    }}
-                                    onFocus={(e) => e.target.style.borderColor = theme.primary}
-                                    onBlur={(e) => e.target.style.borderColor = 'rgb(209, 213, 219)'}
-                                    placeholder="เช่น แฟ้มผลงานปี 2025"
-                                    value={newPortfolioName}
-                                    onChange={(e) => setNewPortfolioName(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            handleCreatePortfolio();
+                    {/* Content ของหน้า Preview (แสดง Sections) */}
+                    <div className="flex-1 overflow-y-auto pr-2 no-arrow">
+                        {(() => {
+                            // const sections = previewTemplate.template_sections || previewTemplate.TemplateSections || [];
+                            const sections = (previewTemplate.template_section_links || [])
+                                
+                            if (sections.length === 0) return <div className="text-center py-10 text-gray-400">เทมเพลตนี้ยังไม่มีข้อมูลตัวอย่าง</div>;
+                            
+                            return (
+                                <div className="space-y-6">
+                                    {sections.sort((a:any, b:any) => (a.order_index||0) - (b.order_index||0)).map((link: any, idx: number) => {
+                                        
+                                        const section = link.templates_section 
+                                        if (!section) return null;
+                                        
+                                        const layoutType = section.layout_type || "default";
+                                        const rawBlocks = section.section_blocks || section.SectionBlocks || [];
+                                        const blocks = rawBlocks.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
+
+                                        const renderBlockItem = (blockData: any) => {
+                                            const templateBlock = blockData.templates_block || blockData.TemplatesBlock;
+                                            if (!templateBlock) return null;
+
+                                            const type = templateBlock.block_type; // 'image' or 'text'
+                                            const content = templateBlock.default_content || {};
+                                            const style = templateBlock.default_style || {};
+                                            const isCircle = style.border_radius === "50%"; // เช็คว่าเป็นวงกลมไหมจาก JSON
+                                                            // ไอคอนจำลอง
+                                        if (type === 'image') {
+                                            return (
+                                                <div className={`bg-gray-200 flex items-center justify-center border-2 border-gray-300 overflow-hidden ${isCircle ? 'rounded-full aspect-square w-40 h-40 mx-auto' : 'rounded-lg w-full h-48'}`}>
+                                                    {content.url ? (
+                                                        <img src={content.url} alt="preview" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-4xl text-gray-400">🖼️</span>
+                                                    )}
+                                                </div>
+                                            );
                                         }
-                                    }}
-                                    autoFocus
-                                />
-                            </div>
 
-                            <div className="rounded-lg p-3" style={{ backgroundColor: theme.primaryLight, borderColor: theme.accent, borderWidth: '1px' }}>
-                                <p className="text-sm" style={{ color: theme.primaryDark }}>
-                                    💡 <strong>คำแนะนำ:</strong> หลังจากสร้างแฟ้ม คุณจะสามารถเพิ่ม Sections และเลือกผลงาน/กิจกรรมเข้าไปได้
-                                </p>
-                            </div>
-                        </div>
+                                        if (type === 'text') {
+                                            return (
+                                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm w-full">
+                                                    <div className="h-2 w-1/3 bg-gray-200 rounded mb-2"></div>
+                                                    <div className="h-2 w-2/3 bg-gray-200 rounded mb-4"></div>
+                                                    <p className="text-sm text-gray-600">
+                                                        {content.text === "Your text here" ? "Text Content" : content.text}
+                                                    </p>
+                                                </div>
+                                            );
+                                        }
 
-                        <div className="flex justify-end gap-3 mt-8">
-                            <button
-                                onClick={() => {
-                                    setIsCreateModalOpen(false);
-                                    setNewPortfolioName("");
-                                }}
-                                className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition"
-                            >
-                                ยกเลิก
-                            </button>
-                            <button
-                                onClick={handleCreatePortfolio}
-                                className="px-6 py-2.5 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition"
-                                style={{ backgroundColor: theme.primary }}
-                            >
-                                สร้างแฟ้ม
-                            </button>
-                        </div>
+                                        return null;
+                                    };
+
+                                    // แยกส่วนการแสดงผลตาม Layout Type
+                                    let layoutContent;
+                                    // กรณี 1: Profile Left (รูปซ้าย ข้อความขวา)
+                                    if (layoutType === 'profile_header_left') {
+                                        const imgBlock = blocks.find((b: any) => (b.templates_block?.block_type === 'image'));
+                                        const textBlocks = blocks.filter((b: any) => (b.templates_block?.block_type !== 'image'));
+
+                                        layoutContent = (
+                                            <div className="flex flex-col md:flex-row gap-4 items-start">
+                                                {/* ฝั่งซ้าย: รูป (30%) */}
+                                                <div className="w-full md:w-1/4 flex justify-center">
+                                                        {imgBlock ? renderBlockItem(imgBlock) : <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">No Image</div>}
+                                                </div>
+                                                {/* ฝั่งขวา: ข้อความ (70%) */}
+                                                <div className="w-full md:w-3/4 space-y-3">
+                                                    {textBlocks.map((b: any) => (
+                                                        <div key={b.ID}>{renderBlockItem(b)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    } 
+                                    // กรณี 2: Profile Right (ข้อความซ้าย รูปขวา)
+                                    else if (layoutType === 'profile_header_right') {
+                                        const imgBlock = blocks.find((b: any) => (b.templates_block?.block_type === 'image'));
+                                        const textBlocks = blocks.filter((b: any) => (b.templates_block?.block_type !== 'image'));
+
+                                        layoutContent = (
+                                            <div className="flex flex-col md:flex-row gap-6 items-start">
+                                                {/* ฝั่งซ้าย: ข้อความ (70%) */}
+                                                <div className="w-full md:w-3/4 space-y-3">
+                                                    {textBlocks.map((b: any) => (
+                                                        <div key={b.ID}>{renderBlockItem(b)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {/* ฝั่งขวา: รูป (30%) */}
+                                                <div className="w-full md:w-1/4 flex justify-center">
+                                                        {imgBlock ? renderBlockItem(imgBlock) : <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">No Image</div>}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    else if (layoutType === 'two_pictures_two_texts') {
+                                        layoutContent = (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                               {blocks.map((b:any) => (
+                                                    <div key={b.ID} className="flex flex-col">
+                                                        {renderBlockItem(b)}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    // กรณี 3: แบบอื่นๆ (เรียงลงมาตามปกติ)
+                                    else {
+                                        layoutContent = (
+                                            <div className="space-y-3">
+                                                {blocks.map((b:any) => (
+                                                    <div key={b.ID} className="w-full">
+                                                        {renderBlockItem(b)}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                            <div key={link.ID || idx} className="border-2 rounded-xl p-5 border-dashed border-gray-200 bg-gray-50">
+                                                <div className="flex items-center mb-4 gap-2">
+                                                    <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-md font-bold flex-items-center justify-center">
+                                                        section {idx + 1}
+                                                    </span>
+                                                    <h4 className="text-lg font-bold text-gray-800">{section.section_name || section.SectionName}</h4>
+                                                </div>
+                                                {blocks.length > 0 ? (
+                                                    <div className="space-y-3">
+                                
+                                                        {layoutContent}
+                                                    </div>
+                                                ) : <div className="text-sm text-gray-400 italic">Empty Section</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Footer ของหน้า Preview (ปุ่มเลือก/ย้อนกลับ) */}
+                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button onClick={() => setPreviewTemplate(null)} className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition">ย้อนกลับ</button>
+                        <button
+                            onClick={() => {
+                                setSelectedTemplateForCreate(previewTemplate);
+                                setPreviewTemplate(null);
+                                setCreateStep('name');
+                                setNewPortfolioName(`${previewTemplate.template_name || previewTemplate.TemplateName} - ใหม่`);
+                            }}
+                            className="px-6 py-2.5 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition"
+                            style={{ backgroundColor: theme.primary }}
+                        >
+                            เลือกเทมเพลตนี้
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                        <>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6">สร้างแฟ้มสะสมผลงานใหม่</h2>
+                            {createStep === 'template' ? (
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-4">เลือกเทมเพลตสำหรับแฟ้มของคุณ</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+                                        {templates.length > 0 ? templates.map((t) => (
+                                            <div key={t.ID} className="border rounded-lg p-4 flex flex-col justify-between hover:border-gray-400 transition">
+                                                <div className="mb-4">
+                                                    <h3 className="font-bold text-lg">{t.template_name || t.TemplateName}</h3>
+                                                    <p className="text-sm text-gray-500 line-clamp-2">{t.description || t.Description}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-auto">
+                                                    <button 
+                                                        onClick={() => handlePreviewTemplateClick(t.ID)}
+                                                        disabled={loadingPreview}
+                                                        className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition flex items-center justify-center gap-1 disabled:opacity-50"
+                                                        >
+                                                        {loadingPreview ? (
+                                                            <span>กำลังโหลด</span>
+                                                        ) : (
+                                                            <span>ดูตัวอย่าง</span>
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setSelectedTemplateForCreate(t); setCreateStep('name'); setNewPortfolioName(`${t.template_name || t.TemplateName} - ใหม่`); }}
+                                                        className="flex-1 px-4 py-2 rounded-lg text-white"
+                                                        style={{ backgroundColor: theme.primary }}
+                                                    >
+                                                        เลือก
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <div className="col-span-full text-center text-gray-500 py-8">ไม่พบเทมเพลต</div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 mt-6">
+                                        <button onClick={() => setIsCreateModalOpen(false)} className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition">ยกเลิก</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                //ส่วนตั้งชื่อPortfolio
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-medium">เทมเพลตที่เลือก</h3>
+                                            <p className="text-sm text-gray-500">{selectedTemplateForCreate?.template_name || selectedTemplateForCreate?.TemplateName}</p>
+                                        </div>
+                                        <button onClick={() => setCreateStep('template')} className="text-sm text-gray-600 hover:underline">ย้อนกลับ</button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อแฟ้ม <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none transition"
+                                            placeholder="เช่น แฟ้มผลงานปี 2025"
+                                            value={newPortfolioName}
+                                            onChange={(e) => setNewPortfolioName(e.target.value)}
+                                            onKeyPress={(e) => { if (e.key === 'Enter') handleCreatePortfolio(); }}
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="rounded-lg p-3" style={{ backgroundColor: theme.primaryLight, borderColor: theme.accent, borderWidth: '1px' }}>
+                                        <p className="text-sm" style={{ color: theme.primaryDark }}>
+                                            💡 <strong>คำแนะนำ:</strong> หลังจากสร้างแฟ้ม คุณจะสามารถเพิ่ม Sections และเลือกผลงาน/กิจกรรมเข้าไปได้
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 mt-6">
+                                        <button onClick={() => { setIsCreateModalOpen(false); setNewPortfolioName(''); setSelectedTemplateForCreate(null); }} className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition">ยกเลิก</button>
+                                        <button
+                                            onClick={handleCreatePortfolio}
+                                            className="px-6 py-2.5 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition"
+                                            style={{ backgroundColor: theme.primary }}
+                                        >สร้างแฟ้ม</button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                        )}
                     </div>
                 </div>
             )}
-
+            
             {/* Modal - Portfolio Detail */}
             {selectedPortfolio && (
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                     onClick={() => setSelectedPortfolio(null)}
                 >
                     <div
@@ -656,31 +957,40 @@ export default function MyPortfoliosPage() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="p-6 border-b flex items-start justify-between" style={{ background: `linear-gradient(to right, ${theme.primaryLight}, ${theme.primaryLight})` }}>
-                            <div className="flex-1">
-                                <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                                    {selectedPortfolio.portfolio_name || selectedPortfolio.PortfolioName || 'ไม่มีชื่อ'}
-                                </h2>
-                                {selectedPortfolio.description && (
-                                    <p className="text-gray-600 mb-3">{selectedPortfolio.description}</p>
-                                )}
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${selectedPortfolio.status === 'active'
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                        {selectedPortfolio.status === 'active' ? '✓ เผยแพร่' : '📝 แบบร่าง'}
-                                    </span>
-                                    <span className="text-sm text-gray-500">Portfolio ID: {selectedPortfolio.ID}</span>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setSelectedPortfolio(null)}
-                                className="text-gray-400 hover:text-gray-600 text-3xl leading-none ml-4"
-                            >
-                                ×
-                            </button>
-                        </div>
+                        {/* Header (use selected portfolio theme) */}
+                        {
+                            (() => {
+                                const selectedTheme = getPortfolioTheme(selectedPortfolio);
+                                return (
+                                    <div className="p-6 border-b flex items-start justify-between" style={{ background: `linear-gradient(to right, ${selectedTheme.primaryLight}, ${selectedTheme.primaryLight})` }}>
+                                        <div className="flex-1">
+                                            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                                                {selectedPortfolio.portfolio_name || selectedPortfolio.PortfolioName || 'ไม่มีชื่อ'}
+                                            </h2>
+                                            {selectedPortfolio.description && (
+                                                <p className="text-gray-600 mb-3">{selectedPortfolio.description}</p>
+                                            )}
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${selectedPortfolio.status === 'active'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {selectedPortfolio.status === 'active' ? '✓ เผยแพร่' : '📝 แบบร่าง'}
+                                                </span>
+                                                <span className="text-sm text-gray-500">Portfolio ID: {selectedPortfolio.ID}</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setSelectedPortfolio(null)}
+                                            className="text-gray-400 hover:text-gray-600 text-3xl leading-none ml-4"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                );
+                            })()
+                        }
+                        
 
                         {/* Content - Sections */}
                         <div className="flex-1 overflow-y-auto p-6">
@@ -701,7 +1011,7 @@ export default function MyPortfoliosPage() {
                                                     router.push(`/student/portfolio/section?portfolio_id=${selectedPortfolio.ID}`);
                                                 }}
                                                 className="text-white px-6 py-3 rounded-lg font-medium"
-                                                style={{ backgroundColor: theme.primary }}
+                                                style={{ backgroundColor: selectedTheme.primary }}
                                             >
                                                 ไปจัดการ Sections
                                             </button>
@@ -713,7 +1023,7 @@ export default function MyPortfoliosPage() {
                                     <div>
                                         <div className="flex items-center justify-between mb-6">
                                             <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                                <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: theme.primary }}>
+                                                <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: selectedTheme.primary }}>
                                                     {sections.length}
                                                 </span>
                                                 Sections ทั้งหมด
@@ -724,7 +1034,7 @@ export default function MyPortfoliosPage() {
                                                     router.push(`/student/portfolio/section?portfolio_id=${selectedPortfolio.ID}`);
                                                 }}
                                                 className="text-sm font-medium flex items-center gap-1"
-                                                style={{ color: theme.primary }}
+                                                style={{ color: selectedTheme.primary }}
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -741,13 +1051,13 @@ export default function MyPortfoliosPage() {
                                                     <div
                                                         key={section.ID}
                                                         className="border-2 rounded-xl p-5 transition bg-white"
-                                                        style={{ borderColor: theme.primaryLight }}
+                                                        style={{ borderColor: selectedTheme.primaryLight }}
                                                     >
                                                         {/* Section Header */}
                                                         <div className="flex items-start justify-between mb-4">
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 mb-2">
-                                                                    <span className="text-xs font-bold px-3 py-1 rounded-full text-white" style={{ backgroundColor: theme.accent }}>
+                                                                    <span className="text-xs font-bold px-3 py-1 rounded-full text-white" style={{ backgroundColor: selectedTheme.accent }}>
                                                                         Section {sectionIndex + 1}
                                                                     </span>
                                                                     <h4 className="text-lg font-bold text-gray-900">
@@ -809,7 +1119,7 @@ export default function MyPortfoliosPage() {
                                                                         <div
                                                                             key={block.ID}
                                                                             className="border rounded-lg p-4 transition hover:shadow-md bg-white"
-                                                                            style={{ borderColor: theme.primaryLight }}
+                                                                            style={{ borderColor: selectedTheme.primaryLight }}
                                                                         >
                                                                             <div className="flex items-start gap-4">
                                                                                 {/* Images Preview */}
@@ -951,7 +1261,7 @@ export default function MyPortfoliosPage() {
 
                                                                                 {/* Order Badge */}
                                                                                 <div className="flex-shrink-0">
-                                                                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-xs font-bold shadow-sm" style={{ border: `1px solid ${theme.primary}`, color: theme.primary }}>
+                                                                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-xs font-bold shadow-sm" style={{ border: `1px solid ${selectedTheme.primary}`, color: selectedTheme.primary }}>
                                                                                         {blockIndex + 1}
                                                                                     </span>
                                                                                 </div>
@@ -993,7 +1303,7 @@ export default function MyPortfoliosPage() {
                                         router.push(`/student/portfolio/section?portfolio_id=${selectedPortfolio.ID}`);
                                     }}
                                     className="px-6 py-2.5 rounded-lg text-white font-medium transition"
-                                    style={{ backgroundColor: theme.primary }}
+                                    style={{ backgroundColor: selectedTheme.primary }}
                                 >
                                     จัดการเนื้อหา
                                 </button>
@@ -1075,3 +1385,18 @@ export default function MyPortfoliosPage() {
         </div>
     );
 }
+
+// // Use a template to create a portfolio with copied sections/blocks
+// async function useTemplateApi(templateId: number) {
+//     const response = await fetch(`${API}/portfolio/use-template/${templateId}`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//     });
+//     if (!response.ok) {
+//         const text = await response.text().catch(() => '');
+//         const msg = `Use template failed: ${response.status} ${response.statusText} ${text}`;
+//         console.error(msg);
+//         throw new Error(msg);
+//     }
+//     return response.json();
+// }

@@ -164,7 +164,8 @@ export default function TeacherStudentProfilePage() {
       try {
         const users = await fetchUsers(token);
         const studentOnly = users.filter((u) => {
-          const typeId = Number(u.type_id ?? u.user_type?.id ?? u.user_type?.ID ?? 0);
+          // แก้ไข: ลบ u.user_type?.ID ออกเพราะ ApiUserType ไม่มี property ID
+          const typeId = Number(u.type_id ?? u.user_type?.id ?? 0);
           return typeId === 1;
         });
         setStudents(studentOnly);
@@ -285,8 +286,9 @@ export default function TeacherStudentProfilePage() {
     },
     {
       label: "ประเภทผู้ใช้",
+      // แก้ไข: ลบ profile?.user?.user_type?.ID ออกเพราะ ApiUserType ไม่มี property ID
       value: getUserTypeName(
-        Number(profile?.user?.type_id ?? profile?.user?.user_type?.id ?? profile?.user?.user_type?.ID)
+        Number(profile?.user?.type_id ?? profile?.user?.user_type?.id ?? 0)
       ),
     },
     {
@@ -314,23 +316,21 @@ export default function TeacherStudentProfilePage() {
         profile?.education?.is_project_based === null || profile?.education?.is_project_based === undefined
           ? "-"
           : profile?.education?.is_project_based
-          ? "Project-based"
-          : "Standard",
+          ? "ใช่"
+          : "ไม่ใช่",
     },
-    { label: "สถานะการศึกษา", value: profile?.education?.status || "-" },
-    { label: "วันที่เริ่ม", value: formatDate(profile?.education?.start_date || null) },
-    { label: "วันที่จบ/คาดว่า", value: formatDate(profile?.education?.end_date || null) },
-    { label: "ปีที่จบ", value: profile?.education?.graduation_year ?? "-" },
+    { label: "สถานะ", value: profile?.education?.status || "-" },
+    { label: "ปีจบการศึกษา", value: profile?.education?.graduation_year ?? "-" },
   ];
 
   const academicItems: InfoItem[] = [
     { label: "GPAX", value: formatScore(profile?.academic_score?.gpax) },
     { label: "จำนวนเทอม", value: profile?.academic_score?.gpax_semesters ?? "-" },
-    { label: "คณิตศาสตร์", value: formatScore(profile?.academic_score?.gpa_math) },
-    { label: "วิทยาศาสตร์", value: formatScore(profile?.academic_score?.gpa_science) },
-    { label: "ภาษาไทย", value: formatScore(profile?.academic_score?.gpa_thai) },
-    { label: "ภาษาอังกฤษ", value: formatScore(profile?.academic_score?.gpa_english) },
-    { label: "สังคมศึกษา", value: formatScore(profile?.academic_score?.gpa_social) },
+    { label: "GPA คณิตศาสตร์", value: formatScore(profile?.academic_score?.gpa_math) },
+    { label: "GPA วิทยาศาสตร์", value: formatScore(profile?.academic_score?.gpa_science) },
+    { label: "GPA ภาษาไทย", value: formatScore(profile?.academic_score?.gpa_thai) },
+    { label: "GPA ภาษาอังกฤษ", value: formatScore(profile?.academic_score?.gpa_english) },
+    { label: "GPA สังคมศึกษา", value: formatScore(profile?.academic_score?.gpa_social) },
     { label: "คะแนนรวม", value: formatScore(profile?.academic_score?.gpa_total_score) },
     {
       label: "ไฟล์ Transcript",
@@ -350,13 +350,13 @@ export default function TeacherStudentProfilePage() {
   ];
 
   const gedItems: InfoItem[] = [
-    { label: "คะแนนรวม", value: profile?.ged_score?.total_score ?? "-" },
-    { label: "Reasoning (RLA)", value: profile?.ged_score?.rla_score ?? "-" },
-    { label: "Math", value: profile?.ged_score?.math_score ?? "-" },
-    { label: "Science", value: profile?.ged_score?.science_score ?? "-" },
-    { label: "Social Studies", value: profile?.ged_score?.social_score ?? "-" },
+    { label: "คะแนนรวม", value: formatScore(profile?.ged_score?.total_score) },
+    { label: "RLA", value: formatScore(profile?.ged_score?.rla_score) },
+    { label: "Math", value: formatScore(profile?.ged_score?.math_score) },
+    { label: "Science", value: formatScore(profile?.ged_score?.science_score) },
+    { label: "Social Studies", value: formatScore(profile?.ged_score?.social_score) },
     {
-      label: "ไฟล์ใบรับรอง",
+      label: "ไฟล์ใบรับรอง GED",
       value: profile?.ged_score?.cert_file_path ? (
         <a
           href={profile.ged_score.cert_file_path}
@@ -372,164 +372,150 @@ export default function TeacherStudentProfilePage() {
     },
   ];
 
-  const showGed = Boolean(profile?.ged_score);
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Teacher · Student Profile</p>
-          <h1 className="text-2xl font-bold text-gray-900">ข้อมูลส่วนตัวนักเรียน</h1>
-          <p className="text-sm text-gray-600">แสดงเฉพาะผู้ใช้ที่เป็นนักเรียนและรายละเอียดทุกฟิลด์</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-sm text-gray-700 border border-orange-100">
-          <span className="font-semibold text-orange-700">{teacherName}</span>
-          <span className="text-gray-400">|</span>
-          <span>Teacher</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Student list */}
-        <div className="rounded-xl border border-orange-100 bg-orange-50/60 shadow-sm h-full flex flex-col">
-          <div className="p-4 border-b border-orange-100 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">รายชื่อนักเรียน</p>
-                <p className="text-xs text-gray-500">เลือกนักเรียนเพื่อดูข้อมูลส่วนตัวครบถ้วน</p>
-              </div>
-              <span className="text-xs font-semibold text-orange-700 bg-white border border-orange-100 rounded-full px-3 py-1">
-                {students.length} คน
-              </span>
-            </div>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือเลขเอกสาร"
-              className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            />
-            {listError ? <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{listError}</div> : null}
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {loadingList ? (
-              <div className="text-center text-sm text-gray-500 py-6">กำลังโหลดรายชื่อนักเรียน...</div>
-            ) : filteredStudents.length === 0 ? (
-              <div className="text-center text-sm text-gray-500 py-6">ไม่พบนักเรียน</div>
-            ) : (
-              filteredStudents.map((student, idx) => {
-                const id = getUserId(student);
-                const isActive = id === selectedStudentId;
-                return (
-                  <button
-                    key={id ?? `student-${idx}`}
-                    type="button"
-                    onClick={() => id && setSelectedStudentId(id)}
-                    className={`w-full text-left rounded-xl border px-3 py-3 transition ${
-                      isActive ? "border-orange-400 bg-white shadow-sm" : "border-transparent bg-white/80 hover:border-orange-200"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar user={student} />
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-gray-900">{fullName(student)}</p>
-                          <span className="rounded-full bg-orange-100 text-orange-700 px-2 py-0.5 text-xs font-semibold">
-                            นักเรียน
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600">{student.email}</p>
-                        <p className="text-xs text-gray-500">{student.phone || "-"}</p>
-                        {!student.profile_completed && (
-                          <span className="inline-block rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[11px] font-semibold">
-                            โปรไฟล์ยังไม่ครบ
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">ข้อมูลนักเรียน</h1>
+          <p className="text-sm text-gray-600">
+            สวัสดี, <span className="font-semibold text-orange-600">{teacherName}</span>
+          </p>
         </div>
 
-        {/* Profile detail */}
-        <div className="lg:col-span-2 rounded-xl border border-orange-100 bg-white shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-5 border-b border-orange-100">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-orange-500 font-semibold">Student Profile</p>
-              <h2 className="text-xl font-bold text-gray-900">{fullName(selectedUser)}</h2>
-              <p className="text-sm text-gray-500">{selectedUser?.email || "เลือกนักเรียนจากด้านซ้าย"}</p>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Student list sidebar */}
+          <div className="lg:col-span-1 flex flex-col rounded-xl border border-orange-100 bg-orange-50/40 shadow-sm max-h-[calc(100vh-10rem)]">
+            <div className="p-4 border-b border-orange-100 space-y-3">
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อ, อีเมล, เบอร์โทร..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-orange-400 focus:outline-none"
+              />
+              {listError ? (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{listError}</div>
+              ) : null}
             </div>
-            <div className="flex items-center gap-3">
-              <Avatar user={selectedUser} />
-              <div className="text-right text-xs text-gray-600">
-                <div>เอกสาร: {selectedUser?.id_number || "-"}</div>
-                <div>โทร: {selectedUser?.phone || "-"}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {loadingProfile ? (
-              <div className="text-center text-sm text-gray-500 py-8">กำลังโหลดข้อมูลนักเรียน...</div>
-            ) : !profile ? (
-              <div className="text-center text-sm text-gray-500 py-8">
-                {filteredStudents.length ? "เลือกนักเรียนเพื่อดูรายละเอียด" : "ไม่พบนักเรียนสำหรับแสดงผล"}
-              </div>
-            ) : (
-              <>
-                <DetailSection title="ข้อมูลส่วนตัว" description="ข้อมูลทุกฟิลด์ของผู้ใช้ที่ระบบบันทึกไว้">
-                  <InfoGrid items={personalItems} />
-                </DetailSection>
-
-                <DetailSection title="ข้อมูลการศึกษา" description="สถานศึกษา ระดับการศึกษา และสถานะปัจจุบัน">
-                  <InfoGrid items={educationItems} />
-                </DetailSection>
-
-                <DetailSection
-                  title={showGed ? "ข้อมูลคะแนน GED" : "ข้อมูลคะแนนหลักสูตรแกนกลาง / GPAX"}
-                  description="รายละเอียดคะแนนล่าสุดที่นักเรียนอัปเดต"
-                >
-                  <InfoGrid items={showGed ? gedItems : academicItems} />
-                </DetailSection>
-
-                <DetailSection title="ข้อมูลคะแนนภาษา" description="ผลสอบภาษาและไฟล์แนบทั้งหมด">
-                  {profile.language_scores?.length ? (
-                    <div className="space-y-2">
-                      {profile.language_scores.map((score, idx) => (
-                        <div
-                          key={score.id || `${score.test_type}-${idx}`}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-orange-100 bg-orange-50/60 px-4 py-3 text-sm"
-                        >
-                          <div className="space-y-1">
-                            <div className="font-semibold text-gray-900">{score.test_type}</div>
-                            <div className="text-xs text-gray-600">
-                              ระดับ {score.test_level || "-"} | คะแนน {score.score || "-"}
-                              {score.sat_math !== null && score.sat_math !== undefined ? ` | SAT Math ${score.sat_math}` : ""}
-                            </div>
-                            {score.cert_file_path ? (
-                              <a
-                                href={score.cert_file_path}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center text-xs text-orange-600 hover:underline"
-                              >
-                                เปิดไฟล์แนบ
-                              </a>
-                            ) : null}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {loadingList ? (
+                <div className="text-center text-sm text-gray-500 py-6">กำลังโหลดรายชื่อนักเรียน...</div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="text-center text-sm text-gray-500 py-6">ไม่พบนักเรียน</div>
+              ) : (
+                filteredStudents.map((student, idx) => {
+                  const id = getUserId(student);
+                  const isActive = id === selectedStudentId;
+                  return (
+                    <button
+                      key={id ?? `student-${idx}`}
+                      type="button"
+                      onClick={() => id && setSelectedStudentId(id)}
+                      className={`w-full text-left rounded-xl border px-3 py-3 transition ${
+                        isActive ? "border-orange-400 bg-white shadow-sm" : "border-transparent bg-white/80 hover:border-orange-200"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Avatar user={student} />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-semibold text-gray-900">{fullName(student)}</p>
+                            <span className="rounded-full bg-orange-100 text-orange-700 px-2 py-0.5 text-xs font-semibold">
+                              นักเรียน
+                            </span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-2 sm:mt-0">{formatDate(score.test_date)}</div>
+                          <p className="text-xs text-gray-600">{student.email}</p>
+                          <p className="text-xs text-gray-500">{student.phone || "-"}</p>
+                          {!student.profile_completed && (
+                            <span className="inline-block rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[11px] font-semibold">
+                              โปรไฟล์ยังไม่ครบ
+                            </span>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">ยังไม่มีคะแนนภาษา</p>
-                  )}
-                </DetailSection>
-              </>
-            )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Profile detail */}
+          <div className="lg:col-span-2 rounded-xl border border-orange-100 bg-white shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-5 border-b border-orange-100">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-orange-500 font-semibold">Student Profile</p>
+                <h2 className="text-xl font-bold text-gray-900">{fullName(selectedUser)}</h2>
+                <p className="text-sm text-gray-500">{selectedUser?.email || "เลือกนักเรียนจากด้านซ้าย"}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Avatar user={selectedUser} />
+                <div className="text-right text-xs text-gray-600">
+                  <div>เอกสาร: {selectedUser?.id_number || "-"}</div>
+                  <div>โทร: {selectedUser?.phone || "-"}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {loadingProfile ? (
+                <div className="text-center text-sm text-gray-500 py-10">กำลังโหลดข้อมูล...</div>
+              ) : !profile ? (
+                <div className="text-center text-sm text-gray-500 py-10">เลือกนักเรียนเพื่อดูรายละเอียด</div>
+              ) : (
+                <>
+                  <DetailSection title="ข้อมูลส่วนตัว">
+                    <InfoGrid items={personalItems} />
+                  </DetailSection>
+
+                  <DetailSection title="ข้อมูลการศึกษา">
+                    <InfoGrid items={educationItems} />
+                  </DetailSection>
+
+                  <DetailSection title="ผลการเรียน (Academic Score)">
+                    <InfoGrid items={academicItems} />
+                  </DetailSection>
+
+                  <DetailSection title="คะแนน GED">
+                    <InfoGrid items={gedItems} />
+                  </DetailSection>
+
+                  <DetailSection title="คะแนนภาษา">
+                    {profile.language_scores?.length ? (
+                      <div className="space-y-3">
+                        {profile.language_scores.map((score, idx) => (
+                          <div
+                            key={score.id ?? idx}
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-orange-100 bg-orange-50/60 px-4 py-3"
+                          >
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {score.test_type} – {score.score ?? "-"} {score.test_level ? `(${score.test_level})` : ""}
+                                {score.sat_math ? ` | SAT Math ${score.sat_math}` : ""}
+                              </div>
+                              {score.cert_file_path ? (
+                                <a
+                                  href={score.cert_file_path}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center text-xs text-orange-600 hover:underline"
+                                >
+                                  เปิดไฟล์แนบ
+                                </a>
+                              ) : null}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-2 sm:mt-0">{formatDate(score.test_date)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">ยังไม่มีคะแนนภาษา</p>
+                    )}
+                  </DetailSection>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
