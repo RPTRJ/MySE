@@ -30,3 +30,5 @@ go mod tidy
 cd backend
 go run cmd/seed/main.go
 go run main.go
+
+reset
