@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+
 	"github.com/joho/godotenv"
 	"github.com/sut68/team14/backend/config"
 	"github.com/sut68/team14/backend/router"
@@ -11,6 +12,15 @@ import (
 
 func main() {
 	loadEnv()
+
+	// Initialize Azure Storage
+	if err := services.InitAzureStorage(); err != nil {
+		log.Printf("Warning: Azure Storage not initialized: %v", err)
+		log.Println("File uploads will not work!")
+	} else {
+		log.Println("Azure Storage initialized successfully")
+	}
+
 	services.StartNotificationScheduler()
 	config.ConnectionDatabase()
 
