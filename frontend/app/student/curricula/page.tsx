@@ -8,6 +8,10 @@ import {
   toggleNotificationAPI,
   type CurriculumDTO 
 } from "@/services/curriculum";
+import {
+  fetchCurriculumCourseGroups,
+  type CurriculumCourseGroupDTO,
+} from "@/services/courseGroup";
 
 // --- Icons Component ---
 const Icons = {
@@ -19,7 +23,10 @@ const Icons = {
   Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
   Bell: (props: any) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
   Eye: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
-  List: () => <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+  List: () => <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
+  Lightbulb: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
+  Close: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+  Star: () => <svg className="w-3 h-3 text-orange-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>,
 };
 
 export default function StudentCurriculaSearchPage() {
@@ -34,6 +41,12 @@ export default function StudentCurriculaSearchPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [notifiedIds, setNotifiedIds] = useState<Set<number>>(new Set());
   const [userId, setUserId] = useState<number>(1); 
+
+  // State for recommendation popup
+  const [showRecommendationPopup, setShowRecommendationPopup] = useState(false);
+  const [selectedCurriculumForRecommendation, setSelectedCurriculumForRecommendation] = useState<CurriculumDTO | null>(null);
+  const [curriculumCourseGroups, setCurriculumCourseGroups] = useState<CurriculumCourseGroupDTO[]>([]);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false); 
 
   // 1. โหลดข้อมูล User และรายการที่เลือกครั้งแรก
   useEffect(() => {
@@ -146,6 +159,29 @@ export default function StudentCurriculaSearchPage() {
       case "closed": return <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">🔴 ปิดรับสมัคร</span>;
       default: return <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">⚪ ไม่ระบุ</span>;
     }
+  }
+
+  // Open recommendation popup
+  async function openRecommendationPopup(curriculum: CurriculumDTO) {
+    setSelectedCurriculumForRecommendation(curriculum);
+    setShowRecommendationPopup(true);
+    setLoadingRecommendation(true);
+
+    try {
+      const groups = await fetchCurriculumCourseGroups(curriculum.id);
+      setCurriculumCourseGroups(groups);
+    } catch (err) {
+      console.error("โหลดข้อมูลไม่สำเร็จ:", err);
+      setCurriculumCourseGroups([]);
+    } finally {
+      setLoadingRecommendation(false);
+    }
+  }
+
+  function closeRecommendationPopup() {
+    setShowRecommendationPopup(false);
+    setSelectedCurriculumForRecommendation(null);
+    setCurriculumCourseGroups([]);
   }
 
   return (
@@ -310,7 +346,17 @@ export default function StudentCurriculaSearchPage() {
                     </button>
                 </div>
 
-                <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-end">
+                <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-between items-center">
+                    {/* ปุ่มคำแนะนำ - มุมซ้าย */}
+                    <button
+                      onClick={() => openRecommendationPopup(cur)}
+                      className="text-xs font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1.5 transition-colors bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg"
+                      title="ดูคำแนะนำ"
+                    >
+                      <Icons.Lightbulb /> คำแนะนำ
+                    </button>
+
+                    {/* ลิงก์ดูรายละเอียด - มุมขวา */}
                     {cur.link ? (
                         <a href={cur.link} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-gray-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
                             <Icons.Eye /> ดูรายละเอียดฉบับเต็ม
@@ -327,6 +373,150 @@ export default function StudentCurriculaSearchPage() {
           })}
         </div>
       </div>
+
+      {/* ==================== Recommendation Popup ==================== */}
+      {showRecommendationPopup && selectedCurriculumForRecommendation && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 transition-opacity" 
+              onClick={closeRecommendationPopup}
+            />
+
+            {/* Modal */}
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Icons.Lightbulb />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">คำแนะนำหลักสูตร</h3>
+                    <p className="text-orange-100 text-sm">{selectedCurriculumForRecommendation.name}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={closeRecommendationPopup}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
+                  title="ปิด"
+                >
+                  <Icons.Close />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                {loadingRecommendation ? (
+                  <div className="py-10 text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-orange-200 border-t-orange-600 mb-4"></div>
+                    <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* คำแนะนำหลัก */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                        คำแนะนำจากอาจารย์
+                      </h4>
+                      {selectedCurriculumForRecommendation.description ? (
+                        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-100 rounded-xl p-4">
+                          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                            {selectedCurriculumForRecommendation.description}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                          <p className="text-gray-400">ยังไม่มีคำแนะนำ</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* กลุ่มวิชาและทักษะ */}
+                    {curriculumCourseGroups.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                          กลุ่มวิชาและทักษะที่เกี่ยวข้อง
+                        </h4>
+                        <div className="space-y-4">
+                          {curriculumCourseGroups.map((ccg) => (
+                            <div key={ccg.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h5 className="font-semibold text-gray-800">
+                                    {ccg.course_group?.name || "กลุ่มวิชา"}
+                                  </h5>
+                                  {ccg.course_group?.name_en && (
+                                    <p className="text-sm text-gray-500">{ccg.course_group.name_en}</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* คำแนะนำสำหรับกลุ่มวิชานี้ */}
+                              {ccg.description && (
+                                <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                                  <p className="text-sm text-gray-600">{ccg.description}</p>
+                                </div>
+                              )}
+
+                              {/* ทักษะ */}
+                              {ccg.course_group?.course_group_skills && ccg.course_group.course_group_skills.length > 0 && (
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-2">ทักษะที่ต้องการ:</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {ccg.course_group.course_group_skills.map((skill) => (
+                                      <div
+                                        key={skill.id}
+                                        className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-medium border border-blue-100"
+                                      >
+                                        <span>{skill.skill?.skill_name_th}</span>
+                                        <span className="flex items-center">
+                                          {Array.from({ length: skill.importance }).map((_, i) => (
+                                            <Icons.Star key={i} />
+                                          ))}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ถ้าไม่มีข้อมูลอะไรเลย */}
+                    {!selectedCurriculumForRecommendation.description && curriculumCourseGroups.length === 0 && (
+                      <div className="text-center py-10">
+                        <div className="text-gray-300 mb-4">
+                          <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-500">ยังไม่มีคำแนะนำหรือทักษะสำหรับหลักสูตรนี้</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-100">
+                <button
+                  onClick={closeRecommendationPopup}
+                  className="w-full py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

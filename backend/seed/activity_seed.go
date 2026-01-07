@@ -32,9 +32,9 @@ func SeedLevelActivities() {
 		if err := db.Where("level_name = ?", name).First(&level).Error; err != nil {
 			level.LevelName = name
 			if err := db.Create(&level).Error; err != nil {
-				log.Printf("❌ failed to seed level_activity %s: %v\n", name, err)
+				log.Printf("failed to seed level_activity %s: %v\n", name, err)
 			} else {
-				log.Printf("✅ seeded level_activity: %s\n", name)
+				log.Printf("seeded level_activity: %s\n", name)
 			}
 		}
 	}
@@ -60,9 +60,9 @@ func SeedRewards() {
 		if err := db.Where("reward_name = ?", name).First(&reward).Error; err != nil {
 			reward.Reward_Name = name
 			if err := db.Create(&reward).Error; err != nil {
-				log.Printf("❌ failed to seed reward %s: %v\n", name, err)
+				log.Printf("failed to seed reward %s: %v\n", name, err)
 			} else {
-				log.Printf("✅ seeded reward: %s\n", name)
+				log.Printf("seeded reward: %s\n", name)
 			}
 		}
 	}
@@ -87,9 +87,9 @@ func SeedTypeActivities() {
 		if err := db.Where("type_name = ?", name).First(&typeActivity).Error; err != nil {
 			typeActivity.TypeName = name
 			if err := db.Create(&typeActivity).Error; err != nil {
-				log.Printf("❌ failed to seed type_activity %s: %v\n", name, err)
+				log.Printf("failed to seed type_activity %s: %v\n", name, err)
 			} else {
-				log.Printf("✅ seeded type_activity: %s\n", name)
+				log.Printf("seeded type_activity: %s\n", name)
 			}
 		}
 	}

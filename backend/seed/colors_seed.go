@@ -90,7 +90,7 @@ func SeedColors() {
 	for _, c := range colors {
 		var existing entity.Colors
 
-		// ✅ แก้ตรงนี้: เปลี่ยน "color_name" เป็น "colors_name" ให้ตรงกับชื่อ Field ใน DB
+		// แก้ตรงนี้: เปลี่ยน "color_name" เป็น "colors_name" ให้ตรงกับชื่อ Field ใน DB
 		err := db.Where("colors_name = ?", c.ColorsName).First(&existing).Error
 
 		if err != nil {

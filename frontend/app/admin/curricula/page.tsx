@@ -500,6 +500,7 @@ export default function AdminCurriculaPage() {
                 <button 
                   onClick={() => setShowForm(false)}
                   className="text-gray-400 hover:text-gray-500 transition-colors"
+                  title="ปิด"
                 >
                   <Icons.Close />
                 </button>
@@ -546,6 +547,7 @@ export default function AdminCurriculaPage() {
                           if (val) loadProgramsByFaculty(Number(val));
                           else setPrograms([]);
                         }}
+                        title="เลือกสำนักวิชา"
                       >
                         <option value="">-- เลือก --</option>
                         {faculties.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -558,6 +560,7 @@ export default function AdminCurriculaPage() {
                         value={form.program_id}
                         onChange={(e) => setForm({ ...form, program_id: e.target.value })}
                         disabled={!form.faculty_id}
+                        title="เลือกสาขาวิชา"
                       >
                         <option value="">-- เลือก --</option>
                         {programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -574,6 +577,8 @@ export default function AdminCurriculaPage() {
                         className="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
                         value={form.gpax_min}
                         onChange={(e) => setForm({ ...form, gpax_min: e.target.value })}
+                        placeholder="0.00"
+                        title="GPAX ขั้นต่ำ"
                       />
                     </div>
                     <div>
@@ -615,6 +620,7 @@ export default function AdminCurriculaPage() {
                           className="block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
                           value={form.start_date}
                           onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                          title="วันเปิดรับสมัคร"
                         />
                       </div>
                       <div>
@@ -624,6 +630,7 @@ export default function AdminCurriculaPage() {
                           className="block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
                           value={form.end_date}
                           onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                          title="วันปิดรับสมัคร"
                         />
                       </div>
                     </div>
@@ -638,6 +645,8 @@ export default function AdminCurriculaPage() {
                         className="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
                         value={form.quota}
                         onChange={(e) => setForm({ ...form, quota: e.target.value })}
+                        placeholder="0"
+                        title="จำนวนรับ"
                       />
                     </div>
                     <div>
@@ -646,6 +655,7 @@ export default function AdminCurriculaPage() {
                         className="mt-2 block w-full rounded-md border-0 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6 font-medium"
                         value={form.status}
                         onChange={(e) => setForm({ ...form, status: e.target.value })}
+                        title="เลือกสถานะ"
                       >
                         <option value="">⚪ ไม่มีสถานะ</option>
                         <option value="open">🟢 เปิดอยู่</option>

@@ -104,9 +104,15 @@ export const menuItems: MenuItem[] = [
     roles: ["teacher"], 
   },
   {
-    name: "คำแนะนำรายวิชา",
-    href: "/teacher/advice",
+    name: "กลุ่มวิชาและทักษะ",
+    href: "/teacher/course-groups",
     icon: BookOpenCheck,
+    roles: ["teacher"],
+  },
+  {
+    name: "คำแนะนำหลักสูตร",
+    href: "/teacher/curricula",
+    icon: GraduationCap,
     roles: ["teacher"],
   },
   
@@ -143,13 +149,5 @@ export const menuItems: MenuItem[] = [
     href: "/student/calendar", // ถ้าประกาศเป็น Public Route
     icon: Calendar,
     roles: ["student"],
-  },
-
-  // ------------------------- Settings -------------------------
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-    roles: ["admin", "teacher", "student"],
   },
 ];

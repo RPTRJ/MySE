@@ -286,6 +286,25 @@ export async function toggleNotificationAPI(userId: number, curriculumId: number
   return await res.json();
 }
 
+// อัปเดตคำแนะนำหลักสูตร
+export async function updateCurriculumRecommendation(
+  curriculumId: number,
+  recommendation: string
+) {
+  const res = await fetch(`${API_URL}/curricula/${curriculumId}/recommendation`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ recommendation }),
+  });
+
+  if (!res.ok) {
+    throw new Error("อัปเดตคำแนะนำไม่สำเร็จ");
+  }
+
+  const json = await res.json();
+  return normalizeCurriculum(json.data);
+}
+
 // ดึงข้อความแจ้งเตือน (Polling)
 export async function fetchNotificationsAPI(userId: number) {
   const res = await fetch(`${API_URL}/notifications?user_id=${userId}`);

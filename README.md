@@ -9,24 +9,4 @@
 | B6628857 | นายอาระดิน สีสุระ | ระบบจัดการข้อมูลหลักสูตร & ระบบบริหารรอบสมัครและปฏิทิน |
 | B6643829 | นายนพรุจ อสัมภินพงศ์ | ระบบจัดการคลังผลงาน & ระบบจัดการคลังกิจกรรม  |
 
-### ติดตั้ง Go dependencies (backend)
-
-ให้เปิดเทอร์มินัลแล้วเข้าไปที่โฟลเดอร์ `backend` ก่อน
-
-```bash
-cd backend
-
-# ติดตั้ง library หลักที่โปรเจกต์ใช้
-go get github.com/gin-gonic/gin            # Web framework (REST API)
-go get gorm.io/gorm                        # ORM หลัก
-go get gorm.io/driver/postgres             # GORM driver สำหรับ PostgreSQL
-go get golang.org/x/crypto/bcrypt          # ใช้ hash/check password
-
-# (แนะนำ) จัดระเบียบ go.mod/go.sum ให้ตรงกับโค้ดล่าสุด
-go mod tidy
-
- How to run
-
-cd backend
-go run cmd/seed/main.go
-go run main.go
+revert

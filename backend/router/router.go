@@ -62,7 +62,7 @@ func SetupRoutes() *gin.Engine {
 	profileController := controller.NewProfileController(db)
 	referenceController := controller.NewReferenceController(db)
 	educationAdminController := controller.NewEducationAdminController(db)
-	adviceController := controller.NewAdviceController()
+	courseGroupController := controller.NewCourseGroupController()
 
 	// --- Public Routes ---
 	authController.RegisterRoutes(r)
@@ -103,7 +103,6 @@ func SetupRoutes() *gin.Engine {
 	teacher := protectedOnboarded.Group("/teacher")
 	{
 		teacher.GET("/users/:id/profile", profileController.GetUserProfile)
-		adviceController.RegisterRoutes(teacher)
 	}
 
 	userController.RegisterRoutes(protectedOnboarded)
@@ -112,6 +111,7 @@ func SetupRoutes() *gin.Engine {
 	curriculumController.RegisterRoutes(r, protectedOnboarded)
 	facultyController.RegisterRoutes(r, protected)
 	programController.RegisterRoutes(r, protected)
+	courseGroupController.RegisterRoutes(r, protectedOnboarded)
 
 	// Selection & Notification Routes
 	r.POST("/selections", selectionController.ToggleSelection)
@@ -137,7 +137,7 @@ func SetupRoutes() *gin.Engine {
 	CategoryTemplateRoutes(r)
 
 	//ระบบแฟ้มสะสมผลงาน (Portfolio)
-	PortfolioRoutes(r)
+	PortfolioRoutes(protected)
 
 	ColorsRoutes(r)
 

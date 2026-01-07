@@ -26,6 +26,7 @@ export type UserDTO = {
   CreatedAt?: string;
   user_type?: { type_name?: string; id?: number; ID?: number };
   user_id_type?: { id_name?: string; id?: number; ID?: number };
+  profile_image_url?: string; // เพิ่มฟิลด์รูปโปรไฟล์
 };
 
 type BaseUserPayload = {
@@ -207,4 +208,56 @@ export async function deleteUser(userId: number | string): Promise<boolean> {
 
   await handleResponse(res, "ไม่สามารถลบผู้ใช้ได้");
   return true;
+}
+
+//เพิ่มเติมฟังก์ชันสำหรับดึงข้อมูลผู้ใช้ตาม ID
+export async function fetchUserById(userId: number | string): Promise<UserDTO> {
+  const res = await fetch(`${API_URL}/users/${userId}`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await handleResponse<{ data?: any }>(res, "ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
+  return normalizeUser(data?.data || data);
+}
+// ฟังก์ชันช่วยแกะ User ID ออกมาจาก Token (JWT Decode)
+function getUserIdFromToken(): number | null {
+  if (typeof window === "undefined") return null;
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  try {
+    // JWT จะมี 3 ส่วนคั่นด้วยจุด (.) ส่วนที่ 2 คือ Payload ข้อมูล
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+
+    const payload = JSON.parse(jsonPayload);
+    // เช็คว่า Backend เก็บ ID ไว้ใน key ชื่ออะไร (ปกติคือ id, sub, หรือ userId)
+    return payload.id || payload.ID || payload.user_id || payload.sub || null;
+  } catch (error) {
+    console.error("Error decoding token:", error);
+    return null;
+  }
+}
+
+//ฟังก์ชันสำหรับดึงข้อมูล Portfolio ของผู้ใช้
+export async function fetchUserProfile(): Promise<UserDTO> {
+  // 1. พยายามแกะ ID จาก Token ก่อน
+  const userId = getUserIdFromToken();
+
+  // 2. ถ้าได้ ID มา -> ให้เรียกใช้ API /users/{id} แทน /auth/me
+  if (userId) {
+    return fetchUserById(userId);
+  }
+
+  // 3. ถ้าหา ID ไม่เจอ (เช่น Token ผิดรูปแบบ) ให้ลองเสี่ยงเรียก /auth/me เดิมดู (เผื่อฟลุ๊ค) หรือ throw error
+  console.warn("ไม่สามารถระบุ User ID จาก Token ได้ กำลังลองเรียก /auth/me...");
+  
+  const res = await fetch(`${API_URL}/auth/me`, { 
+    headers: getAuthHeaders(),
+  });
+
+  const data = await handleResponse<{ data?: any }>(res, "ไม่สามารถโหลดข้อมูลโปรไฟล์ได้");
+  return normalizeUser(data?.data || data);
 }

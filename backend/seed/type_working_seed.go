@@ -32,9 +32,9 @@ func SeedTypeWorkings() {
 			typeWorking.TypeName = name
 
 			if err := db.Create(&typeWorking).Error; err != nil {
-				log.Printf("❌ failed to seed type_working %s: %v\n", name, err)
+				log.Printf("failed to seed type_working %s: %v\n", name, err)
 			} else {
-				log.Printf("✅ seeded type_working: %s\n", name)
+				log.Printf("seeded type_working: %s\n", name)
 			}
 		}
 	}

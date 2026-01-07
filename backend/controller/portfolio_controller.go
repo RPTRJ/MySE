@@ -12,16 +12,21 @@ import (
 
 // GetActivities fetches activities for the user WITH FULL DETAILS
 func GetActivities(c *gin.Context) {
-	userID := c.Query("user_id")
+	uid, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
 	var activities []entity.Activity
 	
-	db := config.GetDB()
-	if userID != "" {
-		db = db.Where("user_id = ?", userID)
-	}
+	// db := config.GetDB()
+	// if userID != "" {
+	// 	db = db.Where("user_id = ?", userID)
+	// }
 	
 	// ✅ IMPORTANT: Preload ALL related data including images
-	if err := db.
+	if err := config.GetDB().
+		Where("user_id = ?", uid.(uint)).
 		Preload("ActivityDetail").
 		Preload("ActivityDetail.TypeActivity").
 		Preload("ActivityDetail.LevelActivity").
@@ -38,16 +43,21 @@ func GetActivities(c *gin.Context) {
 
 // GetWorkings fetches workings for the user WITH FULL DETAILS
 func GetWorkings(c *gin.Context) {
-	userID := c.Query("user_id")
+	uid, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
 	var workings []entity.Working
 	
-	db := config.GetDB()
-	if userID != "" {
-		db = db.Where("user_id = ?", userID)
-	}
+	// db := config.GetDB()
+	// if userID != "" {
+	// 	db = db.Where("user_id = ?", userID)
+	// }
 
 	// ✅ IMPORTANT: Preload ALL related data including images and links
-	if err := db.
+	if err := config.GetDB().
+		Where("user_id = ?", uid.(uint)).
 		Preload("WorkingDetail").
 		Preload("WorkingDetail.TypeWorking").
 		Preload("WorkingDetail.Images").  // ✅ เพิ่ม Preload Images
@@ -84,6 +94,14 @@ func CreatePortfolio(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	uid, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+    
+    // UserID ที่สร้าง portfolio (ป้องกันการสร้างให้คนอื่น)
+    portfolio.UserID = uid.(uint)
 
 	// Default values
 	if portfolio.Status == "" {
@@ -91,14 +109,14 @@ func CreatePortfolio(c *gin.Context) {
 	}
 	
 	// Ensure UserID
-	if portfolio.UserID == 0 {
-		var user entity.User
-		if err := config.GetDB().First(&user).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
-			return
-		}
-		portfolio.UserID = user.ID
-	}
+	// if portfolio.UserID == 0 {
+	// 	var user entity.User
+	// 	if err := config.GetDB().First(&user).Error; err != nil {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
+	// 		return
+	// 	}
+	// 	portfolio.UserID = user.ID
+	// }
 
 	// Ensure Color exists
 	if portfolio.ColorsID == 0 {
@@ -128,6 +146,14 @@ func CreatePortfolio(c *gin.Context) {
 // UseTemplate creates a new Portfolio based on a Template OR returns existing one
 func UseTemplate(c *gin.Context) {
 	id := c.Param("id")
+
+	uidVal, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+    userID := uidVal.(uint)
+
 	var template entity.Templates
 	if err := config.GetDB().
 		Preload("TemplateSectionLinks.TemplatesSection.SectionBlocks.TemplatesBlock").
@@ -137,17 +163,17 @@ func UseTemplate(c *gin.Context) {
 	}
 
 	// Find valid user
-	var user entity.User
-	if err := config.GetDB().First(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
-		return
-	}
+	// var user entity.User
+	// if err := config.GetDB().First(&user).Error; err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
+	// 	return
+	// }
 
 	// ✅ เช็คว่ามี Portfolio สำหรับ template นี้อยู่แล้วหรือไม่
 	var existingPortfolio entity.Portfolio
 	err := config.GetDB().
 		Preload("PortfolioSections.PortfolioBlocks").
-		Where("user_id = ? AND template_id = ?", user.ID, template.ID).
+		Where("user_id = ? AND template_id = ?", userID, template.ID).
 		First(&existingPortfolio).Error
 
 	if err == nil {
@@ -167,7 +193,7 @@ func UseTemplate(c *gin.Context) {
 		PortfolioName: "My Portfolio from " + template.TemplateName,
 		Status:        "draft",
 		TemplateID:    &template.ID,
-		UserID:        user.ID,
+		UserID:        userID,
 	}
 
 	// Ensure Color
@@ -239,7 +265,13 @@ func UseTemplate(c *gin.Context) {
 
 // GetMyPortfolio - ดึง Portfolio ทั้งหมดของ user
 func GetMyPortfolio(c *gin.Context) {
-	userID := "1" // Hardcoded for dev
+	// userID := "1" // Hardcoded for dev
+	uid, exists := c.Get("user_id")
+	if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
+    }
+	userID := uid.(uint)
 
 	var portfolios []entity.Portfolio
 	if err := config.GetDB().

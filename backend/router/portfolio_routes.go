@@ -5,7 +5,7 @@ import (
 	"github.com/sut68/team14/backend/controller"
 )
 
-func PortfolioRoutes(r *gin.Engine) {
+func PortfolioRoutes(r *gin.RouterGroup) {
 	group := r.Group("/portfolio")
 	{
 		// Portfolio
