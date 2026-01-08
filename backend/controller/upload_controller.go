@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,10 +24,10 @@ func (u *UploadController) UploadFile(c *gin.Context) {
 		return
 	}
 
-	// Create uploads directory if not exists
 	uploadDir := "./uploads"
-	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
-		os.Mkdir(uploadDir, 0755)
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload directory"})
+		return
 	}
 
 	// Generate unique filename
@@ -40,21 +41,15 @@ func (u *UploadController) UploadFile(c *gin.Context) {
 		return
 	}
 
-	// Get the request origin or use environment variable
 	host := os.Getenv("API_URL")
 	if host == "" {
-		// Use the request's host
 		scheme := "http"
 		if c.Request.TLS != nil {
 			scheme = "https"
 		}
 		host = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
 	}
-
-	// Remove trailing slash from host if exists
-	if len(host) > 0 && host[len(host)-1] == '/' {
-		host = host[:len(host)-1]
-	}
+	host = strings.TrimSuffix(host, "/")
 
 	// Return full URL
 	fileURL := fmt.Sprintf("%s/uploads/%s", host, fileName)

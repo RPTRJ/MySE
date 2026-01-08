@@ -15,10 +15,7 @@ export default function TeacherPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
-  
-  
 
-  // Fetch submissions from backend
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
@@ -33,7 +30,6 @@ export default function TeacherPage() {
     }
   };
 
-  // Fetch by status
   const fetchByStatus = async (status: string) => {
     if (status === 'all') {
       fetchSubmissions();
@@ -108,8 +104,6 @@ export default function TeacherPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    console.log("Token:", token);
-
     const userStr = localStorage.getItem("user");
 
     if (!token || !userStr) {
@@ -130,11 +124,10 @@ export default function TeacherPage() {
         return;
       }
 
-      setUserName(
-        user.first_name_th && user.last_name_th
-          ? `${user.first_name_th} ${user.last_name_th}`
-          : `${user.first_name_en} ${user.last_name_en}`
-      );
+      const name = user.first_name_th && user.last_name_th
+        ? `${user.first_name_th} ${user.last_name_th}`
+        : `${user.first_name_en || ''} ${user.last_name_en || ''}`.trim();
+      setUserName(name);
 
       setIsAuthorized(true);
       fetchSubmissions();

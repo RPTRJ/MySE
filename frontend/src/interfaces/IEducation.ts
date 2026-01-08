@@ -1,7 +1,5 @@
-// frontend/interfaces/IEducation.ts
 import { UserInterface } from "./IUser";
 
-// Enum สำหรับ Status
 export type EducationStatus = "current" | "graduated" | "other";
 
 export interface EducationInterface {
@@ -9,24 +7,19 @@ export interface EducationInterface {
   CreatedAt?: string;
   UpdatedAt?: string;
 
-  // User Relation
   UserID?: number;
   User?: UserInterface;
 
-  // Education Level Relation
   EducationLevelID?: number;
   EducationLevel?: EducationLevelInterface;
 
-  // School Relation
-  SchoolID?: number | null; // Pointer ใน Go คือ nullable
+  SchoolID?: number | null;
   School?: SchoolInterface | null;
-  SchoolName?: string;      // กรณีโรงเรียนอื่นๆ ที่ไม่ได้อยู่ในระบบ
+  SchoolName?: string;
 
-  // School Type Relation
   SchoolTypeID?: number | null;
   SchoolType?: SchoolTypeInterface | null;
 
-  // Curriculum Type Relation
   CurriculumTypeID?: number | null;
   CurriculumType?: CurriculumTypeInterface | null;
 
@@ -36,8 +29,6 @@ export interface EducationInterface {
   EndDate?: string | null;
   GraduationYear?: number | null;
 }
-
-// --- Master Data Interfaces ---
 
 export interface EducationLevelInterface {
   ID?: number;

@@ -56,6 +56,7 @@ export interface CreateActivityPayload {
         level_activity_id: number;
         images?: { image_url: string }[];
     };
+    user_id?: number;
 }
 
 export interface UpdateActivityPayload {
@@ -93,9 +94,32 @@ export const uploadImage = async (file: File): Promise<string> => {
     return json.url;
 };
 
-export const getActivities = async (): Promise<Activity[]> => {
+// Pagination options
+export interface FetchOptions {
+    page?: number;
+    limit?: number;
+    includeImages?: boolean;
+}
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
+export const getActivities = async (options: FetchOptions = {}): Promise<Activity[]> => {
+    const { page = 1, limit = 20, includeImages = true } = options;
     const token = localStorage.getItem("token");
-    const res = await fetch(`${API_URL}/activities`, {
+    
+    const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        include_images: includeImages.toString(),
+    });
+
+    const res = await fetch(`${API_URL}/activities?${params}`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`,
@@ -188,22 +212,30 @@ export const getRewards = async (): Promise<Reward[]> => {
     return res.json();
 };
 
-//fueng add
-export const getActivitiesByUser = async (userId: number): Promise<Activity[]> => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(`${API_URL}/activities/user/${userId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+//fueng add - WITH PAGINATION SUPPORT
+export const getActivitiesByUser = async (userId: number, options: FetchOptions = {}): Promise<Activity[]> => {
+    const { page = 1, limit = 20, includeImages = true } = options;
+    const token = localStorage.getItem("token");
+    
+    const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        include_images: includeImages.toString(),
+    });
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch activities");
-  }
+    const res = await fetch(`${API_URL}/activities/user/${userId}?${params}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
 
-  const data = await res.json();
-  return data; // ✅ เพราะ backend ส่ง array ตรง ๆ
+    if (!res.ok) {
+        throw new Error("Failed to fetch activities");
+    }
+
+    const data = await res.json();
+    return data.data || data; // ✅ Handle both formats
 };
 
 

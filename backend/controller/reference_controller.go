@@ -21,7 +21,7 @@ func NewReferenceController(db *gorm.DB) *ReferenceController {
 func (rc *ReferenceController) GetEducationLevels(ctx *gin.Context) {
 	var items []entity.EducationLevel
 	if err := rc.DB.Order("name asc").Find(&items).Error; err != nil {
-		respondError(ctx, http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"items": items})
@@ -30,7 +30,7 @@ func (rc *ReferenceController) GetEducationLevels(ctx *gin.Context) {
 func (rc *ReferenceController) GetSchoolTypes(ctx *gin.Context) {
 	var items []entity.SchoolType
 	if err := rc.DB.Order("name asc").Find(&items).Error; err != nil {
-		respondError(ctx, http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"items": items})
@@ -46,7 +46,7 @@ func (rc *ReferenceController) GetCurriculumTypes(ctx *gin.Context) {
 	}
 
 	if err := q.Find(&items).Error; err != nil {
-		respondError(ctx, http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"items": items})
@@ -104,7 +104,7 @@ func (rc *ReferenceController) SearchSchools(ctx *gin.Context) {
 
 	var items []entity.School
 	if err := q.Find(&items).Error; err != nil {
-		respondError(ctx, http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -121,7 +121,7 @@ func (rc *ReferenceController) SearchSchools(ctx *gin.Context) {
 		countQ = countQ.Where("is_project_based = ?", *filterProject)
 	}
 	if err := countQ.Count(&total).Error; err != nil {
-		respondError(ctx, http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   getWorkings,
+  getWorkingsByUser,
   getTypeWorkings,
   createWorking,
   deleteWorking,
@@ -55,8 +56,15 @@ export default function WorkingUI() {
   /* ================= LOAD ================= */
 
   const loadAll = async () => {
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const userId = user?.id || user?.ID ? Number(user?.id || user?.ID) : 0;
+
     try {
-      const [w, t] = await Promise.all([getWorkings(), getTypeWorkings()]);
+      const [w, t] = await Promise.all([
+        userId ? getWorkingsByUser(userId) : Promise.resolve([]),
+        getTypeWorkings()
+      ]);
       setWorkings(w || []);
       setTypes(t || []);
     } catch (err) {
@@ -154,9 +162,14 @@ export default function WorkingUI() {
         working_link: l
       }));
 
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      const userId = user?.id || user?.ID ? Number(user?.id || user?.ID) : undefined;
+
       await createWorking({
         working_name: title,
         status,
+        user_id: userId,
         working_detail: {
           working_at: new Date(date).toISOString(),
           description,

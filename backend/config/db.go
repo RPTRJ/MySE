@@ -29,8 +29,13 @@ func ConnectionDatabase() {
 	}
 
 	db = database
-	SetupDatabase()
-	log.Println("Connected to database and ran migrations")
+
+	if os.Getenv("SKIP_MIGRATION") != "true" {
+		SetupDatabase()
+		log.Println("Connected to database and ran migrations")
+	} else {
+		log.Println("Connected to database (migrations skipped)")
+	}
 }
 
 // ====================================================

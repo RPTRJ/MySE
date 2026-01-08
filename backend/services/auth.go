@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -86,8 +87,8 @@ func NewJWTWrapper() *JWTWrapper {
 
 	exp := int64(24)
 	if envExp := os.Getenv("JWT_EXPIRE_HOURS"); envExp != "" {
-		if parsed, err := time.ParseDuration(envExp + "h"); err == nil {
-			exp = int64(parsed.Hours())
+		if parsed, err := strconv.ParseInt(envExp, 10, 64); err == nil && parsed > 0 {
+			exp = parsed
 		}
 	}
 

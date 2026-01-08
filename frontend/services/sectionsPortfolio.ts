@@ -1,3 +1,5 @@
+import { get } from "http";
+
 export const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 // Color Theme
@@ -97,4 +99,14 @@ export async function deleteSection(sectionId: number) {
     });
     if (!response.ok) throw new Error("Failed to delete section");
     return response.json();
+}
+
+export async function updatePortfolio(id: number, data: any) {
+    const res = await fetch(`${API}/portfolio/${id}`, { // ตรวจสอบ Route ของ Backend คุณว่าใช้ path นี้หรือไม่
+        method: "PATCH", // หรือ PUT ขึ้นอยู่กับ Backend
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update portfolio");
+    return res.json();
 }

@@ -309,11 +309,11 @@ func (ec *EducationAdminController) ListSchools(ctx *gin.Context) {
 	isProjectBasedParam := strings.TrimSpace(ctx.Query("is_project_based"))
 	var filterProject *bool
 	if isProjectBasedParam != "" {
-		val := strings.ToLower(isProjectBasedParam)
-		if val == "true" || val == "1" {
+		switch strings.ToLower(isProjectBasedParam) {
+		case "true", "1":
 			t := true
 			filterProject = &t
-		} else if val == "false" || val == "0" {
+		case "false", "0":
 			f := false
 			filterProject = &f
 		}

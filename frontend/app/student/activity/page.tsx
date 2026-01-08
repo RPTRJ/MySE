@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import {
   getActivities,
+  getActivitiesByUser,
   createActivity,
   deleteActivity,
   updateActivity,
@@ -65,9 +66,13 @@ export default function ActivityUI() {
   /* ================= LOAD ================= */
 
   const loadAll = async () => {
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const userId = user?.id || user?.ID ? Number(user?.id || user?.ID) : 0;
+
     try {
       const [act, t, l, r] = await Promise.all([
-        getActivities(),
+        userId ? getActivitiesByUser(userId) : Promise.resolve([]),
         getTypeActivities(),
         getLevelActivities(),
         getRewards(),
@@ -164,9 +169,14 @@ export default function ActivityUI() {
         image_url: url
       }));
 
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      const userId = user?.id || user?.ID ? Number(user?.id || user?.ID) : undefined;
+
       await createActivity({
         activity_name: name,
         reward_id: Number(rewardId),
+        user_id: userId,
         activity_detail: {
           activity_at: new Date(activityDate).toISOString(),
           institution,

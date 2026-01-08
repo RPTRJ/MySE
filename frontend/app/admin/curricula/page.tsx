@@ -24,7 +24,7 @@ const Icons = {
   Close: () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
   Calendar: () => <svg className="w-5 h-5 text-orange-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
   Download: () => <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
-  Chart: () => <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> // ✅ เพิ่มไอคอนกราฟ
+  Chart: () => <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
 };
 
 type FormState = {
@@ -200,6 +200,33 @@ export default function AdminCurriculaPage() {
         return;
       }
 
+      // ✅ 1. ตรวจสอบ GPAX (ต้องอยู่ระหว่าง 0.00 - 4.00)
+      const gpaxValue = parseFloat(form.gpax_min);
+      if (isNaN(gpaxValue) || gpaxValue < 0.00 || gpaxValue > 4.00) {
+          alert("⚠️ GPAX ขั้นต่ำต้องอยู่ระหว่าง 0.00 - 4.00 เท่านั้น");
+          setSaving(false);
+          return;
+      }
+
+      // ✅ 2. ตรวจสอบวันที่ (วันปิดรับห้ามมาก่อนวันเปิดรับ)
+      if (form.start_date && form.end_date) {
+        const startDate = new Date(form.start_date);
+        const endDate = new Date(form.end_date);
+        if (endDate < startDate) {
+            alert("⚠️ วันปิดรับสมัคร (End) ห้ามมาก่อนวันเปิดรับสมัคร (Start)");
+            setSaving(false);
+            return;
+        }
+      }
+
+      // ✅ 3. ตรวจสอบจำนวนรับ (ต้องเป็นจำนวนเต็ม และไม่ติดลบ)
+      const quotaValue = Number(form.quota);
+      if (form.quota && (!Number.isInteger(quotaValue) || quotaValue < 0)) {
+          alert("⚠️ จำนวนรับ (คน) ต้องเป็นจำนวนเต็มและห้ามติดลบ (ห้ามมีทศนิยม)");
+          setSaving(false);
+          return;
+      }
+
       const userStr = localStorage.getItem("user");
       let userId = 0;
       if (userStr) {
@@ -348,7 +375,7 @@ export default function AdminCurriculaPage() {
                 <Icons.Download /> Export CSV
              </button>
 
-             {/* ✅ 2. ปุ่มรายงานสถิติ (แทรกตรงกลาง) */}
+             {/* ✅ 2. ปุ่มรายงานสถิติ */}
              <button
                 onClick={() => router.push("/admin/curricula/report")}
                 className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hover:text-orange-600 transition-all"
@@ -368,7 +395,7 @@ export default function AdminCurriculaPage() {
 
         {/* Content Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* ... (ส่วนค้นหาและตารางเหมือนเดิม) ... */}
+          {/* ... (ส่วนค้นหา) ... */}
           <div className="p-4 border-b border-gray-100 bg-white">
             <div className="relative max-w-md">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -571,9 +598,12 @@ export default function AdminCurriculaPage() {
                   {/* Row 3 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-sm font-medium leading-6 text-gray-900">GPAX ขั้นต่ำ</label>
+                      <label className="block text-sm font-medium leading-6 text-gray-900">GPAX ขั้นต่ำ (0.00 - 4.00)</label>
                       <input
-                        type="number" step="0.01"
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        max="4"
                         className="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
                         value={form.gpax_min}
                         onChange={(e) => setForm({ ...form, gpax_min: e.target.value })}
@@ -642,9 +672,17 @@ export default function AdminCurriculaPage() {
                       <label className="block text-sm font-medium leading-6 text-gray-900">จำนวนรับ (คน)</label>
                       <input
                         type="number"
+                        min="0"
+                        step="1"
                         className="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
                         value={form.quota}
                         onChange={(e) => setForm({ ...form, quota: e.target.value })}
+                        onKeyDown={(e) => {
+                          // ป้องกันการพิมพ์ E, +, -, .
+                          if (["e", "E", "+", "-", "."].includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                         placeholder="0"
                         title="จำนวนรับ"
                       />

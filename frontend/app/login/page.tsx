@@ -9,35 +9,31 @@ import {
 } from "@/services/auth";
 import { Lock, Mail, ArrowRight, Loader2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import styles from "./login.module.css";
 
 export default function AuthPage() {
   const router = useRouter();
-  
-//State
+
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-//Login State
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-//Register State
   const [regData, setRegData] = useState({
     email: "",
     password: "",
   });
   const [confirmPassword, setConfirmPassword] = useState("");
 
-//Toggle Mode
   const toggleMode = (mode: boolean) => {
     setError("");
     setSuccess("");
     setIsLoginMode(mode);
   };
 
-//Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -75,7 +71,6 @@ export default function AuthPage() {
     }
   };
 
-//Handle Register
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -122,18 +117,10 @@ export default function AuthPage() {
     <div className="min-h-screen w-full bg-white flex flex-col">
       <div className="flex min-h-screen w-full flex-col lg:flex-row">
         <div
-          className="relative hidden lg:flex lg:flex-[0_0_54%] overflow-hidden"
-          style={{
-            clipPath: "polygon(0 0, 96% 0, 80% 100%, 0 100%)",
-            backgroundColor: "#e66a0a",
-          }}
+          className={`relative hidden lg:flex lg:flex-[0_0_54%] overflow-hidden ${styles.leftPanel}`}
         >
           <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage:
-                "linear-gradient(0deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url('/DSC02078-2-scaled.jpg')",
-            }}
+            className={`absolute inset-0 bg-cover bg-center ${styles.leftPanelBg}`}
           />
           <div className="absolute inset-0 bg-[#e66a0a]/78" />
           <div className="relative z-10 flex flex-col justify-center px-16 py-14 text-white drop-shadow-[0_12px_32px_rgba(0,0,0,0.28)]">
@@ -146,10 +133,7 @@ export default function AuthPage() {
         </div>
         <div className="relative w-full lg:w-[42%] flex items-center justify-center px-6 py-12 lg:px-12">
           <div
-            className="absolute top-0 left-0 w-full h-36 bg-gradient-to-r from-[#f97316] to-[#f97316] lg:hidden"
-            style={{
-              clipPath: "polygon(0 0, 100% 0, 100% 60%, 0 100%)",
-            }}
+            className={`absolute top-0 left-0 w-full h-36 bg-gradient-to-r from-[#f97316] to-[#f97316] lg:hidden ${styles.mobileHeader}`}
           />
           <div className="w-full max-w-lg relative z-10">
             <div className="lg:hidden text-center mb-8 pt-12">

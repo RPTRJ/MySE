@@ -1,77 +1,84 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-// ✅ import markNotificationReadAPI เข้ามาด้วย
-import { fetchNotificationsAPI, markNotificationReadAPI } from "@/services/curriculum";
+import { useEffect, useRef } from "react";
 import toast from 'react-hot-toast';
+import { markNotificationReadAPI } from "@/services/curriculum";
 
-export default function NotificationPoller() {
-  const [userId, setUserId] = useState<number>(0);
-  const notifiedIds = useRef<Set<number>>(new Set());
+export default function NotificationSocket() {
+  const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    // ... (โค้ดดึง User ID เหมือนเดิม)
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const u = JSON.parse(userStr);
-        setUserId(u.ID || u.id || 0);
-      } catch (e) { console.error(e); }
-    }
+    // ใช้ Timeout เพื่อรอให้ React Mount เสร็จชัวร์ๆ ก่อนค่อยต่อ (แก้ปัญหา Strict Mode)
+    const timeoutId = setTimeout(() => {
+        const connect = () => {
+          const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080/ws";
+          console.log("Connecting to WebSocket:", wsUrl);
+          
+          const socket = new WebSocket(wsUrl);
+          socketRef.current = socket;
 
-    const interval = setInterval(async () => {
-      if (!userId) return;
+          socket.onopen = () => {
+            console.log("✅ WebSocket Connected");
+          };
 
-      try {
-        const notis = await fetchNotificationsAPI(userId);
-        
-        if (notis && notis.length > 0) {
-          notis.forEach((n: any) => {
-             // เช็ค ID (ปรับให้รองรับทั้งตัวเล็กตัวใหญ่เผื่อ GORM ส่งมาต่างกัน)
-             const currentId = n.ID || n.id;
+          socket.onmessage = (event) => {
+            // ... (โค้ดเดิมส่วนจัดการข้อความ) ...
+             try {
+                const data = JSON.parse(event.data);
+                const message = data.notification_message || data.message || data.Notification_Message || event.data;
+                const title = data.notification_title || data.title || data.Notification_Title || "แจ้งเตือนใหม่";
+                const id = data.ID || data.id;
 
-             if (!notifiedIds.current.has(currentId)) {
-                
-                // 1. แสดง Toast
                 toast((t) => (
-                   <div className="flex flex-col relative pr-4 min-w-[250px]">
-                     <button 
-                        onClick={() => toast.dismiss(t.id)}
-                        className="absolute -top-1 -right-2 text-gray-400 hover:text-red-500 font-bold p-1 rounded-full"
-                     >✕</button>
-                     <span className="font-bold text-sm text-gray-800 mb-1">
-                        {n.notification_title || n.Notification_Title || "แจ้งเตือน"}
-                     </span>
-                     <span className="text-sm text-gray-600 leading-snug">
-                        {n.notification_message || n.Notification_Message}
-                     </span>
-                   </div>
-                 ), {
-                   id: `noti-${currentId}`,
-                   duration: Infinity, // ค้างไว้จนกว่าจะกดปิด
-                   position: 'top-right',
-                   style: { 
-                     borderLeft: '4px solid #FFA500',
-                     background: '#fff',
-                     color: '#333',
-                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                     padding: '12px 16px',
-                   },
-                 });
+                    <div className="flex flex-col relative pr-4 min-w-[250px]">
+                      <button 
+                         onClick={() => toast.dismiss(t.id)}
+                         className="absolute -top-1 -right-2 text-gray-400 hover:text-red-500 font-bold p-1 rounded-full"
+                      >✕</button>
+                      <span className="font-bold text-sm text-gray-800 mb-1">{title}</span>
+                      <span className="text-sm text-gray-600 leading-snug">{message}</span>
+                    </div>
+                  ), {
+                    id: `noti-${id || Date.now()}`,
+                    duration: 5000, 
+                    position: 'top-right',
+                    style: { borderLeft: '4px solid #FFA500', background: '#fff', color: '#333', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '12px 16px' },
+                });
+                window.dispatchEvent(new Event("refresh_data"));
+                if (id) markNotificationReadAPI(id); 
+            } catch (e) {
+                toast(event.data, { icon: '🔔' });
+            }
+          };
 
-                // ✅✅✅ 2. แจ้ง Backend ทันทีว่า "แสดงแล้วนะ" (Mark as Read)
-                markNotificationReadAPI(currentId);
+          socket.onclose = () => {
+            console.log("❌ WebSocket Disconnected. Retrying in 3s...");
+            // เช็คก่อนว่า Component ยังอยู่ไหมค่อย reconnect
+            if (socketRef.current) {
+                setTimeout(() => connect(), 3000);
+            }
+          };
 
-                // 3. จำไว้ใน Local State (กันเด้งซ้ำใน Loop เดิม)
-                notifiedIds.current.add(currentId);
-             }
-          });
-        }
-      } catch (e) { console.error(e); }
-    }, 5000);
+          socket.onerror = (err) => {
+            // console.error("WebSocket Error:", err); // คอมเมนต์ออกได้ถ้าไม่อยากเห็น error แดง
+            socket.close();
+          };
+        };
+        
+        connect();
+    }, 100); // รอ 100ms
 
-    return () => clearInterval(interval);
-  }, [userId]);
+    // Cleanup
+    return () => {
+      clearTimeout(timeoutId); // ยกเลิกการเชื่อมต่อถ้ารีบปิดหน้าเว็บ
+      if (socketRef.current) {
+        // เซ็ตเป็น null เพื่อบอก onclose ว่าไม่ต้อง auto reconnect แล้วนะ เราตั้งใจปิดเอง
+        const socket = socketRef.current;
+        socketRef.current = null; 
+        socket.close();
+      }
+    };
+  }, []);
 
   return null;
 }

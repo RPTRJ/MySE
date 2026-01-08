@@ -14,7 +14,7 @@ type Activity struct {
 	UserID          uint            `json:"user_id"`
 	User            *User           `gorm:"foreignKey:UserID" json:"user"`
 	RewardID       uint            `json:"reward_id"`
-	Reward         *Reward         `gorm:"foreignKey:rewardID" json:"reward"`
+	Reward         *Reward         `gorm:"foreignKey:RewardID" json:"reward"`
 }
 
 // BeforeCreate checks for duplicate ActivityName and validates struct

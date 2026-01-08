@@ -104,6 +104,16 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
         if (id) loadData();
     }, [id, router]);
 
+    useEffect(() => {
+        if (portfolio?.font?.font_url) {
+            const link = document.createElement('link');
+            link.href = portfolio.font.font_url;
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+            return () => { document.head.removeChild(link); };
+        }
+    }, [portfolio]);
+
     // ฟังก์ชันเลื่อนรูปภาพ (ถัดไป)
     const handleNextImage = (blockId: string, totalImages: number, e: React.MouseEvent) => {
         e.stopPropagation(); // ป้องกันไม่ให้กดแล้วไป trigger event อื่น
@@ -138,6 +148,7 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
                  firstname: "Loading...", lastname: "", 
                  major: "-", gpa: "-", bio: "...", profile_image: null 
              };
+             const cardBgColor = portfolio.colors?.background_color || '#ffffff';
 
              return (
                  // เพิ่ม Logic: ถ้า isRight เป็น true ให้ใช้ flex-row-reverse (สลับด้าน)
@@ -208,7 +219,7 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
                     return (
                         <div key={idx} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group relative">
                             {/* Image Container */}
-                            <div className="h-48 w-full bg-gray-100 relative overflow-hidden group">
+                            <div className="h-64 w-full bg-gray-100 relative overflow-hidden group">
                                 <img 
                                     src={currentImageSrc} 
                                     className="w-full h-full object-cover transition-all duration-500" 
@@ -272,11 +283,14 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
 
     if (loading) return <div className="p-10 text-center">กำลังโหลด...</div>;
     if (!portfolio) return null;
-
+    
     const primaryColor = portfolio.colors?.primary_color || '#FF6B35';
+    const backgroundColor = portfolio.colors?.background_color || '#ffffff'; // ✅ ดึงสีพื้นหลังมา
+    const fontFamily = portfolio.font?.font_family || 'inherit';
 
     return (
-        <div className="min-h-screen bg-white p-6 pb-20">
+        <div className="min-h-screen bg-white p-6 pb-20"
+             style={{ backgroundColor: lightenColor(backgroundColor, 90), fontFamily }}>
             <div className="mx-auto" style={{ maxWidth: 1500 }}>
                 <button 
                     onClick={() => router.back()} 
@@ -285,13 +299,13 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
                     ← ย้อนกลับ
                 </button>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4" style={{ borderLeftColor: primaryColor }}>
+                {/* <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4" style={{ borderLeftColor: primaryColor }}>
                     <h1 className="text-3xl font-bold text-gray-900">{portfolio.portfolio_name}</h1>
                     <p className="text-gray-500">{portfolio.description}</p>
-                </div>
+                </div> */}
 
                 <div className="space-y-6">
-                    {portfolio.portfolio_sections?.filter((s:any) => s.is_enabled !== false).map((section: any, idx: number) => (
+                    {portfolio.portfolio_sections?.filter((s:any) => s.is_enabled !== false).map((section: any, idx: number) => (                       
                         <div key={section.ID} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
                             <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 bg-gray-50/50">
                                 <span className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm shadow-sm"
@@ -303,10 +317,38 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
                                 </h3>
                             </div>
 
-                            <div className="p-6">
+                            <div className="p-6 transition-colors duration-500" 
+                                 style={{ backgroundColor: backgroundColor, 
+                                          fontFamily :fontFamily
+                                }}>
                                 {renderSectionContent(section)}
                             </div>
                         </div>
+                        // const isProfile = section.section_title?.toLowerCase().includes('profile') || 
+                        //                   section.layout_type?.includes('profile');
+                                          
+                        // return (
+                        //     <div key={section.ID} className="animate-fade-in-up">
+                        //         {/* ถ้าไม่ใช่ Profile ให้แสดงชื่อหัวข้อ (เช่น "กิจกรรม", "ผลงาน") 
+                        //             ตรงนี้คือส่วนที่คุณต้องการให้เปลี่ยนชื่อได้ (ชื่อจะมาจาก Database) */}
+                        //         {!isProfile && (
+                        //             <div className="flex items-center gap-4 mb-6">
+                        //                 <h2 className="text-2xl font-bold text-gray-800">
+                        //                     {section.section_title}
+                        //                 </h2>
+                        //                 <div className="h-1 flex-1 rounded-full bg-gray-100"></div>
+                        //             </div>
+                        //         )}
+
+                        //         {/* Render เนื้อหาโดยตรง ไม่ต้องมีกรอบ Header Bar ครอบแล้ว */}
+                        //         <div    className ="p-6 transition-colors duration-500"
+                        //                 style={{ backgroundColor: backgroundColor, 
+                        //                       fontFamily :fontFamily
+                        //                     }}>
+                        //             {renderSectionContent(section)}
+                        //         </div>
+                        //     </div>
+                        // );
                     ))}
                 </div>
             </div>

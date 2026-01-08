@@ -220,8 +220,9 @@ export default function EditPersonalPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900">{docMeta.label}</label>
+                <label htmlFor="idNumber" className="block text-sm font-medium text-gray-900">{docMeta.label}</label>
                 <input
+                  id="idNumber"
                   className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   value={form.idNumber}
                   onChange={(e) => setForm((prev) => ({ ...prev, idNumber: e.target.value }))}
@@ -257,8 +258,9 @@ export default function EditPersonalPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900">ชื่อ *</label>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-900">ชื่อ *</label>
                 <input
+                  id="firstName"
                   className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   value={form.firstName}
                   onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
@@ -266,8 +268,9 @@ export default function EditPersonalPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900">นามสกุล *</label>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-900">นามสกุล *</label>
                 <input
+                  id="lastName"
                   className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   value={form.lastName}
                   onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
@@ -278,8 +281,10 @@ export default function EditPersonalPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900">หมายเลขโทรศัพท์ *</label>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-900">หมายเลขโทรศัพท์ *</label>
                 <input
+                  id="phone"
+                  type="tel"
                   className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   value={form.phone}
                   onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
@@ -287,8 +292,9 @@ export default function EditPersonalPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900">วันเกิด *</label>
+                <label htmlFor="birthday" className="block text-sm font-medium text-gray-900">วันเกิด *</label>
                 <input
+                  id="birthday"
                   type="date"
                   className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   value={form.birthday}

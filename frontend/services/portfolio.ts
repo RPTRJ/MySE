@@ -10,13 +10,34 @@ const getAuthHeaders = () => {
   };
 };
 
-// Fetch user's portfolios
-export async function fetchMyPortfolios() {
-  //ดึง token จาก localStorage
-  const token = localStorage.getItem("token");
-  console.log("DEBUG TOKEN:", token);
+// Pagination types
+export interface PaginatedResponse<T> {
+  data: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
-  const response = await fetch(`${API}/portfolio/my`, {
+export interface FetchOptions {
+  page?: number;
+  limit?: number;
+  includeImages?: boolean;
+  includeBlocks?: boolean;
+}
+
+// Fetch user's portfolios - WITH PAGINATION SUPPORT
+export async function fetchMyPortfolios(options: FetchOptions = {}) {
+  const { page = 1, limit = 10, includeBlocks = true } = options;
+  const token = localStorage.getItem("token");
+  
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    include_blocks: includeBlocks.toString(),
+  });
+
+  const response = await fetch(`${API}/portfolio/my?${params}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -77,10 +98,18 @@ export async function createTemplate(data: { template_name: string }) {
   return response.json();
 }
 
-// Fetch activities
-export async function fetchActivities() {
+// Fetch activities - WITH PAGINATION SUPPORT
+export async function fetchActivities(options: FetchOptions = {}) {
+  const { page = 1, limit = 20, includeImages = false } = options;
   const token = localStorage.getItem("token");
-  const response = await fetch(`${API}/portfolio/activities`, {
+  
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    include_images: includeImages.toString(),
+  });
+
+  const response = await fetch(`${API}/portfolio/activities?${params}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -92,10 +121,18 @@ export async function fetchActivities() {
   return response.json();
 }
 
-// Fetch workings
-export async function fetchWorkings() {
+// Fetch workings - WITH PAGINATION SUPPORT
+export async function fetchWorkings(options: FetchOptions = {}) {
+  const { page = 1, limit = 20, includeImages = false } = options;
   const token = localStorage.getItem("token");
-  const response = await fetch(`${API}/portfolio/workings`, {
+  
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    include_images: includeImages.toString(),
+  });
+
+  const response = await fetch(`${API}/portfolio/workings?${params}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${token}`,
