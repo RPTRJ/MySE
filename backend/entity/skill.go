@@ -9,6 +9,6 @@ type Skill struct {
 	Category    int    `json:"category"`
 	Description string `json:"description" gorm:"type:text"`
 
-	CurriculumSkills []CurriculumSkill `json:"curriculum_skills"`
-	AdviceSkills     []AdviceSkill     `json:"advice_skills"`
+	CurriculumSkills  []CurriculumSkill  `json:"curriculum_skills"`
+	CourseGroupSkills []CourseGroupSkill `json:"course_group_skills"`
 }

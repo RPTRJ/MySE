@@ -156,6 +156,9 @@ func SeedUsers() {
 		},
 	}
 
+	var skippedUsers []string
+	var seededUsers []string
+
 	for i, item := range users {
 		user := item.User
 
@@ -183,7 +186,7 @@ func SeedUsers() {
 		// Create User if not exists
 		var existing entity.User
 		if err := db.Where("email = ?", user.Email).First(&existing).Error; err == nil {
-			log.Printf("ℹ️  user already exists: %s", user.Email)
+			skippedUsers = append(skippedUsers, user.Email)
 			continue
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Printf("failed to query user %s: %v\n", user.Email, err)
@@ -193,13 +196,21 @@ func SeedUsers() {
 		if err := db.Create(&user).Error; err != nil {
 			log.Printf("failed to seed user %s: %v\n", user.Email, err)
 		} else {
-			log.Printf("✓ seeded user: %s", user.Email)
+			seededUsers = append(seededUsers, user.Email)
 		}
 
 		// Seed a sample education record per user (only if references exist)
 		if len(refs.levels) > 0 {
 			seedEducationForUser(db, user, refs, i)
 		}
+	}
+
+	// Summary logging
+	if len(seededUsers) > 0 {
+		log.Printf("seeded %d new users\n", len(seededUsers))
+	}
+	if len(skippedUsers) > 0 {
+		log.Printf("%d users already exist, skipping\n", len(skippedUsers))
 	}
 }
 
@@ -238,7 +249,7 @@ func ensureIDType(db *gorm.DB, name string) uint {
 func loadReferenceSet(db *gorm.DB) referenceSet {
 	refs := referenceSet{}
 	if err := db.Find(&refs.levels).Error; err != nil {
-		log.Printf("⚠️  failed to load education_levels: %v", err)
+		log.Printf("failed to load education_levels: %v", err)
 	}
 	// Ensure at least the basic education levels exist so we can seed education for users
 	if len(refs.levels) == 0 {
@@ -249,16 +260,16 @@ func loadReferenceSet(db *gorm.DB) referenceSet {
 			{Name: "GED"},
 		}
 		if err := db.Create(&defaultLevels).Error; err != nil {
-			log.Printf("⚠️  failed to seed default education_levels: %v", err)
+			log.Printf("failed to seed default education_levels: %v", err)
 		} else {
 			refs.levels = defaultLevels
 		}
 	}
 	if err := db.Find(&refs.schools).Error; err != nil {
-		log.Printf("⚠️  failed to load schools: %v", err)
+		log.Printf("failed to load schools: %v", err)
 	}
 	if err := db.Find(&refs.curriculums).Error; err != nil {
-		log.Printf("⚠️  failed to load curriculum_types: %v", err)
+		log.Printf("failed to load curriculum_types: %v", err)
 	}
 	return refs
 }
@@ -266,10 +277,9 @@ func loadReferenceSet(db *gorm.DB) referenceSet {
 func seedEducationForUser(db *gorm.DB, user entity.User, refs referenceSet, idx int) {
 	var existing entity.Education
 	if err := db.Where("user_id = ?", user.ID).First(&existing).Error; err == nil {
-		log.Printf("ℹ️  education already exists for user %s", user.Email)
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("⚠️  failed to query education for user %s: %v", user.Email, err)
+		log.Printf("failed to query education for user %s: %v", user.Email, err)
 		return
 	}
 
@@ -297,8 +307,6 @@ func seedEducationForUser(db *gorm.DB, user entity.User, refs referenceSet, idx 
 	}
 
 	if err := db.Create(&edu).Error; err != nil {
-		log.Printf("⚠️  failed to seed education for user %s: %v", user.Email, err)
-	} else {
-		log.Printf("✓ seeded education for user %s (level: %s)", user.Email, level.Name)
+		log.Printf("failed to seed education for user %s: %v", user.Email, err)
 	}
 }

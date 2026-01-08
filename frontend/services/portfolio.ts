@@ -2,9 +2,48 @@ import { fetchTemplateById } from './templates';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// Fetch user's portfolios
-export async function fetchMyPortfolios() {
-  const response = await fetch(`${API}/portfolio/my`);
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`, // ✅ ใส่ Token ตรงนี้ทีเดียวจบ
+  };
+};
+
+// Pagination types
+export interface PaginatedResponse<T> {
+  data: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface FetchOptions {
+  page?: number;
+  limit?: number;
+  includeImages?: boolean;
+  includeBlocks?: boolean;
+}
+
+// Fetch user's portfolios - WITH PAGINATION SUPPORT
+export async function fetchMyPortfolios(options: FetchOptions = {}) {
+  const { page = 1, limit = 10, includeBlocks = true } = options;
+  const token = localStorage.getItem("token");
+  
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    include_blocks: includeBlocks.toString(),
+  });
+
+  const response = await fetch(`${API}/portfolio/my?${params}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+
   if (!response.ok) {
     throw new Error("Failed to fetch portfolios");
   }
@@ -16,7 +55,7 @@ export async function useTemplate(templateId: number) {
   const response = await fetch(`${API}/portfolio/use-template/${templateId}`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({}),
   });
@@ -31,7 +70,7 @@ export async function createPortfolio(data: { portfolio_name: string; template_i
   const response = await fetch(`${API}/portfolio`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -49,7 +88,7 @@ export async function createTemplate(data: { template_name: string }) {
   const response = await fetch(`${API}/portfolio/template`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -59,18 +98,46 @@ export async function createTemplate(data: { template_name: string }) {
   return response.json();
 }
 
-// Fetch activities
-export async function fetchActivities() {
-  const response = await fetch(`${API}/portfolio/activities`);
+// Fetch activities - WITH PAGINATION SUPPORT
+export async function fetchActivities(options: FetchOptions = {}) {
+  const { page = 1, limit = 20, includeImages = false } = options;
+  const token = localStorage.getItem("token");
+  
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    include_images: includeImages.toString(),
+  });
+
+  const response = await fetch(`${API}/portfolio/activities?${params}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch activities");
   }
   return response.json();
 }
 
-// Fetch workings
-export async function fetchWorkings() {
-  const response = await fetch(`${API}/portfolio/workings`);
+// Fetch workings - WITH PAGINATION SUPPORT
+export async function fetchWorkings(options: FetchOptions = {}) {
+  const { page = 1, limit = 20, includeImages = false } = options;
+  const token = localStorage.getItem("token");
+  
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    include_images: includeImages.toString(),
+  });
+
+  const response = await fetch(`${API}/portfolio/workings?${params}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch workings");
   }
@@ -88,7 +155,7 @@ export async function createSection(data: {
   const response = await fetch(`${API}/portfolio/section`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -107,7 +174,7 @@ export async function updateSection(sectionId: number, data: Partial<{
   const response = await fetch(`${API}/portfolio/section/${sectionId}`, {
     method: "PATCH",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -126,7 +193,7 @@ export async function createBlock(data: {
   const response = await fetch(`${API}/portfolio/block`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -144,7 +211,7 @@ export async function updateBlock(blockId: number, data: {
   const response = await fetch(`${API}/portfolio/block/${blockId}`, {
     method: "PATCH",
     headers: {
-      "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -158,6 +225,7 @@ export async function updateBlock(blockId: number, data: {
 export async function deleteBlock(blockId: number) {
   const response = await fetch(`${API}/portfolio/block/${blockId}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     throw new Error("Failed to delete block");
@@ -168,8 +236,12 @@ export async function deleteBlock(blockId: number) {
 export async function uploadImage(file: File) {
     const formData = new FormData();
     formData.append("file", file);
+    const token = localStorage.getItem("token");
     const response = await fetch(`${API}/upload`, {
         method: "POST",
+        headers: {
+           "Authorization": `Bearer ${token}`,
+        },
         body: formData,
     });
     if (!response.ok) throw new Error("Failed to upload image");
@@ -179,7 +251,7 @@ export async function uploadImage(file: File) {
 export async function updatePortfolio(id: number, data: any) {
     const response = await fetch(`${API}/portfolio/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error("Failed to update portfolio");
@@ -189,6 +261,7 @@ export async function updatePortfolio(id: number, data: any) {
 export async function deletePortfolio(id: number) {
     const response = await fetch(`${API}/portfolio/${id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error("Failed to delete portfolio");
     return response.json();
@@ -237,9 +310,7 @@ export const createPortfolioFromTemplate = async (portfolioName: string, templat
 
       const sectionRes = await fetch(`${API}/portfolio/section`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+       headers: getAuthHeaders(),
         body: JSON.stringify(sectionData),
       });
 
@@ -276,9 +347,7 @@ export const createPortfolioFromTemplate = async (portfolioName: string, templat
 
         await fetch(`${API}/portfolio/block`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify(blockData),
         });
       }

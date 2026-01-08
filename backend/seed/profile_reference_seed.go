@@ -311,21 +311,30 @@ func seedSchools(tx *gorm.DB) error {
 
 	log.Printf("Total schools to seed: %d\n", len(items))
 
-	// Insert
+	// Insert - collect skipped items to summarize
+	var skippedCount int
+	var seededCount int
+
 	for _, school := range items {
 		var existing entity.School
 		if err := tx.Where("code = ?", school.Code).First(&existing).Error; err != nil {
 			if err := tx.Create(&school).Error; err != nil {
 				log.Printf("failed to seed School %s: %v\n", school.Code, err)
 				return err
-			} else {
-				log.Printf("seeded School: %s - %s\n", school.Code, school.Name)
 			}
+			seededCount++
 		} else {
-			log.Printf("⏭School already exists: %s\n", school.Code)
+			skippedCount++
 		}
 	}
 
-	log.Printf("Completed seeding %d schools\n", len(items))
+	if seededCount > 0 {
+		log.Printf("seeded %d new schools\n", seededCount)
+	}
+	if skippedCount > 0 {
+		log.Printf("%d schools already exist, skipping\n", skippedCount)
+	}
+
+	log.Printf("Completed seeding schools\n")
 	return nil
 }

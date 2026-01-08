@@ -10,6 +10,4 @@ type Course struct {
 	Credits      int    `json:"credits"`
 	Category     int    `json:"category"`
 	Description  string `json:"description" gorm:"type:text"`
-
-	AdviceCourses []AdviceCourse `json:"advice_courses"`
 }

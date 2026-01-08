@@ -1,24 +1,21 @@
-// services/curriculum.ts
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// --- Helper Functions ---
 function normalizeCurriculum(raw: any): CurriculumDTO {
   return {
     ...raw,
     id: raw.id ?? raw.ID,
-    code: raw.code ?? raw.Code, // เพิ่มเผื่อไว้
+    code: raw.code ?? raw.Code,
     name: raw.name ?? raw.Name,
     description: raw.description ?? raw.Description,
     gpax_min: raw.gpax_min ?? raw.GPAXMin,
     portfolio_max_pages: raw.portfolio_max_pages ?? raw.PortfolioMaxPages,
     status: raw.status ?? raw.Status,
     quota: raw.quota ?? raw.Quota,
-    application_period: raw.application_period ?? raw.ApplicationPeriod, // สำคัญสำหรับปฏิทิน
+    application_period: raw.application_period ?? raw.ApplicationPeriod,
     faculty: raw.faculty ? normalizeFaculty(raw.faculty) : (raw.Faculty ? normalizeFaculty(raw.Faculty) : undefined),
     program: raw.program ? normalizeProgram(raw.program) : (raw.Program ? normalizeProgram(raw.Program) : undefined),
     required_documents: raw.required_documents ?? raw.RequiredDocuments ?? [],
-    link: raw.link ?? raw.Link ?? "", 
+    link: raw.link ?? raw.Link ?? "",
   };
 }
 
@@ -38,7 +35,6 @@ function normalizeProgram(raw: any): ProgramDTO {
   };
 }
 
-// --- Types ---
 export type FacultyDTO = {
   id: number;
   name: string;
@@ -68,7 +64,7 @@ export type CurriculumDTO = {
   code: string;
   name: string;
   description: string;
-  link?: string; 
+  link?: string;
   gpax_min: number;
   portfolio_max_pages: number;
   status: string;
@@ -284,6 +280,25 @@ export async function toggleNotificationAPI(userId: number, curriculumId: number
   });
   if (!res.ok) throw new Error("Failed");
   return await res.json();
+}
+
+// อัปเดตคำแนะนำหลักสูตร
+export async function updateCurriculumRecommendation(
+  curriculumId: number,
+  recommendation: string
+) {
+  const res = await fetch(`${API_URL}/curricula/${curriculumId}/recommendation`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ recommendation }),
+  });
+
+  if (!res.ok) {
+    throw new Error("อัปเดตคำแนะนำไม่สำเร็จ");
+  }
+
+  const json = await res.json();
+  return normalizeCurriculum(json.data);
 }
 
 // ดึงข้อความแจ้งเตือน (Polling)

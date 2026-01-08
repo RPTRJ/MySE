@@ -11,11 +11,11 @@ import (
 func skipIfSeeded(db *gorm.DB, model interface{}, label string, minCount int64) bool {
 	var count int64
 	if err := db.Model(model).Count(&count).Error; err != nil {
-		log.Printf("⚠️  seed check for %s failed: %v", label, err)
+		log.Printf("seed check for %s failed: %v", label, err)
 		return false
 	}
 	if count >= minCount {
-		log.Printf("ℹ️  %s already seeded (%d rows), skipping", label, count)
+		log.Printf("%s already seeded (%d rows), skipping", label, count)
 		return true
 	}
 	return false

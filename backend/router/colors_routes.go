@@ -7,4 +7,5 @@ import (
 
 func ColorsRoutes(r *gin.Engine) {
 	r.GET("/colors", controller.GetAllColors)
+	r.GET("/colors/:id", controller.GetColorByID)
 }

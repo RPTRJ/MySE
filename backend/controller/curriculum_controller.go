@@ -1,7 +1,6 @@
 package controller
 
 import (
-
 	"net/http"
 	"strings"
 	"time"
@@ -85,6 +84,16 @@ func (cc *CurriculumController) RegisterRoutes(r *gin.Engine, protected *gin.Rou
 	{
 		public.GET("/public", cc.ListPublishedCurricula)
 		public.GET("/:id", cc.GetCurriculumByID)
+		public.GET("/:id/course-groups", cc.ListCurriculumCourseGroups) // ดูกลุ่มวิชาของหลักสูตร
+	}
+
+	// Protected: สำหรับครูและแอดมินจัดการกลุ่มวิชาในหลักสูตร
+	curriculaCG := protected.Group("/curricula")
+	{
+		curriculaCG.PUT("/:id/recommendation", cc.UpdateCurriculumRecommendation)
+		curriculaCG.POST("/:id/course-groups", cc.AddCourseGroupToCurriculum)
+		curriculaCG.PUT("/:id/course-groups/:cgId", cc.UpdateCurriculumCourseGroup)
+		curriculaCG.DELETE("/:id/course-groups/:cgId", cc.RemoveCourseGroupFromCurriculum)
 	}
 
 	// Protected: สำหรับแอดมินจัดการหลักสูตร
@@ -147,6 +156,7 @@ func (cc *CurriculumController) GetCurriculumByID(c *gin.Context) {
 		Preload("Program").
 		Preload("RequiredDocuments.DocumentType").
 		Preload("Skills.Skill").
+		Preload("CourseGroups.CourseGroup.CourseGroupSkills.Skill").
 		First(&curriculum, id).Error; err != nil {
 
 		c.JSON(http.StatusNotFound, gin.H{"error": "curriculum not found"})
@@ -269,7 +279,7 @@ func (cc *CurriculumController) UpdateCurriculum(c *gin.Context) {
 	cur.ProgramID = payload.ProgramID
 	cur.UserID = payload.UserID
 	cur.Quota = payload.Quota
-	
+
 	// อัปเดตช่วงเวลา
 	cur.ApplicationPeriod = payload.ApplicationPeriod
 
@@ -334,14 +344,19 @@ func (cc *CurriculumController) GetCurriculumSummary(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": resp})
 }
+
 // -------------------- HELPER ใหม่ (Return String) --------------------
 
 // getCalculatedStatus: คำนวณสถานะแล้วคืนค่าเป็น string เพื่อเอาไปบันทึก
 func getCalculatedStatus(period string) string {
-	if period == "" { return "closed" }
-	
+	if period == "" {
+		return "closed"
+	}
+
 	parts := strings.Split(period, "|")
-	if len(parts) < 2 { return "closed" }
+	if len(parts) < 2 {
+		return "closed"
+	}
 
 	layout1 := "2006-01-02T15:04"
 	layout2 := "2006-01-02T15:04:05"
@@ -350,23 +365,30 @@ func getCalculatedStatus(period string) string {
 	endStr := strings.TrimSpace(parts[1])
 
 	start, err1 := time.ParseInLocation(layout1, startStr, time.Local)
-	if err1 != nil { start, err1 = time.ParseInLocation(layout2, startStr, time.Local) }
+	if err1 != nil {
+		start, err1 = time.ParseInLocation(layout2, startStr, time.Local)
+	}
 
 	end, err2 := time.ParseInLocation(layout1, endStr, time.Local)
-	if err2 != nil { end, err2 = time.ParseInLocation(layout2, endStr, time.Local) }
+	if err2 != nil {
+		end, err2 = time.ParseInLocation(layout2, endStr, time.Local)
+	}
 
-	if err1 != nil || err2 != nil { return "closed" }
+	if err1 != nil || err2 != nil {
+		return "closed"
+	}
 
 	now := time.Now()
 
 	if now.Before(start) {
 		return "opening" // ยังไม่ถึงเวลา
 	} else if now.After(end) {
-		return "closed"  // หมดเวลา
+		return "closed" // หมดเวลา
 	} else {
-		return "open"    // เปิดอยู่
+		return "open" // เปิดอยู่
 	}
 }
+
 // Struct สำหรับรับผลลัพธ์ Query
 type StatResult struct {
 	Name      string `json:"name"`
@@ -410,4 +432,160 @@ func (cc *CurriculumController) GetSelectionStats(c *gin.Context) {
 		"faculty_stats": facultyStats,
 		"program_stats": programStats,
 	})
+}
+
+// ==================== Curriculum Course Group Handlers ====================
+
+// Payload สำหรับเพิ่ม/อัปเดตกลุ่มวิชาในหลักสูตร
+type CurriculumCourseGroupPayload struct {
+	CourseGroupID    uint   `json:"course_group_id" binding:"required"`
+	CreditPercentage int    `json:"credit_percentage"`
+	Description      string `json:"description"`
+}
+
+// Payload สำหรับอัปเดตคำแนะนำหลักสูตร
+type CurriculumRecommendationPayload struct {
+	Recommendation string `json:"recommendation"`
+}
+
+// UpdateCurriculumRecommendation - อัปเดตคำแนะนำหลักสูตร
+func (cc *CurriculumController) UpdateCurriculumRecommendation(c *gin.Context) {
+	curriculumId := c.Param("id")
+
+	var payload CurriculumRecommendationPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var curriculum entity.Curriculum
+	if err := cc.db.First(&curriculum, curriculumId).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "curriculum not found"})
+		return
+	}
+
+	curriculum.Description = payload.Recommendation
+
+	if err := cc.db.Save(&curriculum).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": curriculum})
+}
+
+// ListCurriculumCourseGroups - ดึงรายการกลุ่มวิชาของหลักสูตร
+func (cc *CurriculumController) ListCurriculumCourseGroups(c *gin.Context) {
+	curriculumId := c.Param("id")
+
+	var courseGroups []entity.CurriculumCourseGroup
+	if err := cc.db.
+		Preload("CourseGroup.CourseGroupSkills.Skill").
+		Where("curriculum_id = ?", curriculumId).
+		Find(&courseGroups).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": courseGroups})
+}
+
+// AddCourseGroupToCurriculum - เพิ่มกลุ่มวิชาเข้าหลักสูตร
+func (cc *CurriculumController) AddCourseGroupToCurriculum(c *gin.Context) {
+	curriculumId := c.Param("id")
+
+	var payload CurriculumCourseGroupPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// ตรวจสอบว่ามีหลักสูตรอยู่จริง
+	var curriculum entity.Curriculum
+	if err := cc.db.First(&curriculum, curriculumId).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "curriculum not found"})
+		return
+	}
+
+	// ตรวจสอบว่ากลุ่มวิชามีอยู่จริง
+	var courseGroup entity.CourseGroup
+	if err := cc.db.First(&courseGroup, payload.CourseGroupID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "course group not found"})
+		return
+	}
+
+	// ตรวจสอบว่ายังไม่มีกลุ่มวิชานี้ในหลักสูตร
+	var existing entity.CurriculumCourseGroup
+	if err := cc.db.Where("curriculum_id = ? AND course_group_id = ?", curriculum.ID, payload.CourseGroupID).First(&existing).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "course group already exists in this curriculum"})
+		return
+	}
+
+	// สร้าง record ใหม่
+	ccg := entity.CurriculumCourseGroup{
+		CurriculumID:     curriculum.ID,
+		CourseGroupID:    payload.CourseGroupID,
+		CreditPercentage: payload.CreditPercentage,
+		Description:      payload.Description,
+	}
+
+	if err := cc.db.Create(&ccg).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Preload ข้อมูลเพิ่มเติมเพื่อส่งกลับ
+	cc.db.Preload("CourseGroup.CourseGroupSkills.Skill").First(&ccg, ccg.ID)
+
+	c.JSON(http.StatusCreated, gin.H{"data": ccg})
+}
+
+// UpdateCurriculumCourseGroup - อัปเดตกลุ่มวิชาในหลักสูตร
+func (cc *CurriculumController) UpdateCurriculumCourseGroup(c *gin.Context) {
+	curriculumId := c.Param("id")
+	courseGroupId := c.Param("cgId")
+
+	var payload CurriculumCourseGroupPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var ccg entity.CurriculumCourseGroup
+	if err := cc.db.Where("curriculum_id = ? AND course_group_id = ?", curriculumId, courseGroupId).First(&ccg).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "curriculum course group not found"})
+		return
+	}
+
+	ccg.CreditPercentage = payload.CreditPercentage
+	ccg.Description = payload.Description
+
+	if err := cc.db.Save(&ccg).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Preload ข้อมูลเพิ่มเติมเพื่อส่งกลับ
+	cc.db.Preload("CourseGroup.CourseGroupSkills.Skill").First(&ccg, ccg.ID)
+
+	c.JSON(http.StatusOK, gin.H{"data": ccg})
+}
+
+// RemoveCourseGroupFromCurriculum - ลบกลุ่มวิชาออกจากหลักสูตร
+func (cc *CurriculumController) RemoveCourseGroupFromCurriculum(c *gin.Context) {
+	curriculumId := c.Param("id")
+	courseGroupId := c.Param("cgId")
+
+	result := cc.db.Where("curriculum_id = ? AND course_group_id = ?", curriculumId, courseGroupId).Delete(&entity.CurriculumCourseGroup{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "curriculum course group not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": true})
 }

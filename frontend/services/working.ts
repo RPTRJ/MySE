@@ -43,6 +43,7 @@ export interface CreateWorkingPayload {
         images?: { working_image_url: string }[];
         links?: { working_link: string }[];
     };
+    user_id?: number;
 }
 
 export async function getWorkings(): Promise<Working[]> {
@@ -131,4 +132,15 @@ export async function updateWorking(
     }
     const json = await res.json();
     return json.data;
+}
+
+export async function getWorkingsByUser(userId: number): Promise<Working[]> {
+    const res = await fetch(`${API_URL}/workings/user/${userId}`, {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+    });
+    if (!res.ok) throw new Error("Failed to fetch workings");
+    const json = await res.json();
+    return json.data || json; // Handle potential different response structure
 }

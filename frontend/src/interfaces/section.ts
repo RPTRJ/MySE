@@ -25,3 +25,13 @@ export interface Section {
   CreatedAt?: string;
   UpdatedAt?: string;
 }
+
+export interface PortfolioSection {
+    ID: number;
+    section_title: string;
+    section_port_key: string;
+    section_blocks: any[];
+    portfolio_id: number;
+    order_index: number;
+    is_enabled: boolean;
+}

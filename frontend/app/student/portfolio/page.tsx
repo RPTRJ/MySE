@@ -11,12 +11,10 @@ import { API,
         updatePortfolio,
         deletePortfolio,
         createPortfolioFromTemplate,
-        
+        fetchActivities,
+        fetchWorkings,
  } from "@/services/portfolio";
 import { pre } from "framer-motion/client";
-
-// const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
 
 // Helper functions for color manipulation
 function lightenColor(hex: string, percent: number): string {
@@ -62,6 +60,9 @@ export default function MyPortfoliosPage() {
     const [selectedTemplateForCreate, setSelectedTemplateForCreate] = useState<any | null>(null);
     const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [activities, setActivities] = useState<any[]>([]);
+    const [workings, setWorkings] = useState<any[]>([]);
     const router = useRouter();
 
     // Get theme for a specific portfolio or use default
@@ -125,6 +126,15 @@ export default function MyPortfoliosPage() {
 
             // Show all portfolios (including those created from templates)
             const allPortfolios = data.data || [];
+            allPortfolios.forEach((portfolio: any) => {
+                if (portfolio.portfolio_sections) {
+                    // เรียงตาม section_order (น้อยไปมาก)
+                    portfolio.portfolio_sections.sort((a: any, b: any) => 
+                        (a.section_order || 0) - (b.section_order || 0)
+                    );
+                }
+            });
+
             console.log("Portfolios loaded:", allPortfolios.length);
             setPortfolios(allPortfolios);
             setLoading(false);
@@ -132,6 +142,114 @@ export default function MyPortfoliosPage() {
             console.error("Error loading portfolios:", err);
             setLoading(false);
         }
+    };
+
+    const renderSectionContent = (section: any) => {
+        const blocks = section.portfolio_blocks || []; // เช็คชื่อ field ให้ตรงกับ backend
+        
+        // 1. เช็คว่าเป็น Section Profile หรือไม่ (จากชื่อ หรือ layout_type)
+        const isProfileLayout = section.section_title?.toLowerCase().includes('profile') || 
+                                (section as any).layout_type === 'profile_header_left';
+
+        // ---------------------------------------------------------
+        // CASE A: PROFILE LAYOUT (โชว์รูปวงกลม + ข้อมูล User)
+        // ---------------------------------------------------------
+        if (isProfileLayout) {
+             // ใช้ข้อมูลจาก currentUser (ถ้ายังไม่มี ให้ใช้ Placeholder)
+             const user = currentUser || { 
+                 firstname: "Loading...", lastname: "", 
+                 major: "-", gpa: "-", bio: "...", profile_image: null 
+             };
+
+             return (
+                 <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-white border border-gray-100 rounded-xl shadow-sm h-full w-full">
+                     {/* รูปวงกลม */}
+                     <div className="w-32 h-32 flex-shrink-0 rounded-full overflow-hidden border-4 border-blue-100 shadow-md">
+                         <img 
+                            src={user.profile_image || "/placeholder.jpg"} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150'}
+                         />
+                     </div>
+                     
+                     {/* ข้อมูล User */}
+                     <div className="flex-1 text-left w-full space-y-3">
+                         <div className="border-b pb-2 border-gray-100">
+                             <h3 className="text-2xl font-bold text-gray-800">
+                                 {user.firstname} {user.lastname}
+                             </h3>
+                             <p className="text-blue-500 font-medium">
+                                 {user.school || "Suranaree University of Technology"}
+                             </p>
+                         </div>
+                         <div className="space-y-1 text-sm text-gray-600">
+                             <p><span className="font-bold text-gray-800">Major:</span> {user.major}</p>
+                             <p><span className="font-bold text-gray-800">GPAX:</span> <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">{user.gpa}</span></p>
+                         </div>
+                     </div>
+                 </div>
+             );
+        }
+
+        // ---------------------------------------------------------
+        // CASE B: ACTIVITY / WORK GRID (โชว์รูปกิจกรรม)
+        // ---------------------------------------------------------
+        if (blocks.length === 0) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 py-10">
+                    <div className="text-4xl mb-2">📭</div>
+                    <div className="text-sm">ยังไม่มีเนื้อหาในส่วนนี้</div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {blocks.map((block: any, idx: number) => {
+                    const c = parseBlockContent(block.content);
+                    if(c?.type === 'profile') return null; // Profile เราจัดการไปแล้วข้างบน
+
+                    // Lookup Data (ดึงข้อมูลจริงจาก ID)
+                    let itemData = null;
+                    if(c?.type === 'activity') itemData = activities.find(a => a.ID == c.data_id);
+                    else if(c?.type === 'working') itemData = workings.find(w => w.ID == c.data_id);
+                    
+                    const finalData = itemData || c?.data;
+                    
+                    // ถ้าไม่มีข้อมูล ให้แสดงกล่อง Placeholder ว่างๆ (เหมือนในรูป IMG_6778 ช่องขวา)
+                    if(!finalData) {
+                        return (
+                            <div key={idx} className="h-40 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                                <span className="text-3xl text-gray-300">🖼️</span>
+                            </div>
+                        );
+                    }
+
+                    const images = extractImages(finalData, c.type);
+                    const cover = images.length > 0 ? getImageUrl(images[0]) : "https://via.placeholder.com/300?text=No+Image";
+
+                    return (
+                        <div key={idx} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group">
+                            <div className="h-40 w-full bg-gray-100 relative">
+                                <img src={cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                <span className={`absolute top-2 right-2 text-[10px] text-white px-2 py-1 rounded font-bold uppercase ${c.type === 'activity' ? 'bg-orange-400' : 'bg-blue-400'}`}>
+                                    {c.type}
+                                </span>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
+                                    {c.type === 'activity' ? finalData.activity_name : finalData.working_name}
+                                </h4>
+                                <p className="text-xs text-gray-500 line-clamp-2">
+                                    {c.type === 'activity' ? finalData.activity_detail?.description : finalData.working_detail?.description || "-"}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
 
     const handleCreatePortfolio = async () => {
@@ -200,6 +318,46 @@ export default function MyPortfoliosPage() {
             setAvailableColors(result.data || []);
         } catch (err) {
             console.error("Error loading colors:", err);
+        }
+    };
+
+    const loadAllData = async () => {
+        try {
+            setLoading(true);
+            const [portfoliosRes, activitiesRes, workingsRes] = await Promise.all([
+                fetchMyPortfolios(),
+                fetchActivities(),
+                fetchWorkings()
+            ]);
+
+            // Sort Portfolios by created date or ID if needed
+            const allPortfolios = portfoliosRes.data || [];
+            allPortfolios.forEach((p: any) => {
+                if (p.portfolio_sections) {
+                    p.portfolio_sections.sort((a:any, b:any) => (a.section_order||0) - (b.section_order||0));
+                }
+            });
+            setPortfolios(allPortfolios);
+            
+            setActivities(activitiesRes.data || []);
+            setWorkings(workingsRes.data || []);
+
+            // Mock User Data (Replace with API fetchUser)
+            // const userRes = await fetchUser();
+            setCurrentUser({
+                firstname: "Warattaya",
+                lastname: "Student",
+                major: "Software Engineering",
+                gpa: "4.00",
+                school: "Suranaree University of Technology",
+                bio: "Interested in AI & Blockchain technology.",
+                profile_image: "" // ใส่ URL รูปจริงถ้ามี
+            });
+
+            setLoading(false);
+        } catch (err) {
+            console.error("Error loading data:", err);
+            setLoading(false);
         }
     };
 
@@ -283,6 +441,7 @@ export default function MyPortfoliosPage() {
     useEffect(() => {
         loadPortfolios();
         loadColors();
+        loadAllData();
     }, []);
 
     useEffect(() => {
@@ -504,7 +663,8 @@ export default function MyPortfoliosPage() {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedPortfolio(portfolio);
+                                                    // setSelectedPortfolio(portfolio);
+                                                    router.push(`/student/portfolio/preview/${portfolio.ID}`);
                                                 }}
                                                 className="px-4 py-2 border-2 rounded-lg text-sm font-medium transition"
                                                 style={{ borderColor: portfolioTheme.primary, color: portfolioTheme.primary }}
@@ -953,39 +1113,75 @@ export default function MyPortfoliosPage() {
                     onClick={() => setSelectedPortfolio(null)}
                 >
                     <div
-                        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-auto flex flex-col no-arrow"
+                        // onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
                         {/* Header (use selected portfolio theme) */}
                         {
                             (() => {
-                                const selectedTheme = getPortfolioTheme(selectedPortfolio);
-                                return (
-                                    <div className="p-6 border-b flex items-start justify-between" style={{ background: `linear-gradient(to right, ${selectedTheme.primaryLight}, ${selectedTheme.primaryLight})` }}>
-                                        <div className="flex-1">
-                                            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                                                {selectedPortfolio.portfolio_name || selectedPortfolio.PortfolioName || 'ไม่มีชื่อ'}
-                                            </h2>
-                                            {selectedPortfolio.description && (
-                                                <p className="text-gray-600 mb-3">{selectedPortfolio.description}</p>
-                                            )}
-                                            <div className="flex items-center gap-3">
-                                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${selectedPortfolio.status === 'active'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-gray-100 text-gray-600'
-                                                    }`}>
-                                                    {selectedPortfolio.status === 'active' ? '✓ เผยแพร่' : '📝 แบบร่าง'}
-                                                </span>
-                                                <span className="text-sm text-gray-500">Portfolio ID: {selectedPortfolio.ID}</span>
+                                // const selectedTheme = getPortfolioTheme(selectedPortfolio);
+                                const sections = (selectedPortfolio.portfolio_sections || selectedPortfolio.PortfolioSections || [])
+                                    .filter((s: any) => s.is_enabled !== false)
+                                    .sort((a: any, b: any) => (a.section_order || 0) - (b.section_order || 0));
+
+                                    if (sections.length === 0) {
+                                        return (
+                                            <div className="text-center py-20">
+                                                <div className="text-6xl mb-4 grayscale opacity-30">🔭</div>
+                                                <p className="text-xl text-gray-500">ยังไม่มีเนื้อหาในแฟ้มนี้</p>
                                             </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setSelectedPortfolio(null)}
-                                            className="text-gray-400 hover:text-gray-600 text-3xl leading-none ml-4"
-                                        >
-                                            ×
-                                        </button>
+                                        );
+                                    }
+
+                                // return (
+                                //     <div className="p-6 border-b flex items-start justify-between" style={{ background: `linear-gradient(to right, ${selectedTheme.primaryLight}, ${selectedTheme.primaryLight})` }}>
+                                //         <div className="flex-1">
+                                //             <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                                //                 {selectedPortfolio.portfolio_name || selectedPortfolio.PortfolioName || 'ไม่มีชื่อ'}
+                                //             </h2>
+                                //             {selectedPortfolio.description && (
+                                //                 <p className="text-gray-600 mb-3">{selectedPortfolio.description}</p>
+                                //             )}
+                                //             <div className="flex items-center gap-3">
+                                //                 <span className={`text-xs font-bold px-3 py-1 rounded-full ${selectedPortfolio.status === 'active'
+                                //                     ? 'bg-green-100 text-green-700'
+                                //                     : 'bg-gray-100 text-gray-600'
+                                //                     }`}>
+                                //                     {selectedPortfolio.status === 'active' ? '✓ เผยแพร่' : '📝 แบบร่าง'}
+                                //                 </span>
+                                //                 <span className="text-sm text-gray-500">Portfolio ID: {selectedPortfolio.ID}</span>
+                                //             </div>
+                                //         </div>
+                                //         <button
+                                //             onClick={() => setSelectedPortfolio(null)}
+                                //             className="text-gray-400 hover:text-gray-600 text-3xl leading-none ml-4"
+                                //         >
+                                //             ×
+                                //         </button>
+                                //     </div>
+                                // );
+                                return (
+                                    <div className="space-y-10 max-w-5xl mx-auto">
+                                        {sections.map((section: any, idx: number) => (
+                                            <div key={section.ID} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                                
+                                                {/* Header ของ Section */}
+                                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold text-sm">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <h3 className="font-bold text-gray-800 text-lg">
+                                                        {section.section_title || "Untitled Section"}
+                                                    </h3>
+                                                </div>
+
+                                                {/* เนื้อหาข้างใน (ต้องเรียกฟังก์ชันนี้!) */}
+                                                <div className="p-6">
+                                                    {renderSectionContent(section)} 
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 );
                             })()
@@ -1019,269 +1215,269 @@ export default function MyPortfoliosPage() {
                                     );
                                 }
 
-                                return (
-                                    <div>
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                                <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: selectedTheme.primary }}>
-                                                    {sections.length}
-                                                </span>
-                                                Sections ทั้งหมด
-                                            </h3>
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedPortfolio(null);
-                                                    router.push(`/student/portfolio/section?portfolio_id=${selectedPortfolio.ID}`);
-                                                }}
-                                                className="text-sm font-medium flex items-center gap-1"
-                                                style={{ color: selectedTheme.primary }}
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                                จัดการ
-                                            </button>
-                                        </div>
+                                // return (
+                                //     <div>
+                                //         <div className="flex items-center justify-between mb-6">
+                                //             <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                //                 <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: selectedTheme.primary }}>
+                                //                     {sections.length}
+                                //                 </span>
+                                //                 Sections ทั้งหมด
+                                //             </h3>
+                                //             <button
+                                //                 onClick={() => {
+                                //                     setSelectedPortfolio(null);
+                                //                     router.push(`/student/portfolio/section?portfolio_id=${selectedPortfolio.ID}`);
+                                //                 }}
+                                //                 className="text-sm font-medium flex items-center gap-1"
+                                //                 style={{ color: selectedTheme.primary }}
+                                //             >
+                                //                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                //                 </svg>
+                                //                 จัดการ
+                                //             </button>
+                                //         </div>
 
-                                        <div className="space-y-6">
-                                            {sections.map((section: any, sectionIndex: number) => {
-                                                const blocks = section.portfolio_blocks || section.PortfolioBlocks || [];
+                                //         <div className="space-y-6">
+                                //             {sections.map((section: any, sectionIndex: number) => {
+                                //                 const blocks = section.portfolio_blocks || section.PortfolioBlocks || [];
 
-                                                return (
-                                                    <div
-                                                        key={section.ID}
-                                                        className="border-2 rounded-xl p-5 transition bg-white"
-                                                        style={{ borderColor: selectedTheme.primaryLight }}
-                                                    >
-                                                        {/* Section Header */}
-                                                        <div className="flex items-start justify-between mb-4">
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2 mb-2">
-                                                                    <span className="text-xs font-bold px-3 py-1 rounded-full text-white" style={{ backgroundColor: selectedTheme.accent }}>
-                                                                        Section {sectionIndex + 1}
-                                                                    </span>
-                                                                    <h4 className="text-lg font-bold text-gray-900">
-                                                                        {section.section_title || section.SectionTitle || 'ไม่มีชื่อ'}
-                                                                    </h4>
-                                                                </div>
-                                                                <p className="text-sm text-gray-500">
-                                                                    {blocks.length} รายการ
-                                                                </p>
-                                                            </div>
-                                                        </div>
+                                //                 return (
+                                //                     <div
+                                //                         key={section.ID}
+                                //                         className="border-2 rounded-xl p-5 transition bg-white"
+                                //                         style={{ borderColor: selectedTheme.primaryLight }}
+                                //                     >
+                                //                         {/* Section Header */}
+                                //                         <div className="flex items-start justify-between mb-4">
+                                //                             <div className="flex-1">
+                                //                                 <div className="flex items-center gap-2 mb-2">
+                                //                                     <span className="text-xs font-bold px-3 py-1 rounded-full text-white" style={{ backgroundColor: selectedTheme.accent }}>
+                                //                                         Section {sectionIndex + 1}
+                                //                                     </span>
+                                //                                     <h4 className="text-lg font-bold text-gray-900">
+                                //                                         {section.section_title || section.SectionTitle || 'ไม่มีชื่อ'}
+                                //                                     </h4>
+                                //                                 </div>
+                                //                                 <p className="text-sm text-gray-500">
+                                //                                     {blocks.length} รายการ
+                                //                                 </p>
+                                //                             </div>
+                                //                         </div>
 
-                                                        {/* Blocks Display */}
-                                                        {blocks.length > 0 ? (
-                                                            <div className="space-y-3">
-                                                                {blocks.map((block: any, blockIndex: number) => {
-                                                                    const contents = parseBlockContent(block.content || block.Content);
-                                                                    if (!contents) return null;
+                                //                         {/* Blocks Display */}
+                                //                         {blocks.length > 0 ? (
+                                //                             <div className="space-y-3">
+                                //                                 {blocks.map((block: any, blockIndex: number) => {
+                                //                                     const contents = parseBlockContent(block.content || block.Content);
+                                //                                     if (!contents) return null;
 
-                                                                    const data = contents.data || {};
-                                                                    const images = extractImages(data, contents.type);
+                                //                                     const data = contents.data || {};
+                                //                                     const images = extractImages(data, contents.type);
 
-                                                                    // Helper formats
-                                                                    const formatDate = (dateString: string) => {
-                                                                        if (!dateString) return "";
-                                                                        const date = new Date(dateString);
-                                                                        return date.toLocaleDateString("th-TH", {
-                                                                            year: "numeric",
-                                                                            month: "long",
-                                                                            day: "numeric",
-                                                                        });
-                                                                    };
+                                //                                     // Helper formats
+                                //                                     const formatDate = (dateString: string) => {
+                                //                                         if (!dateString) return "";
+                                //                                         const date = new Date(dateString);
+                                //                                         return date.toLocaleDateString("th-TH", {
+                                //                                             year: "numeric",
+                                //                                             month: "long",
+                                //                                             day: "numeric",
+                                //                                         });
+                                //                                     };
 
-                                                                    let displayData: any = null;
-                                                                    if (contents.type === 'activity') {
-                                                                        displayData = {
-                                                                            type: 'activity',
-                                                                            title: data.activity_name,
-                                                                            institution: data.activity_detail?.institution || data.ActivityDetail?.Institution,
-                                                                            date: formatDate(data.activity_detail?.activity_at || data.ActivityDetail?.ActivityAt),
-                                                                            desc: data.activity_detail?.description || data.ActivityDetail?.Description,
-                                                                            typeName: data.activity_detail?.type_activity?.type_name || data.ActivityDetail?.TypeActivity?.TypeName,
-                                                                            levelName: data.activity_detail?.level_activity?.level_name || data.ActivityDetail?.LevelActivity?.LevelName,
-                                                                            rewardName: data.reward?.level_name || data.Reward?.LevelName
-                                                                        };
-                                                                    } else {
-                                                                        displayData = {
-                                                                            type: 'working',
-                                                                            title: data.working_name,
-                                                                            status: data.status,
-                                                                            typeName: data.working_detail?.type_working?.type_name || data.WorkingDetail?.TypeWorking?.TypeName,
-                                                                            date: formatDate(data.working_detail?.working_at || data.WorkingDetail?.WorkingAt),
-                                                                            desc: data.working_detail?.description || data.WorkingDetail?.Description,
-                                                                            links: data.working_detail?.links || data.WorkingDetail?.Links || []
-                                                                        };
-                                                                    }
+                                //                                     let displayData: any = null;
+                                //                                     if (contents.type === 'activity') {
+                                //                                         displayData = {
+                                //                                             type: 'activity',
+                                //                                             title: data.activity_name,
+                                //                                             institution: data.activity_detail?.institution || data.ActivityDetail?.Institution,
+                                //                                             date: formatDate(data.activity_detail?.activity_at || data.ActivityDetail?.ActivityAt),
+                                //                                             desc: data.activity_detail?.description || data.ActivityDetail?.Description,
+                                //                                             typeName: data.activity_detail?.type_activity?.type_name || data.ActivityDetail?.TypeActivity?.TypeName,
+                                //                                             levelName: data.activity_detail?.level_activity?.level_name || data.ActivityDetail?.LevelActivity?.LevelName,
+                                //                                             rewardName: data.reward?.level_name || data.Reward?.LevelName
+                                //                                         };
+                                //                                     } else {
+                                //                                         displayData = {
+                                //                                             type: 'working',
+                                //                                             title: data.working_name,
+                                //                                             status: data.status,
+                                //                                             typeName: data.working_detail?.type_working?.type_name || data.WorkingDetail?.TypeWorking?.TypeName,
+                                //                                             date: formatDate(data.working_detail?.working_at || data.WorkingDetail?.WorkingAt),
+                                //                                             desc: data.working_detail?.description || data.WorkingDetail?.Description,
+                                //                                             links: data.working_detail?.links || data.WorkingDetail?.Links || []
+                                //                                         };
+                                //                                     }
 
-                                                                    return (
-                                                                        <div
-                                                                            key={block.ID}
-                                                                            className="border rounded-lg p-4 transition hover:shadow-md bg-white"
-                                                                            style={{ borderColor: selectedTheme.primaryLight }}
-                                                                        >
-                                                                            <div className="flex items-start gap-4">
-                                                                                {/* Images Preview */}
-                                                                                {images.length > 0 && (
-                                                                                    <div className="flex-shrink-0">
-                                                                                        <div
-                                                                                            className={`w-24 h-24 rounded-lg overflow-hidden bg-gray-200 border border-gray-100 relative group ${images.length > 1 ? 'cursor-pointer' : ''}`}
-                                                                                            onClick={(e) => {
-                                                                                                if (images.length > 1) {
-                                                                                                    e.stopPropagation();
-                                                                                                    setItemImageIndices(prev => {
-                                                                                                        const currentIndex = prev[block.ID] || 0;
-                                                                                                        return { ...prev, [block.ID]: (currentIndex + 1) % images.length };
-                                                                                                    });
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            <div
-                                                                                                className="flex transition-transform duration-300 ease-in-out h-full"
-                                                                                                style={{
-                                                                                                    transform: `translateX(-${(itemImageIndices[block.ID] || 0) * 100}%)`,
-                                                                                                    width: `${images.length * 100}%`
-                                                                                                }}
-                                                                                            >
-                                                                                                {images.map((img: any, idx: number) => (
-                                                                                                    <div key={idx} className="w-full h-full flex-shrink-0 relative">
-                                                                                                        <img
-                                                                                                            src={getImageUrl(img)}
-                                                                                                            alt={`Preview ${idx + 1}`}
-                                                                                                            className="w-full h-full object-cover"
-                                                                                                            onError={(e) => { e.currentTarget.src = '/placeholder.jpg'; }}
-                                                                                                        />
-                                                                                                    </div>
-                                                                                                ))}
-                                                                                            </div>
+                                //                                     return (
+                                //                                         <div
+                                //                                             key={block.ID}
+                                //                                             className="border rounded-lg p-4 transition hover:shadow-md bg-white"
+                                //                                             style={{ borderColor: selectedTheme.primaryLight }}
+                                //                                         >
+                                //                                             <div className="flex items-start gap-4">
+                                //                                                 {/* Images Preview */}
+                                //                                                 {images.length > 0 && (
+                                //                                                     <div className="flex-shrink-0">
+                                //                                                         <div
+                                //                                                             className={`w-24 h-24 rounded-lg overflow-hidden bg-gray-200 border border-gray-100 relative group ${images.length > 1 ? 'cursor-pointer' : ''}`}
+                                //                                                             onClick={(e) => {
+                                //                                                                 if (images.length > 1) {
+                                //                                                                     e.stopPropagation();
+                                //                                                                     setItemImageIndices(prev => {
+                                //                                                                         const currentIndex = prev[block.ID] || 0;
+                                //                                                                         return { ...prev, [block.ID]: (currentIndex + 1) % images.length };
+                                //                                                                     });
+                                //                                                                 }
+                                //                                                             }}
+                                //                                                         >
+                                //                                                             <div
+                                //                                                                 className="flex transition-transform duration-300 ease-in-out h-full"
+                                //                                                                 style={{
+                                //                                                                     transform: `translateX(-${(itemImageIndices[block.ID] || 0) * 100}%)`,
+                                //                                                                     width: `${images.length * 100}%`
+                                //                                                                 }}
+                                //                                                             >
+                                //                                                                 {images.map((img: any, idx: number) => (
+                                //                                                                     <div key={idx} className="w-full h-full flex-shrink-0 relative">
+                                //                                                                         <img
+                                //                                                                             src={getImageUrl(img)}
+                                //                                                                             alt={`Preview ${idx + 1}`}
+                                //                                                                             className="w-full h-full object-cover"
+                                //                                                                             onError={(e) => { e.currentTarget.src = '/placeholder.jpg'; }}
+                                //                                                                         />
+                                //                                                                     </div>
+                                //                                                                 ))}
+                                //                                                             </div>
 
-                                                                                            {/* Expand Button Overlay */}
-                                                                                            <button
-                                                                                                className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-opacity-70"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    setLightboxState({
-                                                                                                        isOpen: true,
-                                                                                                        images: images,
-                                                                                                        photoIndex: itemImageIndices[block.ID] || 0
-                                                                                                    });
-                                                                                                }}
-                                                                                                title="ดูรูปภาพขนาดใหญ่"
-                                                                                            >
-                                                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                                                                                                </svg>
-                                                                                            </button>
+                                //                                                             {/* Expand Button Overlay */}
+                                //                                                             <button
+                                //                                                                 className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-opacity-70"
+                                //                                                                 onClick={(e) => {
+                                //                                                                     e.stopPropagation();
+                                //                                                                     setLightboxState({
+                                //                                                                         isOpen: true,
+                                //                                                                         images: images,
+                                //                                                                         photoIndex: itemImageIndices[block.ID] || 0
+                                //                                                                     });
+                                //                                                                 }}
+                                //                                                                 title="ดูรูปภาพขนาดใหญ่"
+                                //                                                             >
+                                //                                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                //                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                //                                                                 </svg>
+                                //                                                             </button>
 
-                                                                                            {/* Optional: Indicator dots or overlays could go here if needed, but keeping it clean for now */}
-                                                                                        </div>
-                                                                                        {images.length > 1 && (
-                                                                                            <div className="text-xs text-gray-500 text-center mt-1 font-medium select-none">
-                                                                                                {(itemImageIndices[block.ID] || 0) + 1} / {images.length} รูป
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                )}
+                                //                                                             {/* Optional: Indicator dots or overlays could go here if needed, but keeping it clean for now */}
+                                //                                                         </div>
+                                //                                                         {images.length > 1 && (
+                                //                                                             <div className="text-xs text-gray-500 text-center mt-1 font-medium select-none">
+                                //                                                                 {(itemImageIndices[block.ID] || 0) + 1} / {images.length} รูป
+                                //                                                             </div>
+                                //                                                         )}
+                                //                                                     </div>
+                                //                                                 )}
 
-                                                                                {/* Content Info */}
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                                        <h5 className="font-bold text-lg text-gray-900 truncate">
-                                                                                            {displayData.title || 'ไม่มีชื่อ'}
-                                                                                        </h5>
-                                                                                        {displayData.status && (
-                                                                                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${displayData.status === 'COMPLETED' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
-                                                                                                displayData.status === 'INPROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'
-                                                                                                }`}>
-                                                                                                {displayData.status}
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
+                                //                                                 {/* Content Info */}
+                                //                                                 <div className="flex-1 min-w-0">
+                                //                                                     <div className="flex items-center gap-2 mb-1">
+                                //                                                         <h5 className="font-bold text-lg text-gray-900 truncate">
+                                //                                                             {displayData.title || 'ไม่มีชื่อ'}
+                                //                                                         </h5>
+                                //                                                         {displayData.status && (
+                                //                                                             <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${displayData.status === 'COMPLETED' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
+                                //                                                                 displayData.status === 'INPROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'
+                                //                                                                 }`}>
+                                //                                                                 {displayData.status}
+                                //                                                             </span>
+                                //                                                         )}
+                                //                                                     </div>
 
-                                                                                    {/* Badges Row */}
-                                                                                    <div className="flex flex-wrap gap-2 mb-2">
-                                                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase ${displayData.type === 'activity' ? 'bg-orange-500' : 'bg-blue-500'}`}>
-                                                                                            {displayData.type}
-                                                                                        </span>
-                                                                                        {displayData.typeName && (
-                                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
-                                                                                                {displayData.typeName}
-                                                                                            </span>
-                                                                                        )}
-                                                                                        {displayData.levelName && (
-                                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100">
-                                                                                                {displayData.levelName}
-                                                                                            </span>
-                                                                                        )}
-                                                                                        {displayData.rewardName && (
-                                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1">
-                                                                                                🏆 {displayData.rewardName}
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
+                                //                                                     {/* Badges Row */}
+                                //                                                     <div className="flex flex-wrap gap-2 mb-2">
+                                //                                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase ${displayData.type === 'activity' ? 'bg-orange-500' : 'bg-blue-500'}`}>
+                                //                                                             {displayData.type}
+                                //                                                         </span>
+                                //                                                         {displayData.typeName && (
+                                //                                                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                                //                                                                 {displayData.typeName}
+                                //                                                             </span>
+                                //                                                         )}
+                                //                                                         {displayData.levelName && (
+                                //                                                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100">
+                                //                                                                 {displayData.levelName}
+                                //                                                             </span>
+                                //                                                         )}
+                                //                                                         {displayData.rewardName && (
+                                //                                                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1">
+                                //                                                                 🏆 {displayData.rewardName}
+                                //                                                             </span>
+                                //                                                         )}
+                                //                                                     </div>
 
-                                                                                    {/* Details */}
-                                                                                    <div className="text-sm text-gray-600 space-y-1">
-                                                                                        {displayData.institution && (
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="text-gray-400">🏢</span>
-                                                                                                <span>{displayData.institution}</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {displayData.date && (
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="text-gray-400">🗓</span>
-                                                                                                <span>{displayData.date}</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {displayData.desc && (
-                                                                                            <p className="text-gray-500 mt-1 line-clamp-2 text-xs">
-                                                                                                {displayData.desc}
-                                                                                            </p>
-                                                                                        )}
-                                                                                        {/* Links */}
-                                                                                        {displayData.links && displayData.links.length > 0 && (
-                                                                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                                                                {displayData.links.map((link: any, i: number) => (
-                                                                                                    <a
-                                                                                                        key={i}
-                                                                                                        href={link.working_link}
-                                                                                                        target="_blank"
-                                                                                                        rel="noopener noreferrer"
-                                                                                                        className="flex items-center gap-1 text-xs text-blue-500 hover:underline bg-blue-50 px-2 py-1 rounded"
-                                                                                                    >
-                                                                                                        🔗 Link {i + 1}
-                                                                                                    </a>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
+                                //                                                     {/* Details */}
+                                //                                                     <div className="text-sm text-gray-600 space-y-1">
+                                //                                                         {displayData.institution && (
+                                //                                                             <div className="flex items-center gap-2">
+                                //                                                                 <span className="text-gray-400">🏢</span>
+                                //                                                                 <span>{displayData.institution}</span>
+                                //                                                             </div>
+                                //                                                         )}
+                                //                                                         {displayData.date && (
+                                //                                                             <div className="flex items-center gap-2">
+                                //                                                                 <span className="text-gray-400">🗓</span>
+                                //                                                                 <span>{displayData.date}</span>
+                                //                                                             </div>
+                                //                                                         )}
+                                //                                                         {displayData.desc && (
+                                //                                                             <p className="text-gray-500 mt-1 line-clamp-2 text-xs">
+                                //                                                                 {displayData.desc}
+                                //                                                             </p>
+                                //                                                         )}
+                                //                                                         {/* Links */}
+                                //                                                         {displayData.links && displayData.links.length > 0 && (
+                                //                                                             <div className="flex flex-wrap gap-2 mt-2">
+                                //                                                                 {displayData.links.map((link: any, i: number) => (
+                                //                                                                     <a
+                                //                                                                         key={i}
+                                //                                                                         href={link.working_link}
+                                //                                                                         target="_blank"
+                                //                                                                         rel="noopener noreferrer"
+                                //                                                                         className="flex items-center gap-1 text-xs text-blue-500 hover:underline bg-blue-50 px-2 py-1 rounded"
+                                //                                                                     >
+                                //                                                                         🔗 Link {i + 1}
+                                //                                                                     </a>
+                                //                                                                 ))}
+                                //                                                             </div>
+                                //                                                         )}
+                                //                                                     </div>
+                                //                                                 </div>
 
-                                                                                {/* Order Badge */}
-                                                                                <div className="flex-shrink-0">
-                                                                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-xs font-bold shadow-sm" style={{ border: `1px solid ${selectedTheme.primary}`, color: selectedTheme.primary }}>
-                                                                                        {blockIndex + 1}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                                                                <div className="text-3xl mb-2">🔭</div>
-                                                                <p className="text-sm text-gray-500">ยังไม่มีข้อมูลใน Section นี้</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
+                                //                                                 {/* Order Badge */}
+                                //                                                 <div className="flex-shrink-0">
+                                //                                                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-xs font-bold shadow-sm" style={{ border: `1px solid ${selectedTheme.primary}`, color: selectedTheme.primary }}>
+                                //                                                         {blockIndex + 1}
+                                //                                                     </span>
+                                //                                                 </div>
+                                //                                             </div>
+                                //                                         </div>
+                                //                                     );
+                                //                                 })}
+                                //                             </div>
+                                //                         ) : (
+                                //                             <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                //                                 <div className="text-3xl mb-2">🔭</div>
+                                //                                 <p className="text-sm text-gray-500">ยังไม่มีข้อมูลใน Section นี้</p>
+                                //                             </div>
+                                //                         )}
+                                //                     </div>
+                                //                 );
+                                //             })}
+                                //         </div>
+                                //     </div>
+                                // );
                             })()}
                         </div>
 

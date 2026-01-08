@@ -94,10 +94,10 @@ func SeedTemplatesSections() {
 				// SectionType: s.Type,
 			}
 			if err := db.Create(&section).Error; err != nil {
-				log.Printf("❌ Error seeding section %s: %v", s.Name, err)
+				log.Printf("Error seeding section %s: %v", s.Name, err)
 				continue
 			}
-			log.Printf("✓ Created section: %s", s.Name)
+			log.Printf("Created section: %s", s.Name)
 			sectionID = section.ID
 
 		} else {
@@ -142,9 +142,9 @@ func SeedTemplatesSections() {
 							"margin": "0 1%",
 						})
 						Position, _ = json.Marshal(map[string]string{
-							"display":        "inline-block",
-							"verticalAlign":  "top",
-							"marginBottom":   "20px",
+							"display":       "inline-block",
+							"verticalAlign": "top",
+							"marginBottom":  "20px",
 						})
 					} else { // บล็อกข้อความ (2 อันหลัง - แถวล่าง)
 						flexSettings, _ = json.Marshal(map[string]string{
@@ -152,8 +152,8 @@ func SeedTemplatesSections() {
 							"margin": "0 1%",
 						})
 						Position, _ = json.Marshal(map[string]string{
-							"display":        "inline-block",
-							"verticalAlign":  "top",
+							"display":       "inline-block",
+							"verticalAlign": "top",
 						})
 					}
 				case "profile_header_right":
@@ -194,9 +194,9 @@ func SeedTemplatesSections() {
 					createBlock++
 				}
 			} else {
-				log.Printf("⚠ Block '%s' not found in templates_blocks", blockName)
+				log.Printf("Block '%s' not found in templates_blocks", blockName)
 			}
-			log.Printf("✓ Seeded section: %s (%d/%d blocks)", s.Name, createBlock, len(s.BlockNames))
+			log.Printf("Seeded section: %s (%d/%d blocks)", s.Name, createBlock, len(s.BlockNames))
 		}
 
 	}

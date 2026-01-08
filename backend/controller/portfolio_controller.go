@@ -3,62 +3,127 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sut68/team14/backend/config"
 	"github.com/sut68/team14/backend/entity"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
-// GetActivities fetches activities for the user WITH FULL DETAILS
+// GetActivities fetches activities for the user - OPTIMIZED with pagination
+// Query params: ?page=1&limit=20&include_images=false
 func GetActivities(c *gin.Context) {
-	userID := c.Query("user_id")
-	var activities []entity.Activity
-	
-	db := config.GetDB()
-	if userID != "" {
-		db = db.Where("user_id = ?", userID)
+	uid, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
 	}
-	
-	// ✅ IMPORTANT: Preload ALL related data including images
-	if err := db.
+
+	// Pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	includeImages := c.DefaultQuery("include_images", "false") == "true"
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var activities []entity.Activity
+	var total int64
+
+	db := config.GetDB().Model(&entity.Activity{}).Where("user_id = ?", uid.(uint))
+	db.Count(&total)
+
+	query := config.GetDB().
+		Where("user_id = ?", uid.(uint)).
 		Preload("ActivityDetail").
 		Preload("ActivityDetail.TypeActivity").
 		Preload("ActivityDetail.LevelActivity").
-		Preload("ActivityDetail.Images").  // ✅ เพิ่ม Preload Images
-		Preload("Reward").
-		Preload("User").
+		Preload("Reward")
+
+	// Only preload images if explicitly requested (for detail views)
+	if includeImages {
+		query = query.Preload("ActivityDetail.Images")
+	}
+
+	if err := query.
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&activities).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": activities})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       activities,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
-// GetWorkings fetches workings for the user WITH FULL DETAILS
+// GetWorkings fetches workings for the user - OPTIMIZED with pagination
+// Query params: ?page=1&limit=20&include_images=false
 func GetWorkings(c *gin.Context) {
-	userID := c.Query("user_id")
-	var workings []entity.Working
-	
-	db := config.GetDB()
-	if userID != "" {
-		db = db.Where("user_id = ?", userID)
+	uid, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
 	}
 
-	// ✅ IMPORTANT: Preload ALL related data including images and links
-	if err := db.
+	// Pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	includeImages := c.DefaultQuery("include_images", "false") == "true"
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var workings []entity.Working
+	var total int64
+
+	db := config.GetDB().Model(&entity.Working{}).Where("user_id = ?", uid.(uint))
+	db.Count(&total)
+
+	query := config.GetDB().
+		Where("user_id = ?", uid.(uint)).
 		Preload("WorkingDetail").
-		Preload("WorkingDetail.TypeWorking").
-		Preload("WorkingDetail.Images").  // ✅ เพิ่ม Preload Images
-		Preload("WorkingDetail.Links").   // ✅ เพิ่ม Preload Links
-		Preload("User").
+		Preload("WorkingDetail.TypeWorking")
+
+	// Only preload images/links if explicitly requested
+	if includeImages {
+		query = query.Preload("WorkingDetail.Images").Preload("WorkingDetail.Links")
+	}
+
+	if err := query.
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&workings).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": workings})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       workings,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
 // CreateTemplate creates a new template
@@ -84,21 +149,29 @@ func CreatePortfolio(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	uid, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// UserID ที่สร้าง portfolio (ป้องกันการสร้างให้คนอื่น)
+	portfolio.UserID = uid.(uint)
 
 	// Default values
 	if portfolio.Status == "" {
 		portfolio.Status = "draft"
 	}
-	
+
 	// Ensure UserID
-	if portfolio.UserID == 0 {
-		var user entity.User
-		if err := config.GetDB().First(&user).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
-			return
-		}
-		portfolio.UserID = user.ID
-	}
+	// if portfolio.UserID == 0 {
+	// 	var user entity.User
+	// 	if err := config.GetDB().First(&user).Error; err != nil {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
+	// 		return
+	// 	}
+	// 	portfolio.UserID = user.ID
+	// }
 
 	// Ensure Color exists
 	if portfolio.ColorsID == 0 {
@@ -128,6 +201,14 @@ func CreatePortfolio(c *gin.Context) {
 // UseTemplate creates a new Portfolio based on a Template OR returns existing one
 func UseTemplate(c *gin.Context) {
 	id := c.Param("id")
+
+	uidVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userID := uidVal.(uint)
+
 	var template entity.Templates
 	if err := config.GetDB().
 		Preload("TemplateSectionLinks.TemplatesSection.SectionBlocks.TemplatesBlock").
@@ -137,24 +218,24 @@ func UseTemplate(c *gin.Context) {
 	}
 
 	// Find valid user
-	var user entity.User
-	if err := config.GetDB().First(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
-		return
-	}
+	// var user entity.User
+	// if err := config.GetDB().First(&user).Error; err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "No users found"})
+	// 	return
+	// }
 
 	// ✅ เช็คว่ามี Portfolio สำหรับ template นี้อยู่แล้วหรือไม่
 	var existingPortfolio entity.Portfolio
 	err := config.GetDB().
 		Preload("PortfolioSections.PortfolioBlocks").
-		Where("user_id = ? AND template_id = ?", user.ID, template.ID).
+		Where("user_id = ? AND template_id = ?", userID, template.ID).
 		First(&existingPortfolio).Error
 
 	if err == nil {
 		// ✅ มี Portfolio อยู่แล้ว - ส่งกลับไป
 		fmt.Println("✅ Found existing portfolio for template:", template.ID)
 		c.JSON(http.StatusOK, gin.H{
-			"data": existingPortfolio,
+			"data":    existingPortfolio,
 			"message": "Using existing portfolio with saved sections",
 		})
 		return
@@ -167,7 +248,7 @@ func UseTemplate(c *gin.Context) {
 		PortfolioName: "My Portfolio from " + template.TemplateName,
 		Status:        "draft",
 		TemplateID:    &template.ID,
-		UserID:        user.ID,
+		UserID:        userID,
 	}
 
 	// Ensure Color
@@ -206,19 +287,19 @@ func UseTemplate(c *gin.Context) {
 	// Copy Sections from Template
 	for _, link := range template.TemplateSectionLinks {
 		ts := link.TemplatesSection
-		
+
 		ps := entity.PortfolioSection{
-			SectionTitle:    ts.SectionName,
-			SectionPortKey:  ts.SectionName,
-			IsEnabled:       true,
-			SectionOrder:    int(link.OrderIndex),
-			PortfolioID:     portfolio.ID,
+			SectionTitle:   ts.SectionName,
+			SectionPortKey: ts.SectionName,
+			IsEnabled:      true,
+			SectionOrder:   int(link.OrderIndex),
+			PortfolioID:    portfolio.ID,
 		}
-		
+
 		if err := config.GetDB().Create(&ps).Error; err != nil {
 			continue
 		}
-		
+
 		// Copy Blocks
 		for _, sb := range ts.SectionBlocks {
 			pb := entity.PortfolioBlock{
@@ -232,27 +313,67 @@ func UseTemplate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": portfolio,
+		"data":    portfolio,
 		"message": "New portfolio created with template sections",
 	})
 }
 
-// GetMyPortfolio - ดึง Portfolio ทั้งหมดของ user
+// GetMyPortfolio - ดึง Portfolio ทั้งหมดของ user - OPTIMIZED with pagination
+// Query params: ?page=1&limit=10&include_blocks=false
 func GetMyPortfolio(c *gin.Context) {
-	userID := "1" // Hardcoded for dev
+	uid, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	userID := uid.(uint)
+
+	// Pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	includeBlocks := c.DefaultQuery("include_blocks", "true") == "true"
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
 
 	var portfolios []entity.Portfolio
-	if err := config.GetDB().
-		Preload("PortfolioSections.PortfolioBlocks").
-		Preload("Colors").
-		Where("user_id = ?", userID).
-		Order("updated_at desc").
+	var total int64
+
+	config.GetDB().Model(&entity.Portfolio{}).Where("user_id = ?", userID).Count(&total)
+
+	query := config.GetDB().Where("user_id = ?", userID).Preload("Colors")
+
+	// Only preload sections and blocks if needed (for list view, often not needed)
+	if includeBlocks {
+		query = query.Preload("PortfolioSections", func(db *gorm.DB) *gorm.DB {
+			return db.Order("section_order ASC")
+		}).Preload("PortfolioSections.PortfolioBlocks")
+	} else {
+		// Just load section count without blocks
+		query = query.Preload("PortfolioSections")
+	}
+
+	if err := query.
+		Order("updated_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&portfolios).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": portfolios})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       portfolios,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
 // CreatePortfolioSection creates a new section for a portfolio
@@ -275,7 +396,7 @@ func CreatePortfolioSection(c *gin.Context) {
 func UpdatePortfolioSection(c *gin.Context) {
 	id := c.Param("id")
 	var input map[string]interface{}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -290,7 +411,7 @@ func UpdatePortfolioSection(c *gin.Context) {
 	// Filter and validate fields to update
 	updates := make(map[string]interface{})
 	allowedFields := []string{"section_title", "is_enabled", "section_order", "section_style"}
-	
+
 	for _, field := range allowedFields {
 		if val, exists := input[field]; exists {
 			updates[field] = val
@@ -363,7 +484,7 @@ func CreatePortfolioBlock(c *gin.Context) {
 // ✅ UpdatePortfolioBlock - แก้ไข Block
 func UpdatePortfolioBlock(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	var payload struct {
 		Content    datatypes.JSON `json:"content"`
 		BlockOrder int            `json:"block_order"`
@@ -399,7 +520,7 @@ func UpdatePortfolioBlock(c *gin.Context) {
 // ✅ DeletePortfolioBlock - ลบ Block
 func DeletePortfolioBlock(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	if err := config.GetDB().Delete(&entity.PortfolioBlock{}, id).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -407,7 +528,6 @@ func DeletePortfolioBlock(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Block deleted successfully"})
 }
-
 
 // ✅ UpdatePortfolio - อัปเดตข้อมูล Portfolio (เช่น CoverImage, Name, Description)
 func UpdatePortfolio(c *gin.Context) {

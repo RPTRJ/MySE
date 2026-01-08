@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -16,10 +15,7 @@ export default function TeacherPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
-  
-  
 
-  // Fetch submissions from backend
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
@@ -34,7 +30,6 @@ export default function TeacherPage() {
     }
   };
 
-  // Fetch by status
   const fetchByStatus = async (status: string) => {
     if (status === 'all') {
       fetchSubmissions();
@@ -109,8 +104,6 @@ export default function TeacherPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    console.log("Token:", token);
-
     const userStr = localStorage.getItem("user");
 
     if (!token || !userStr) {
@@ -131,11 +124,10 @@ export default function TeacherPage() {
         return;
       }
 
-      setUserName(
-        user.first_name_th && user.last_name_th
-          ? `${user.first_name_th} ${user.last_name_th}`
-          : `${user.first_name_en} ${user.last_name_en}`
-      );
+      const name = user.first_name_th && user.last_name_th
+        ? `${user.first_name_th} ${user.last_name_th}`
+        : `${user.first_name_en || ''} ${user.last_name_en || ''}`.trim();
+      setUserName(name);
 
       setIsAuthorized(true);
       fetchSubmissions();
@@ -193,17 +185,29 @@ export default function TeacherPage() {
                 {/* Search and Filters */}
                 <div className={style.filters_container}>
                   <div className={style.filter_buttons}>
+                    <label htmlFor="filter-date" className={style.visually_hidden}>
+                      กรองตามวันที่
+                    </label>
                     <input
+                      id="filter-date"
                       type="date"
                       value={filterDate}
                       onChange={(e) => setFilterDate(e.target.value)}
                       className={style.custom_date_input}
+                      aria-label="กรองตามวันที่ส่ง"
+                      title="เลือกวันที่เพื่อกรองข้อมูล"
                     />
 
+                    <label htmlFor="filter-status" className={style.visually_hidden}>
+                      กรองตามสถานะ
+                    </label>
                     <select
+                      id="filter-status"
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
                       className={style.filter_select}
+                      aria-label="กรองตามสถานะการตรวจ"
+                      title="เลือกสถานะเพื่อกรองข้อมูล"
                     >
                       <option value="all">ทั้งหมด</option>
                       <option value="awaiting">รอตรวจทาน</option>
@@ -217,9 +221,9 @@ export default function TeacherPage() {
               {/* Table */}
               <div className={style.table_container}>
                 {loading ? (
-                  <div style={{ textAlign: 'center', padding: '40px' }}>กำลังโหลด...</div>
+                  <div className={style.loading_state}>กำลังโหลด...</div>
                 ) : error ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#dc3545' }}>{error}</div>
+                  <div className={style.error_state}>{error}</div>
                 ) : (
                   <table className={style.submissions_table}>
                     <thead className={style.table_header}>

@@ -11,8 +11,9 @@ import (
 
 func main() {
 	loadEnv()
-	services.StartNotificationScheduler()
 	config.ConnectionDatabase()
+	services.StartNotificationScheduler()
+	
 
 	r := router.SetupRoutes()
 	port := resolvePort()

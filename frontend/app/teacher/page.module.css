@@ -289,3 +289,30 @@
 .action_button:hover {
   color: #1e40af;
 }
+
+/* Visually hidden - ซ่อน label แต่ยัง accessible สำหรับ screen readers */
+.visually_hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Loading state - แทน inline style */
+.loading_state {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+/* Error state - แทน inline style */
+.error_state {
+  text-align: center;
+  padding: 40px;
+  color: #dc3545;
+}

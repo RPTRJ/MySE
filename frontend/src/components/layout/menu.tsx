@@ -1,41 +1,34 @@
-// src/components/layout/menu.tsx (หรือ .ts)
-
-import { 
-  LayoutDashboard, 
-  Users, 
-  Settings, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
   ShieldAlert,
   Calendar,
   Search,
   GraduationCap,
   BookOpenCheck,
-  // ไม่ต้องใช้ LogOut ที่นี่ เพราะ LogOut มักจะเป็นปุ่มแยกต่างหาก
 } from "lucide-react";
 import React from 'react';
 
-//Type ของ Role
 export type UserRole = "admin" | "teacher" | "student";
 
-//Interface สำหรับเมนู
 export interface MenuItem {
   name: string;
   href: string;
   icon: React.ElementType;
-  roles: UserRole[]; // ระบุว่า Role ไหนเข้าถึงได้บ้าง
+  roles: UserRole[];
 }
 
 export const menuItems: MenuItem[] = [
-  // ------------------------- หน้าหลัก (Dashboard) -------------------------
   {
     name: "หน้าหลัก",
-    href: "/student/home", // ชี้ไปที่ app/student/page.tsx
+    href: "/student/home",
     icon: LayoutDashboard,
     roles: ["student"],
   },
   {
-    name: "หน้าหลัก ",
-    href: "/teacher", // ชี้ไปที่ app/teacher/page.tsx
+    name: "หน้าหลัก",
+    href: "/teacher",
     icon: LayoutDashboard,
     roles: ["teacher"],
   },
@@ -47,7 +40,7 @@ export const menuItems: MenuItem[] = [
   },
   {
     name: "หน้าหลัก (Admin)",
-    href: "/admin", // ชี้ไปที่ app/admin/page.tsx
+    href: "/admin",
     icon: LayoutDashboard,
     roles: ["admin"],
   },
@@ -57,16 +50,15 @@ export const menuItems: MenuItem[] = [
     icon: Users,
     roles: ["admin"],
   },
-  // ⭐⭐ เมนูค้นหาหลักสูตรสำหรับ Student ⭐⭐
   {
     name: "ค้นหาหลักสูตร",
-    href: "/student/curricula",   // หน้า Search หลักสูตร
+    href: "/student/curricula",
     icon: Search,
     roles: ["student"],
   },
   {
     name: "จัดการหลักสูตร",
-    href: "/admin/curricula",   // CRUD: list/create/edit/delete
+    href: "/admin/curricula",
     icon: Search,
     roles: ["admin"],
   },
@@ -76,12 +68,11 @@ export const menuItems: MenuItem[] = [
     icon: GraduationCap,
     roles: ["admin"],
   },
-  // ------------------------- คลังผลงาน (Activitys) -------------------------
   {
     name: "คลังผลงาน",
-    href: "/student/working", 
+    href: "/student/working",
     icon: Users,
-    roles: ["student"], // เฉพาะนักเรียน
+    roles: ["student"],
   },
   {
     name: "คลังกิจกรรม",
@@ -89,39 +80,39 @@ export const menuItems: MenuItem[] = [
     icon: Users,
     roles: ["student"],
   },
-
-  // ------------------------- แฟ้มสะสมผลงาน (Portfolios) -------------------------
   {
     name: "แฟ้มสะสมผลงาน",
     href: "/student/portfolio",
     icon: FileText,
-    roles: ["student"], 
+    roles: ["student"],
   },
   {
     name: "ตรวจสอบ Portfolios",
     href: "/teacher/checkportfolio",
     icon: FileText,
-    roles: ["teacher"], 
+    roles: ["teacher"],
   },
   {
-    name: "คำแนะนำรายวิชา",
-    href: "/teacher/advice",
+    name: "กลุ่มวิชาและทักษะ",
+    href: "/teacher/course-groups",
     icon: BookOpenCheck,
     roles: ["teacher"],
   },
-  
-  // ------------------------- Template -------------------------
+  {
+    name: "คำแนะนำหลักสูตร",
+    href: "/teacher/curricula",
+    icon: GraduationCap,
+    roles: ["teacher"],
+  },
   {
     name: "Template",
     href: "/admin/template",
     icon: Users,
     roles: ["admin"],
   },
-
-  // ------------------------- ข่าวสาร และประกาศ -------------------------
   {
     name: "ประกาศ/ข่าวสาร",
-    href: "/student/announcements", // ถ้าประกาศเป็น Public Route
+    href: "/student/announcements",
     icon: ShieldAlert,
     roles: ["student"],
   },
@@ -137,19 +128,10 @@ export const menuItems: MenuItem[] = [
     icon: ShieldAlert,
     roles: ["teacher"],
   },
-  //-------------------------ปฏิทิน-------------------------
   {
     name: "ปฏิทิน",
-    href: "/student/calendar", // ถ้าประกาศเป็น Public Route
+    href: "/student/calendar",
     icon: Calendar,
     roles: ["student"],
-  },
-
-  // ------------------------- Settings -------------------------
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-    roles: ["admin", "teacher", "student"],
   },
 ];

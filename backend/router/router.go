@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sut68/team14/backend/config"
 	"github.com/sut68/team14/backend/controller"
@@ -12,9 +13,27 @@ import (
 	"github.com/sut68/team14/backend/services"
 )
 
+// CacheControlMiddleware adds cache headers for static files
+func CacheControlMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Cache static files (uploads) for 1 year
+		if strings.HasPrefix(c.Request.URL.Path, "/uploads") {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+			c.Header("Vary", "Accept-Encoding")
+		}
+		c.Next()
+	}
+}
+
 func SetupRoutes() *gin.Engine {
 
 	r := gin.Default()
+
+	// ✅ Enable Gzip Compression - reduces bandwidth significantly
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
+
+	// ✅ Cache Control for static files
+	r.Use(CacheControlMiddleware())
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -62,7 +81,7 @@ func SetupRoutes() *gin.Engine {
 	profileController := controller.NewProfileController(db)
 	referenceController := controller.NewReferenceController(db)
 	educationAdminController := controller.NewEducationAdminController(db)
-	adviceController := controller.NewAdviceController()
+	courseGroupController := controller.NewCourseGroupController()
 
 	// --- Public Routes ---
 	authController.RegisterRoutes(r)
@@ -103,7 +122,6 @@ func SetupRoutes() *gin.Engine {
 	teacher := protectedOnboarded.Group("/teacher")
 	{
 		teacher.GET("/users/:id/profile", profileController.GetUserProfile)
-		adviceController.RegisterRoutes(teacher)
 	}
 
 	userController.RegisterRoutes(protectedOnboarded)
@@ -112,6 +130,7 @@ func SetupRoutes() *gin.Engine {
 	curriculumController.RegisterRoutes(r, protectedOnboarded)
 	facultyController.RegisterRoutes(r, protected)
 	programController.RegisterRoutes(r, protected)
+	courseGroupController.RegisterRoutes(r, protectedOnboarded)
 
 	// Selection & Notification Routes
 	r.POST("/selections", selectionController.ToggleSelection)
@@ -119,6 +138,8 @@ func SetupRoutes() *gin.Engine {
 	r.POST("/selections/notify", selectionController.ToggleNotification)
 	r.GET("/notifications", selectionController.GetNotifications)
 	r.PATCH("/notifications/:id/read", selectionController.MarkAsRead)
+
+	r.GET("/ws", controller.WebSocketHandler)
 
 	// ✅✅✅ Admin Routes Group  ✅✅✅
 	admin := r.Group("/admin")
@@ -137,7 +158,7 @@ func SetupRoutes() *gin.Engine {
 	CategoryTemplateRoutes(r)
 
 	//ระบบแฟ้มสะสมผลงาน (Portfolio)
-	PortfolioRoutes(r)
+	PortfolioRoutes(protected)
 
 	ColorsRoutes(r)
 

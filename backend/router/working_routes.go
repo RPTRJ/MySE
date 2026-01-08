@@ -16,4 +16,5 @@ func WorkingRoutes(r gin.IRoutes) {
 	r.DELETE("/workings/:id", wc.DeleteWorking)
 	
 	r.GET("/type_workings", wc.ListTypeWorkings)
+	r.GET("/workings/user/:userId", wc.ListWorkingsByUser)
 }

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import {
   getActivities,
+  getActivitiesByUser,
   createActivity,
   deleteActivity,
   updateActivity,
@@ -65,9 +66,13 @@ export default function ActivityUI() {
   /* ================= LOAD ================= */
 
   const loadAll = async () => {
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const userId = user?.id || user?.ID ? Number(user?.id || user?.ID) : 0;
+
     try {
       const [act, t, l, r] = await Promise.all([
-        getActivities(),
+        userId ? getActivitiesByUser(userId) : Promise.resolve([]),
         getTypeActivities(),
         getLevelActivities(),
         getRewards(),
@@ -164,9 +169,14 @@ export default function ActivityUI() {
         image_url: url
       }));
 
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      const userId = user?.id || user?.ID ? Number(user?.id || user?.ID) : undefined;
+
       await createActivity({
         activity_name: name,
         reward_id: Number(rewardId),
+        user_id: userId,
         activity_detail: {
           activity_at: new Date(activityDate).toISOString(),
           institution,
@@ -224,65 +234,41 @@ export default function ActivityUI() {
   /* ================= UI ================= */
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-[#FFF5EF] to-orange-50 py-12 px-4 selection:bg-orange-200">
-      <style jsx global>{`
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #fdba74;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #fb923c;
-        }
-      `}</style>
-      <motion.div
-        layout
-        className="w-full max-w-6xl mx-auto p-8 bg-white/80 backdrop-blur-sm border border-orange-100 rounded-3xl shadow-2xl overflow-hidden"
-      >
-        {/* Header */}
-        <div className="mb-8 flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-[#FF6414] to-orange-600 rounded-xl shadow-lg">
-            <Trophy className="w-7 h-7 text-white" />
-          </div>
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-[1500px] p-6">
+        <div className="flex items-center justify-between mb-8 mt-4">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#FF6414] to-orange-600 bg-clip-text text-transparent">
-              กิจกรรม
-            </h1>
-            <p className="text-neutral-600 text-sm mt-1">
-              Activities & Competitions
+            <h2 className="text-3xl font-bold text-gray-900">
+              {activeTab === 'create' ? 'สร้างกิจกรรมใหม่' : 'กิจกรรมทั้งหมด'}
+            </h2>
+            <p className="text-gray-600 mt-2">
+              {activeTab === 'create' ? 'กรอกข้อมูลกิจกรรมของคุณ' : 'Activities & Competitions'}
             </p>
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="mb-8 flex gap-2 bg-neutral-100 p-1.5 rounded-xl w-fit">
-          {[
-            { key: "list", label: "รายการกิจกรรม" },
-            { key: "create", label: "เพิ่มกิจกรรม" },
-          ].map((tab) => (
+          {activeTab === 'list' ? (
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab.key
-                ? "bg-white text-[#FF6414] shadow-md"
-                : "text-neutral-600 hover:text-neutral-800"
-                }`}
+              onClick={() => setActiveTab('create')}
+              className="rounded-lg px-6 py-3 text-sm font-medium text-white transition shadow-md hover:shadow-lg bg-[#FF6B35]"
             >
-              {tab.label}
+              <span className="flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                สร้างกิจกรรม
+              </span>
             </button>
-          ))}
+          ) : (
+            <button
+              onClick={() => setActiveTab('list')}
+              className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              ยกเลิก
+            </button>
+          )}
         </div>
 
         {/* ---------- LIST ---------- */}
         {activeTab === "list" && (
-          <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
               {activities.map((act) => (
                 <motion.div
@@ -397,7 +383,7 @@ export default function ActivityUI() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+            className="space-y-6 max-w-4xl mx-auto"
           >
             <input
               type="file"
@@ -546,7 +532,7 @@ export default function ActivityUI() {
             </button>
           </motion.div>
         )}
-      </motion.div>
+      </div>
 
       {/* ========== VIEW MODAL ========== */}
       <AnimatePresence>

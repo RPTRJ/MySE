@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sut68/team14/backend/config"
@@ -71,9 +72,9 @@ func (ac *ActivityController) GetActivity(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": activity})
 }
 
-// ListActivities lists all activities for the authenticated user
+// ListActivities lists all activities for the authenticated user - OPTIMIZED with pagination
+// Query params: ?page=1&limit=20&include_images=false
 func (ac *ActivityController) ListActivities(c *gin.Context) {
-	var activities []entity.Activity
 	db := config.GetDB()
 
 	userID, exists := c.Get("user_id")
@@ -82,18 +83,51 @@ func (ac *ActivityController) ListActivities(c *gin.Context) {
 		return
 	}
 
-	if err := db.Preload("ActivityDetail").
+	// Pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	includeImages := c.DefaultQuery("include_images", "false") == "true"
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var activities []entity.Activity
+	var total int64
+
+	db.Model(&entity.Activity{}).Where("user_id = ?", userID).Count(&total)
+
+	query := db.Preload("ActivityDetail").
 		Preload("ActivityDetail.TypeActivity").
 		Preload("ActivityDetail.LevelActivity").
-		Preload("ActivityDetail.Images").
 		Preload("Reward").
-		Where("user_id = ?", userID).
+		Where("user_id = ?", userID)
+
+	// Only preload images if explicitly requested
+	if includeImages {
+		query = query.Preload("ActivityDetail.Images")
+	}
+
+	if err := query.
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&activities).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": activities})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       activities,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
 
 // UpdateActivity updates an existing activity
@@ -130,7 +164,7 @@ func (ac *ActivityController) UpdateActivity(c *gin.Context) {
 				detail.Description = input.ActivityDetail.Description
 				detail.TypeActivityID = input.ActivityDetail.TypeActivityID
 				detail.LevelActivityID = input.ActivityDetail.LevelActivityID
-				
+
 				// Delete existing images
 				db.Delete(&entity.ActivityImage{}, "activity_detail_id = ?", detail.ID)
 
@@ -141,14 +175,13 @@ func (ac *ActivityController) UpdateActivity(c *gin.Context) {
 				db.Save(&detail)
 			}
 		} else {
-			// If not exists (shouldn't happen for valid activity), create one? 
-			// Simpler to just assume it updates if we are using Full Update logic, 
+			// If not exists (shouldn't happen for valid activity), create one?
+			// Simpler to just assume it updates if we are using Full Update logic,
 			// but GORM association update can be tricky.
 			// Let's use GORM's association mode or just update explicitly.
 			activity.ActivityDetail = input.ActivityDetail
 		}
 	}
-
 
 	if err := db.Save(&activity).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -174,49 +207,80 @@ func (ac *ActivityController) DeleteActivity(c *gin.Context) {
 // ListTypeActivities lists all type activities
 func (ac *ActivityController) ListTypeActivities(c *gin.Context) {
 	var types []entity.TypeActivity
-    if err := config.GetDB().Find(&types).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, types)
+	if err := config.GetDB().Find(&types).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, types)
 }
 
 // ListLevelActivities lists all level activities
 func (ac *ActivityController) ListLevelActivities(c *gin.Context) {
-    var levels []entity.LevelActivity
-    if err := config.GetDB().Find(&levels).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, levels)
+	var levels []entity.LevelActivity
+	if err := config.GetDB().Find(&levels).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, levels)
 }
 
 // ListRewards lists all rewards
 func (ac *ActivityController) ListRewards(c *gin.Context) {
-    var rewards []entity.Reward
-    if err := config.GetDB().Find(&rewards).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, rewards)
+	var rewards []entity.Reward
+	if err := config.GetDB().Find(&rewards).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, rewards)
 }
 
-//fueng add list เพื่อดึงข้อมูล
+// fueng add list เพื่อดึงข้อมูล - OPTIMIZED with pagination
 func (ac *ActivityController) ListActivitiesByUser(c *gin.Context) {
 	userId := c.Param("userId")
-
 	db := config.GetDB()
 
+	// Pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	includeImages := c.DefaultQuery("include_images", "true") == "true"
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
 	var activities []entity.Activity
-	db.
-		Preload("ActivityDetail").
+	var total int64
+
+	db.Model(&entity.Activity{}).Where("user_id = ?", userId).Count(&total)
+
+	query := db.Preload("ActivityDetail").
 		Preload("ActivityDetail.TypeActivity").
 		Preload("ActivityDetail.LevelActivity").
-		Preload("ActivityDetail.Images").
 		Preload("Reward").
-		Where("user_id = ?", userId).
-		Find(&activities)
+		Where("user_id = ?", userId)
 
-	c.JSON(200, activities)
+	if includeImages {
+		query = query.Preload("ActivityDetail.Images")
+	}
+
+	if err := query.
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&activities).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":       activities,
+		"page":       page,
+		"limit":      limit,
+		"total":      total,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }
-

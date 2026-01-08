@@ -18,3 +18,16 @@ func GetAllColors(c *gin.Context) {
 		"data":   colors,
 	})
 }	
+
+func GetColorByID(c *gin.Context) {
+    var color entity.Colors
+    id := c.Param("id")
+    if err := config.GetDB().First(&color, id).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Color theme not found"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{
+        "status": "success",
+        "data":   color,
+    })
+}
