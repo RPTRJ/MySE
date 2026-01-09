@@ -211,7 +211,7 @@ export default function TemplatesPage() {
         <div className="flex items-center justify-between mb-8 mt-4">
           <div >
             <h1 className="text-3xl font-bold text-gray-900 ">Portfolio Templates</h1>
-            <p className="text-gray-600 mt-2">เลือกเทมเพลตที่ต้องการสำหรับพอร์ตโฟลิโอของคุณ</p>
+            {/* <p className="text-gray-600 mt-2">เลือกเทมเพลตที่ต้องการสำหรับพอร์ตโฟลิโอของคุณ</p> */}
           </div>
           <button 
             onClick={() => router.push('/admin/template/create')}
@@ -320,12 +320,12 @@ export default function TemplatesPage() {
                                       <div className="text-white text-[10px] font-semibold mb-1 truncate drop-shadow w-full">
                                         {idx + 1}. {section.section_name}
                                       </div>
-                                      <div className="flex flex-col gap-1.5 w-full items-end mt-2">
+                                      <div className="flex flex-col gap-1.5 w-full items-end mt-2 ">
                                         {otherBlocks.length > 0 ? (
                                           otherBlocks.map((b: any, i: number) => (
                                             <div 
                                               key={i} 
-                                              className="bg-white/50 text-[8px] text-gray-700 rounded-sm px-2 py-0.5 truncate shadow-sm border border-white/40 h-6 flex items-center w-full"
+                                              className="bg-white/50 text-[8px] text-gray-700 rounded-sm px-2 py-0.5 truncate shadow-sm border border-white/40 h-6 flex items-center w-full "
                                             >
                                               {b.templates_block?.block_type === 'image' ? '🖼️ image' : '📝 text'}
                                             </div>
@@ -570,7 +570,7 @@ export default function TemplatesPage() {
                         {section.section_blocks && section.section_blocks.length > 0 && 
                          section.section_blocks[0].templates_block?.block_name === 'profile_picture' ? (
                           // Layout พิเศษสำหรับ Profile: วงกลมซ้าย + textbox เรียงแนวตั้งขวา
-                          <div className="flex gap-4 items-start">
+                          <div className="flex gap-4 items-center">
                             {/* Profile Picture - ด้านซ้าย */}
                             {(() => {
                               const sb = section.section_blocks[0];
@@ -607,7 +607,7 @@ export default function TemplatesPage() {
                                     <span className="bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded shadow">1</span>
                                     <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">{block.block_type}</span>
                                   </div>
-                                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                  <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
                                     <div className="text-2xl mb-2">🖼️</div>
                                     <div className="text-sm font-medium text-gray-700">{block.block_name}</div>
                                     <div className="text-xs text-gray-400 mt-1">{block.block_type}</div>
@@ -655,7 +655,7 @@ export default function TemplatesPage() {
                                       </span>
                                       <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">{block.block_type}</span>
                                     </div>
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
                                       <div className="text-2xl mb-2">📝</div>
                                       <div className="text-sm font-medium text-gray-700">{block.block_name}</div>
                                       <div className="text-xs text-gray-400 mt-1">{block.block_type}</div>
@@ -706,7 +706,7 @@ export default function TemplatesPage() {
                                         </span>
                                         <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">{block.block_type}</span>
                                       </div>
-                                      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                      <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
                                         <div className="text-2xl mb-2">📝</div>
                                         <div className="text-sm font-medium text-gray-700">{block.block_name}</div>
                                         <div className="text-xs text-gray-400 mt-1">{block.block_type}</div>
@@ -749,7 +749,7 @@ export default function TemplatesPage() {
                                       </span>
                                       <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">image</span>
                                     </div>
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
                                       <div className="text-2xl mb-2">🖼️</div>
                                       <div className="text-sm font-medium text-gray-700">{block?.block_name}</div>
                                       <div className="text-xs text-gray-400 mt-1">Right</div>
@@ -760,7 +760,7 @@ export default function TemplatesPage() {
 
                             </div>
                         // วางเป็นกริด 2x2 สำหรับ Portfolio Showcase
-                        ) : section.section_name === 'Portfolio Showcase' ? (
+                        ) : section.section_name === 'ผลงาน' || section.section_name === 'กิจกรรม' ? (
                           // Layout Grid 2x2 สำหรับ Portfolio Showcase
                           <div className="grid grid-cols-2 gap-4">
                             {section.section_blocks?.map((sb, index) => {
@@ -800,7 +800,7 @@ export default function TemplatesPage() {
                                     </span>
                                     <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">{block.block_type}</span>
                                   </div>
-                                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                  <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
                                     <div className="text-2xl mb-2">
                                       {block.block_type === 'image' ? '🖼️' : '📝'}
                                     </div>
@@ -811,6 +811,57 @@ export default function TemplatesPage() {
                               );
                             })}
                           </div> 
+                        ) : section.section_name === 'ทักษะ' || section.section_name === 'แนะนำตัว เพิ่มเติม' ? (
+                          // Layout: เรียงข้างๆกันแนวตั้ง (Vertical Side-by-Side / Grid)
+                          <div className="grid grid-cols-1 gap-4">
+                            {section.section_blocks?.map((sb, index) => {
+                              const block = sb.templates_block;
+                              if (!block) return null;
+
+                              let flexSettings: any = {};
+                              let defaultStyle: any = {};
+
+                              try {
+                                flexSettings = sb.flex_settings ? 
+                                  (typeof sb.flex_settings === 'string' ? JSON.parse(sb.flex_settings) : sb.flex_settings) 
+                                  : {};
+                                defaultStyle = block.default_style ? 
+                                  (typeof block.default_style === 'string' ? JSON.parse(block.default_style) : block.default_style) 
+                                  : {};
+                              } catch (e) {}
+
+                              const combinedStyle: React.CSSProperties = {
+                                width: '100%',
+                                height: 'auto',
+                                minHeight: '80px',
+                                display: 'flex',
+                                borderRadius: flexSettings.borderRadius || defaultStyle.border_radius || '8px',
+                                backgroundColor: defaultStyle.background_color || '#ffffff',
+                                border: defaultStyle.border || '2px dashed #d1d5db',
+                                padding: defaultStyle.padding || '16px',
+                                boxShadow: defaultStyle.box_shadow || '0 1px 3px rgba(0,0,0,0.1)',
+                                position: 'relative',
+                              };
+
+                              return (
+                                <div key={sb.ID} style={combinedStyle} className="hover:shadow-lg transition-all group">
+                                  <div className="absolute top-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span className="bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded shadow">
+                                      {sb.order_index + 1}
+                                    </span>
+                                    <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">{block.block_type}</span>
+                                  </div>
+                                  <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
+                                    <div className="text-2xl mb-2">
+                                      {block.block_type === 'image' ? '🖼️' : '📝'}
+                                    </div>
+                                    <div className="text-sm font-medium text-gray-700">{block.block_name}</div>
+                                    <div className="text-xs text-gray-400 mt-1">{block.block_type}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                           ): (
                           // Layout ปกติ: เรียงข้างๆกันในแนวนอน
                           <div className="flex flex-wrap gap-4 items-start">
@@ -859,7 +910,7 @@ export default function TemplatesPage() {
                                     </span>
                                     <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">{block.block_type}</span>
                                   </div>
-                                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                  <div className="flex flex-col items-center justify-center h-full text-gray-500 w-full text-center">
                                     <div className="text-2xl mb-2">
                                       {block.block_type === 'image' ? '🖼️' : '📝'}
                                     </div>

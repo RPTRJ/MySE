@@ -13,6 +13,7 @@ func PortfolioRoutes(r *gin.RouterGroup) {
 		group.DELETE("/:id", controller.DeletePortfolio)
 		group.PATCH("/:id", controller.UpdatePortfolio) // ✅ NEW: Update Portfolio (Cover)
 		group.GET("/my", controller.GetMyPortfolio)
+		group.GET("", controller.GetPortfolioByStatusActive)
 		
 		// Template
 		group.POST("/template", controller.CreateTemplate)

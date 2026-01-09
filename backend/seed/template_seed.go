@@ -55,7 +55,7 @@ func SeedTemplates() {
 			Thumbnail:   "https://example.com/thumbnails/professional-portfolio.jpg",
 			SectionNames: []string{
 				"Profile Left",
-				"Portfolio Showcase",
+				"ผลงาน",
 			},
 		},
 		{
@@ -65,8 +65,8 @@ func SeedTemplates() {
 			Thumbnail:   "https://example.com/thumbnails/simple-profile.jpg",
 			SectionNames: []string{
 				"Profile Right",
-				"About Me Section",
-				"About Me Section",
+				"แนะนำตัว เพิ่มเติม",
+				"ผลงาน",
 			},
 		},
 		{
@@ -76,7 +76,7 @@ func SeedTemplates() {
 			Thumbnail:   "https://example.com/thumbnails/creative-portfolio.jpg",
 			SectionNames: []string{
 				"Profile Left",
-				"Profile Right",
+				"ผลงาน",
 			},
 		},
 	}

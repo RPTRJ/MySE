@@ -49,8 +49,19 @@ func SeedTemplatesSections() {
 			},
 		},
 		{
-			Name:   "Portfolio Showcase",
-			Type:   "portfolio",
+			Name:   "ผลงาน",
+			Type:   "working",
+			Layout: "two_pictures_two_texts",
+			BlockNames: []string{
+				"picture1",
+				"picture1",
+				"textbox1",
+				"textbox1",
+			},
+		},
+		{
+			Name:   "กิจกรรม",
+			Type:   "activity",
 			Layout: "two_pictures_two_texts",
 			BlockNames: []string{
 				"picture1",
@@ -70,7 +81,7 @@ func SeedTemplatesSections() {
 			},
 		},
 		{
-			Name: "About Me Section",
+			Name: "แนะนำตัว เพิ่มเติม",
 			Type: "about me",
 			BlockNames: []string{
 				"textbox1",

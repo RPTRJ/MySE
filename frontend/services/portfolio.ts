@@ -358,3 +358,12 @@ export const createPortfolioFromTemplate = async (portfolioName: string, templat
     throw error;
   }
 };
+
+export async function fetchPortfolioByStatusActive() {
+    const response = await fetch(`${API}/portfolio`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error("Failed to fetch portfolio");
+    return response.json();
+}

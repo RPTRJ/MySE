@@ -17,6 +17,16 @@ function lightenColor(hex: string, percent: number): string {
     return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
+const formatDateTH = (dateString: string) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('th-TH', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+    });
+};
+
 function parseBlockContent(content: any): any {
     if (!content) return null;
     if (typeof content === 'string') {
@@ -211,10 +221,17 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
                     const images = extractImages(finalData, c.type);
                     
                     // Slider Logic: หา index ปัจจุบัน ถ้าไม่มีให้เริ่มที่ 0
-                    // ใช้ block.ID เป็น Key ถ้าไม่มีใช้ idx คู่กับ section.ID เพื่อความ Unique
                     const uniqueKey = block.ID ? block.ID.toString() : `${section.ID}-${idx}`;
                     const currentIndex = imageIndices[uniqueKey] || 0;
                     const currentImageSrc = images.length > 0 ? getImageUrl(images[currentIndex]) : "https://via.placeholder.com/300?text=No+Image";
+                    
+                    // Extract Data Fields (Support both flat data and nested API response)
+                    const date = finalData.activity_detail?.activity_at || finalData.working_detail?.working_at || finalData.activity_date || finalData.working_date || finalData.date;
+                    const location = finalData.activity_detail?.institution || finalData.location;
+                    const award = finalData.reward?.level_name || finalData.award || finalData.award_name;
+                    const level = finalData.activity_detail?.level_activity?.level_name || finalData.level;
+                    const category = finalData.activity_detail?.type_activity?.type_name || finalData.working_detail?.type_working?.type_name || finalData.category;
+                    const description = finalData.activity_detail?.description || finalData.working_detail?.description || "-";
 
                     return (
                         <div key={idx} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group relative">
@@ -266,13 +283,69 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
                                 )}
                             </div>
 
-                            <div className="p-4">
+                            <div className="p-4 flex flex-col flex-1 h-full">
                                 <h4 className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
                                     {c.type === 'activity' ? finalData.activity_name : finalData.working_name}
                                 </h4>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    
+                                    {/* Tag: ระดับ (สีม่วง) */}
+                                    {level && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-medium">
+                                            {level}
+                                        </span>
+                                    )}
+
+                                    {/* Tag: หมวดหมู่ (สีส้ม) */}
+                                    {category && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 text-xs font-medium">
+                                            {category}
+                                        </span>
+                                    )}
+
+                                </div>
                                 <p className="text-xs text-gray-500 line-clamp-2">
-                                    {c.type === 'activity' ? finalData.activity_detail?.description : finalData.working_detail?.description || "-"}
+                                    {description}
                                 </p>
+                               <div className="mt-auto pt-3 border-t border-gray-50 flex flex-col gap-1.5">
+                                    
+                                    {/* รางวัล (ไอคอนถ้วยรางวัล) - Displayed at bottom as requested */}
+                                    {award && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <div className="bg-yellow-50 p-1 rounded">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-yellow-600">
+                                                    <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 00-.584.859 6.637 6.637 0 002.545 5.123c.388.263.803.493 1.237.682 1.327.58 2.793 1.032 4.302 1.309.37.068.732.14.962.387.246.265.485.642.485 1.139v3.016a29.89 29.89 0 00-6.02 1.365.75.75 0 00-.462.685c.178 1.956 1.48 3.518 3.212 4.295.66.295 1.396.447 2.164.447h2.09c.768 0 1.503-.152 2.164-.447 1.732-.777 3.034-2.339 3.212-4.295a.75.75 0 00-.462-.685 29.89 29.89 0 00-6.02-1.365v-3.016c0-.497.24-.874.485-1.139.23-.247.592-.32.962-.387 1.509-.277 2.975-.729 4.302-1.309.434-.189.849-.419 1.237-.682a6.637 6.637 0 002.545-5.123.75.75 0 00-.584-.859 13.926 13.926 0 00-3.071-.543v-.858a.75.75 0 00-.75-.75h-11.25a.75.75 0 00-.75.75z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <span className="font-medium text-gray-700">{award}</span>
+                                        </div>
+                                    )}
+
+                                    {/* วันที่ (ไอคอนปฏิทินสีฟ้า) */}
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <div className="bg-blue-50 p-1 rounded">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-blue-500">
+                                                <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <span className="font-medium text-gray-600">
+                                            {formatDateTH(date)}
+                                        </span>
+                                    </div>
+
+                                    {/* สถานที่ (ไอคอนหมุดสีชมพูแดง) */}
+                                    {location && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <div className="bg-rose-50 p-1 rounded">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-rose-500">
+                                                    <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.006.003.002.001.003.001a.75.75 0 01-.01-.001zM10 12.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <span className="font-medium text-gray-600 line-clamp-1">{location}</span>
+                                        </div>
+                                    )}
+
+                                </div>
                             </div>
                         </div>
                     );
@@ -285,71 +358,57 @@ export default function PortfolioPreviewPage({ params }: { params: Promise<{ id:
     if (!portfolio) return null;
     
     const primaryColor = portfolio.colors?.primary_color || '#FF6B35';
-    const backgroundColor = portfolio.colors?.background_color || '#ffffff'; // ✅ ดึงสีพื้นหลังมา
+    const backgroundColor = portfolio.colors?.background_color || '#ffffff'; 
     const fontFamily = portfolio.font?.font_family || 'inherit';
 
     return (
         <div className="min-h-screen bg-white p-6 pb-20"
-             style={{ backgroundColor: lightenColor(backgroundColor, 90), fontFamily }}>
+             style={{ backgroundColor: lightenColor(backgroundColor, 100), fontFamily }}>
             <div className="mx-auto" style={{ maxWidth: 1500 }}>
-                <button 
-                    onClick={() => router.back()} 
-                    className="mb-6 px-4 py-2 bg-white rounded-lg shadow-sm text-gray-600 hover:text-gray-900 flex items-center gap-2 hover:bg-gray-50 transition"
-                >
-                    ← ย้อนกลับ
-                </button>
+                <div className="flex justify-between items-center mb-6">
+                    <button 
+                        onClick={() => router.back()} 
+                        className="px-4 py-2 bg-white rounded-lg shadow-sm text-gray-600 hover:text-gray-900 flex items-center gap-2 hover:bg-gray-50 transition"
+                    >
+                        ← ย้อนกลับ
+                    </button>
 
-                {/* <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4" style={{ borderLeftColor: primaryColor }}>
-                    <h1 className="text-3xl font-bold text-gray-900">{portfolio.portfolio_name}</h1>
-                    <p className="text-gray-500">{portfolio.description}</p>
-                </div> */}
+                    {/* <button 
+                        // onClick={() => router.push(`/student/portfolio/section?portfolio_id=${id}`)}
+                        onClick={() => router.push(`/student/portfolio/managePortfolio`)}
+                        className="px-4 py-2 text-white rounded-lg shadow-sm flex items-center gap-2 transition font-medium hover:opacity-90"
+                        style={{ backgroundColor: primaryColor }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                        จัดการ Portfolio
+                    </button> */}
+                </div>
 
                 <div className="space-y-6">
-                    {portfolio.portfolio_sections?.filter((s:any) => s.is_enabled !== false).map((section: any, idx: number) => (                       
-                        <div key={section.ID} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-                            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 bg-gray-50/50">
-                                <span className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm shadow-sm"
-                                      style={{ backgroundColor: primaryColor }}>
-                                    {idx + 1}
-                                </span>
-                                <h3 className="font-bold text-gray-800 text-lg">
-                                    {section.section_title}
-                                </h3>
+                    {portfolio.portfolio_sections?.filter((s:any) => s.is_enabled !== false).map((section: any, idx: number) => {
+                        const isProfile = section.section_title?.toLowerCase().includes('profile') || 
+                                          section.layout_type?.includes('profile');                       
+                        return(
+                            <div key={section.ID} className="flex flex-col gap-4">
+                                {!isProfile && (
+                                    <div className="flex items-center gap-4 mb-4 mt-8">
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            {section.section_title}
+                                        </h2>
+                                        <div className="h-1 flex-1 rounded-full bg-gray-100"></div>
+                                    </div>
+                                )}
+                                <div className="p-6 transition-colors duration-500 rounded-lg" 
+                                    style={{ backgroundColor: backgroundColor, 
+                                            fontFamily :fontFamily
+                                    }}>
+                                    {renderSectionContent(section)}
+                                </div>
                             </div>
-
-                            <div className="p-6 transition-colors duration-500" 
-                                 style={{ backgroundColor: backgroundColor, 
-                                          fontFamily :fontFamily
-                                }}>
-                                {renderSectionContent(section)}
-                            </div>
-                        </div>
-                        // const isProfile = section.section_title?.toLowerCase().includes('profile') || 
-                        //                   section.layout_type?.includes('profile');
-                                          
-                        // return (
-                        //     <div key={section.ID} className="animate-fade-in-up">
-                        //         {/* ถ้าไม่ใช่ Profile ให้แสดงชื่อหัวข้อ (เช่น "กิจกรรม", "ผลงาน") 
-                        //             ตรงนี้คือส่วนที่คุณต้องการให้เปลี่ยนชื่อได้ (ชื่อจะมาจาก Database) */}
-                        //         {!isProfile && (
-                        //             <div className="flex items-center gap-4 mb-6">
-                        //                 <h2 className="text-2xl font-bold text-gray-800">
-                        //                     {section.section_title}
-                        //                 </h2>
-                        //                 <div className="h-1 flex-1 rounded-full bg-gray-100"></div>
-                        //             </div>
-                        //         )}
-
-                        //         {/* Render เนื้อหาโดยตรง ไม่ต้องมีกรอบ Header Bar ครอบแล้ว */}
-                        //         <div    className ="p-6 transition-colors duration-500"
-                        //                 style={{ backgroundColor: backgroundColor, 
-                        //                       fontFamily :fontFamily
-                        //                     }}>
-                        //             {renderSectionContent(section)}
-                        //         </div>
-                        //     </div>
-                        // );
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>

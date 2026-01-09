@@ -1000,16 +1000,15 @@ function SectionsContent() {
             {/* 1. Top Navigation Bar */}
             <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 justify-between flex-shrink-0 z-20 shadow-sm">
                 <div className="flex items-center gap-4">
-                    <Link href="/student/portfolio" className="text-gray-500 hover:text-gray-900 transition flex items-center gap-1 text-sm font-medium">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                        กลับหน้าหลัก
-                    </Link>
                     <div className="h-6 w-px bg-gray-300"></div>
                     <h1 className="text-lg font-bold text-gray-800">{currentPortfolioName || "แก้ไข Portfolio"}</h1>
                 </div>
                 <div className="flex gap-3">
-                    <button className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition shadow-sm">
-                        ดูตัวอย่าง (Preview)
+                    <button 
+                        onClick={() => router.back()} 
+                        className="px-4 py-2 bg-white rounded-full shadow-sm text-gray-600 "
+                    >
+                        ย้อนกลับ
                     </button>
                     <button 
                         onClick={handleSaveAndExit}

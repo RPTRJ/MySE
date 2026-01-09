@@ -7,6 +7,10 @@ import {
   Search,
   GraduationCap,
   BookOpenCheck,
+  Trophy,
+  BriefcaseBusiness,
+  LayoutList,
+  // ไม่ต้องใช้ LogOut ที่นี่ เพราะ LogOut มักจะเป็นปุ่มแยกต่างหาก
 } from "lucide-react";
 import React from 'react';
 
@@ -70,14 +74,14 @@ export const menuItems: MenuItem[] = [
   },
   {
     name: "คลังผลงาน",
-    href: "/student/working",
-    icon: Users,
-    roles: ["student"],
+    href: "/student/working", 
+    icon: BriefcaseBusiness,
+    roles: ["student"], // เฉพาะนักเรียน
   },
   {
     name: "คลังกิจกรรม",
     href: "/student/activity",
-    icon: Users,
+    icon: Trophy,
     roles: ["student"],
   },
   {
@@ -107,7 +111,7 @@ export const menuItems: MenuItem[] = [
   {
     name: "Template",
     href: "/admin/template",
-    icon: Users,
+    icon: LayoutList,
     roles: ["admin"],
   },
   {

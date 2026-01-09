@@ -545,6 +545,13 @@ func UpdatePortfolio(c *gin.Context) {
 		return
 	}
 
+	// ✅ Logic: ถ้ามีการตั้งค่า Status = "active" -> ปรับ Portfolio อื่นๆ ของ User นี้ให้เป็น "draft"
+	if val, ok := payload["status"]; ok && val == "active" {
+		config.GetDB().Model(&entity.Portfolio{}).
+			Where("user_id = ? AND id != ?", portfolio.UserID, portfolio.ID).
+			Update("status", "draft")
+	}
+
 	if err := config.GetDB().Model(&portfolio).Updates(payload).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -584,4 +591,24 @@ func DeletePortfolio(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Portfolio deleted successfully"})
+}
+
+func GetPortfolioByStatusActive(c *gin.Context) {
+	uid, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	userID := uid.(uint)
+	var portfolio entity.Portfolio
+	if err := config.GetDB().
+		Preload("PortfolioSections.PortfolioBlocks").
+		Preload("Colors").
+		Preload("Font").
+		Where("user_id = ? AND status = ?", userID, "active").
+		First(&portfolio).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": portfolio})
 }
